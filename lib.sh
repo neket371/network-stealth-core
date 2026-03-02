@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 4.2.0 - Автоматизация установки и сопровождения Xray Reality (gRPC/HTTP2 + Reality + MUX)
+# Network Stealth Core 4.2.1 - Автоматизация установки и сопровождения Xray Reality (gRPC/HTTP2 + Reality + MUX)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="4.2.0"
+readonly SCRIPT_VERSION="4.2.1"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
