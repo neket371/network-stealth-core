@@ -49,6 +49,15 @@ bats tests/bats
 bash scripts/check-release-consistency.sh
 ```
 
+## Политика сложности shell-кода
+
+В репозитории действует поэтапный complexity-gate для shell.
+
+- лимит stage 3: файл <= 2800 строк
+- лимит stage 3: функция <= 320 строк
+
+Если `lib.sh` растёт, лимиты не ослабляются. Логику нужно выносить в `modules/lib/*.sh` без изменения runtime-контрактов.
+
 ## Стандарты shell-кода
 
 1. код должен быть безопасен под `set -euo pipefail`

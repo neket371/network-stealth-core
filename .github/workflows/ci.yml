@@ -168,6 +168,10 @@ jobs:
         run: bash scripts/check-security-baseline.sh
       - name: Docs command contract check
         run: bash scripts/check-docs-commands.sh
+      - name: Complexity trend gate (stage 3)
+        run: |
+          set -euo pipefail
+          COMPLEXITY_STAGE=3 bash scripts/check-shell-complexity.sh
       - name: BATS
         run: bats tests/bats
 

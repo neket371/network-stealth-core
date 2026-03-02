@@ -336,6 +336,8 @@ for _MOD in \
     modules/lib/firewall.sh \
     modules/lib/lifecycle.sh \
     modules/lib/common_utils.sh \
+    modules/lib/runtime_reuse.sh \
+    modules/lib/domain_sources.sh \
     modules/config/domain_planner.sh \
     modules/config/shared_helpers.sh \
     modules/config/add_clients.sh \

@@ -65,6 +65,15 @@ bats tests/bats
 bash scripts/check-release-consistency.sh
 ```
 
+## Shell complexity policy
+
+This repository enforces staged shell complexity gates.
+
+- stage 3 limit: file <= 2800 lines
+- stage 3 limit: function <= 320 lines
+
+For any `lib.sh` growth, do not relax limits. Extract logic into `modules/lib/*.sh` and keep runtime contracts unchanged.
+
 ## Coding standards
 
 1. keep scripts safe under `set -euo pipefail`
