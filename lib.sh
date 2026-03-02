@@ -507,9 +507,19 @@ tty_print_box() {
 canonicalize_confirmation_token() {
     local value
     value=$(normalize_tty_input "${1:-}")
+    # Normalize known uppercase Cyrillic symbols explicitly (locale-agnostic).
+    value="${value//Ё/e}"
+    value="${value//Е/e}"
+    value="${value//О/o}"
+    value="${value//У/y}"
+    value="${value//С/s}"
+    value="${value//Ѕ/s}"
+    value="${value//Н/n}"
+    value="${value//Д/d}"
+    value="${value//А/a}"
+    value="${value//Т/t}"
     value="${value,,}"
-    # Keep only letters and digits, then normalize common mixed-layout lookalikes.
-    value=$(printf '%s' "$value" | sed -E 's/[^[:alnum:]]+//g')
+    # Normalize mixed-layout lookalikes, then keep ASCII letters/digits only.
     value="${value//ё/e}"
     value="${value//е/e}"
     value="${value//о/o}"
@@ -520,6 +530,7 @@ canonicalize_confirmation_token() {
     value="${value//д/d}"
     value="${value//а/a}"
     value="${value//т/t}"
+    value=$(printf '%s' "$value" | sed -E 's/[^a-z0-9]+//g')
     printf '%s' "$value"
 }
 
@@ -551,6 +562,34 @@ is_no_input() {
         no | n | net) return 0 ;;
         *) return 1 ;;
     esac
+}
+
+prompt_yes_no_from_tty() {
+    local tty_fd="${1:-}"
+    local prompt_text="${2:-}"
+    local retry_text="${3:-Введите yes или no}"
+    local answer normalized
+
+    [[ "$tty_fd" =~ ^[0-9]+$ ]] || return 2
+
+    while true; do
+        if ! tty_printf "$tty_fd" '%s' "$prompt_text"; then
+            return 2
+        fi
+        if ! read -r -u "$tty_fd" answer; then
+            return 2
+        fi
+        normalized=$(normalize_tty_input "$answer")
+        if is_yes_input "$normalized"; then
+            return 0
+        fi
+        if [[ -z "$normalized" ]] || is_no_input "$normalized"; then
+            return 1
+        fi
+        if ! tty_printf "$tty_fd" '%s\n' "$retry_text"; then
+            return 2
+        fi
+    done
 }
 
 ui_box_fit_text() {

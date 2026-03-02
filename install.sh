@@ -123,27 +123,21 @@ confirm_minisign_fallback() {
 
     printf '\n%b%s%b\n' "$YELLOW" "$reason" "$NC" >&"$tty_fd"
     printf '%b⚠️  Внимание: minisign недоступен или не пройден.%b\n' "$YELLOW" "$NC" >&"$tty_fd"
-    printf '%bПродолжить установку только по SHA256? [yes/no]%b\n' "$YELLOW" "$NC" >&"$tty_fd"
+    printf '%bПродолжить установку только по SHA256?%b\n' "$YELLOW" "$NC" >&"$tty_fd"
 
-    local answer=""
-    while true; do
-        if ! printf '%s' "Подтвердите (yes/no): " >&"$tty_fd"; then
-            answer=""
-        elif ! read -r -u "$tty_fd" answer; then
-            answer=""
-        fi
-        answer=$(normalize_tty_input "$answer")
-        if is_yes_input "$answer"; then
-            exec {tty_fd}>&-
-            return 0
-        fi
-        if [[ -z "$answer" ]] || is_no_input "$answer"; then
-            log ERROR "Операция остановлена пользователем: minisign fallback отклонён"
-            exec {tty_fd}>&-
-            return 1
-        fi
-        printf '%s\n' "Введите yes или no" >&"$tty_fd"
-    done
+    local prompt_rc=0
+    if prompt_yes_no_from_tty "$tty_fd" "Подтвердите (yes/no): " "Введите yes или no"; then
+        exec {tty_fd}>&-
+        return 0
+    fi
+    prompt_rc=$?
+    exec {tty_fd}>&-
+    if ((prompt_rc == 1)); then
+        log ERROR "Операция остановлена пользователем: minisign fallback отклонён"
+    else
+        log ERROR "Не удалось прочитать подтверждение fallback-режима minisign из /dev/tty"
+    fi
+    return 1
 }
 
 handle_minisign_unavailable() {

@@ -1349,8 +1349,8 @@ EOF
     grep -Fq "open_interactive_tty_fd tty_fd" ./install.sh
     grep -Fq "printf \"Профиль [1/2/3/4]: \" >&\"\$tty_fd\"" ./install.sh
     grep -Fq "read -r -u \"\$tty_fd\" input" ./install.sh
-    grep -Fq "printf '\''%s'\'' \"Подтвердите (yes/no): \" >&\"\$tty_fd\"" ./install.sh
-    grep -Fq "read -r -u \"\$tty_fd\" answer" ./install.sh
+    grep -Fq "prompt_yes_no_from_tty() {" ./lib.sh
+    grep -Fq "prompt_yes_no_from_tty \"\$tty_fd\" \"Подтвердите (yes/no): \" \"Введите yes или no\"" ./install.sh
     grep -Fq "printf \"Количество VPN-ключей (1-%s): \" \"\$max_configs\" >&\"\$tty_fd\"" ./install.sh
     grep -Fq "printf \"Количество VPN-ключей добавить (1-%s): \" \"\$max_add\" >&\"\$tty_fd\"" ./modules/config/add_clients.sh
     grep -Fq "tty_print_box \"\$tty_fd\" \"\$RED\" \"\$uninstall_title\" 60 90" ./service.sh
@@ -1441,11 +1441,56 @@ EOF
     [[ "$(canonicalize_confirmation_token "уес")" == "yes" ]]
     [[ "$(canonicalize_confirmation_token "nо")" == "no" ]]
     [[ "$(canonicalize_confirmation_token "НЕТ")" == "net" ]]
+    [[ "$(canonicalize_confirmation_token "но")" == "no" ]]
     [[ "$(canonicalize_confirmation_token "d-a")" == "da" ]]
     echo "ok"
   '
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
+}
+
+@test "prompt_yes_no_from_tty accepts no without retry" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    tty_printf() { :; }
+    tmp=$(mktemp)
+    trap "rm -f \"$tmp\"" EXIT
+    printf "no\n" > "$tmp"
+    exec 9<"$tmp"
+    if prompt_yes_no_from_tty 9 "Подтвердите (yes/no): " "Введите yes или no"; then
+      rc=0
+    else
+      rc=$?
+    fi
+    echo "rc=$rc"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "rc=1" ]
+}
+
+@test "prompt_yes_no_from_tty retries invalid then accepts no" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    retry_count=0
+    tty_printf() {
+      if [[ "${3:-}" == "Введите yes или no" ]]; then
+        retry_count=$((retry_count + 1))
+      fi
+      :
+    }
+    tmp=$(mktemp)
+    trap "rm -f \"$tmp\"" EXIT
+    printf "abc\nно\n" > "$tmp"
+    exec 9<"$tmp"
+    if prompt_yes_no_from_tty 9 "Подтвердите (yes/no): " "Введите yes или no"; then
+      rc=0
+    else
+      rc=$?
+    fi
+    echo "rc=$rc retry=$retry_count"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "rc=1 retry=1" ]
 }
 
 @test "ui_box_width_for_lines respects min and max bounds" {
