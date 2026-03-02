@@ -787,6 +787,19 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "build_add_clients_inbounds validates IPv6 jq conversion and payload assembly" {
+    run bash -eo pipefail -c '
+    grep -q '\''if ! inbound_v6=$(echo "\$inbound_v4" | jq --arg port "\${_new_ports_v6\[\$i\]}"'\'' ./modules/config/add_clients.sh
+    grep -q '\''Ошибка генерации IPv6 inbound для add-clients config'\'' ./modules/config/add_clients.sh
+    grep -Fq '\''if ! inbounds_payload=$(jq -s '\'' ./modules/config/add_clients.sh
+    grep -Fq '\''"$tmp_inbounds" 2> /dev/null); then'\'' ./modules/config/add_clients.sh
+    grep -q '\''Ошибка сборки add-clients inbounds payload'\'' ./modules/config/add_clients.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "update_xray backs up config and client artifacts before update" {
     run bash -eo pipefail -c '
     grep -q '\''for artifact in'\'' ./service.sh

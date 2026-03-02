@@ -273,7 +273,10 @@ build_add_clients_inbounds() {
     # shellcheck disable=SC2034 # Used via nameref in pick_random_from_array.
     local -a fp_pool=("chrome" "chrome" "chrome" "firefox" "chrome" "firefox")
     local tmp_inbounds
-    tmp_inbounds=$(mktemp "${TMPDIR:-/tmp}/xray-add-inbounds.XXXXXX")
+    if ! tmp_inbounds=$(mktemp "${TMPDIR:-/tmp}/xray-add-inbounds.XXXXXX"); then
+        log ERROR "Не удалось создать временный файл для add-clients inbounds"
+        return 1
+    fi
 
     local i
     for ((i = 0; i < add_count; i++)); do
@@ -290,18 +293,32 @@ build_add_clients_inbounds() {
         log INFO "Config ${config_num}: ${domain} -> ${PROFILE_DEST} (${PROFILE_FP}, ${TRANSPORT}, SNIs: ${sni_count})"
 
         local inbound_v4
-        inbound_v4=$(generate_profile_inbound_json \
-            "${_new_ports[$i]}" "${_new_uuids[$i]}" "${_new_private_keys[$i]}" "${_new_short_ids[$i]}")
+        if ! inbound_v4=$(generate_profile_inbound_json \
+            "${_new_ports[$i]}" "${_new_uuids[$i]}" "${_new_private_keys[$i]}" "${_new_short_ids[$i]}"); then
+            rm -f "$tmp_inbounds"
+            log ERROR "Ошибка генерации IPv4 inbound для add-clients config #${config_num}"
+            return 1
+        fi
         printf '%s\n' "$inbound_v4" >> "$tmp_inbounds"
 
         if [[ "$HAS_IPV6" == true && -n "${_new_ports_v6[$i]:-}" ]]; then
-            echo "$inbound_v4" | jq --arg port "${_new_ports_v6[$i]}" '.listen = "::" | .port = ($port|tonumber)' >> "$tmp_inbounds"
+            local inbound_v6
+            if ! inbound_v6=$(echo "$inbound_v4" | jq --arg port "${_new_ports_v6[$i]}" '.listen = "::" | .port = ($port|tonumber)' 2> /dev/null); then
+                rm -f "$tmp_inbounds"
+                log ERROR "Ошибка генерации IPv6 inbound для add-clients config #${config_num} (port=${_new_ports_v6[$i]})"
+                return 1
+            fi
+            printf '%s\n' "$inbound_v6" >> "$tmp_inbounds"
         fi
     done
 
     local inbounds_payload='[]'
     if [[ -s "$tmp_inbounds" ]]; then
-        inbounds_payload=$(jq -s '.' "$tmp_inbounds")
+        if ! inbounds_payload=$(jq -s '.' "$tmp_inbounds" 2> /dev/null); then
+            rm -f "$tmp_inbounds"
+            log ERROR "Ошибка сборки add-clients inbounds payload"
+            return 1
+        fi
     fi
     rm -f "$tmp_inbounds"
     printf -v "$out_inbounds_name" '%s' "$inbounds_payload"
