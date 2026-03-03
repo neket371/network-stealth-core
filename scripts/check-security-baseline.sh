@@ -7,6 +7,7 @@ cd "$ROOT_DIR"
 fail=0
 SHELL_SCOPE=()
 WORKFLOW_SCOPE=()
+POWERSHELL_SCOPE=()
 
 build_scope() {
     if command -v rg > /dev/null 2>&1; then
@@ -28,6 +29,13 @@ build_scope() {
     mapfile -t WORKFLOW_SCOPE < <(
         find .github/workflows -type f -name '*.yml' -print 2> /dev/null | sed 's#^\./##'
     )
+    if command -v rg > /dev/null 2>&1; then
+        mapfile -t POWERSHELL_SCOPE < <(rg --files -g '*.ps1')
+    else
+        mapfile -t POWERSHELL_SCOPE < <(
+            find . -type f -name '*.ps1' -print 2> /dev/null | sed 's#^\./##'
+        )
+    fi
 
     if ((${#SHELL_SCOPE[@]} == 0)); then
         echo "security baseline fail: shell scope is empty" >&2
@@ -104,6 +112,16 @@ check_absent 'trap -p' 'fragile trap parsing' \
 
 check_absent 'curl[^\n]*\|[[:space:]]*(sudo[[:space:]]+)?(sh|bash)\b' 'curl pipe shell' \
     "${WORKFLOW_SCOPE[@]}" "${SHELL_SCOPE[@]}"
+if ((${#POWERSHELL_SCOPE[@]} > 0)); then
+    check_absent '(^|[^A-Za-z0-9_])(Invoke-Expression|iex)([^A-Za-z0-9_]|$)' 'powershell dynamic eval' \
+        "${POWERSHELL_SCOPE[@]}"
+    check_absent 'DownloadString\([^)]*\)[[:space:]]*\|' 'powershell downloadstring pipe execution' \
+        "${POWERSHELL_SCOPE[@]}"
+    check_absent '(Invoke-WebRequest|iwr|curl|wget)[^\n|]*\|[[:space:]]*(Invoke-Expression|iex|powershell|pwsh)' 'powershell web download pipe execution' \
+        "${POWERSHELL_SCOPE[@]}"
+    check_absent '(^|[[:space:]])(-EncodedCommand|-enc)[[:space:]]+[A-Za-z0-9+/=]{16,}' 'powershell encoded command invocation' \
+        "${POWERSHELL_SCOPE[@]}"
+fi
 
 check_present_fixed "atomic_write \"\$XRAY_ENV\" 0600" 'env file permissions' config.sh
 check_present_fixed 'curl_fetch_text_allowlist "https://api.github.com/repos/XTLS/Xray-core/releases/latest"' 'allowlist update check' service.sh

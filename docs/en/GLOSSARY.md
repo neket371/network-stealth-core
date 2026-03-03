@@ -14,7 +14,7 @@ A predefined domain pool used to generate destination and SNI combinations.
 
 ## Profile
 
-User-facing selection mapped to an internal tier and config limits (`ru`, `global-ms10`, etc.).
+User-facing selection mapped to an internal tier and config limits (`ru`, `global-50`, etc.).
 
 ## SNI fallback
 

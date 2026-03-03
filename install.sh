@@ -678,6 +678,9 @@ ask_domain_profile() {
 
     if [[ -n "${XRAY_DOMAIN_PROFILE:-}" ]] || [[ -n "${XRAY_DOMAIN_TIER:-}" ]]; then
         local explicit_profile="${XRAY_DOMAIN_PROFILE:-${XRAY_DOMAIN_TIER:-$DOMAIN_TIER}}"
+        if is_legacy_global_profile_alias "$explicit_profile"; then
+            log WARN "Профиль ${explicit_profile} является legacy-алиасом; используйте global-50 или global-50-auto"
+        fi
         if is_auto_domain_profile_alias "$explicit_profile"; then
             AUTO_PROFILE_MODE=true
         fi
@@ -715,9 +718,9 @@ ask_domain_profile() {
     while true; do
         printf '%s\n' "Выберите профиль доменов:" >&"$tty_fd"
         printf '%s\n' "  1) ru (ручной ввод числа ключей, до 100)" >&"$tty_fd"
-        printf '%s\n' "  2) global-ms10 (ручной ввод числа ключей, до 10)" >&"$tty_fd"
+        printf '%s\n' "  2) global-50 (ручной ввод числа ключей, до 10)" >&"$tty_fd"
         printf '%s\n' "  3) ru-auto (автоматически: 5 ключей)" >&"$tty_fd"
-        printf '%s\n' "  4) global-ms10-auto (автоматически: 10 ключей)" >&"$tty_fd"
+        printf '%s\n' "  4) global-50-auto (автоматически: 10 ключей)" >&"$tty_fd"
         if ! printf "Профиль [1/2/3/4]: " >&"$tty_fd"; then
             exec {tty_fd}>&-
             log ERROR "Не удалось вывести запрос выбора профиля в /dev/tty"
@@ -735,9 +738,15 @@ ask_domain_profile() {
                 AUTO_PROFILE_MODE=false
                 break
                 ;;
-            2 | global | global-ms10 | ms10 | tier_global_ms10)
+            2 | global | global-50 | g50 | tier_global_50)
                 DOMAIN_TIER="tier_global_ms10"
                 AUTO_PROFILE_MODE=false
+                break
+                ;;
+            global-ms10 | ms10 | tier_global_ms10)
+                DOMAIN_TIER="tier_global_ms10"
+                AUTO_PROFILE_MODE=false
+                log WARN "Профиль ${input} является legacy-алиасом; используйте global-50"
                 break
                 ;;
             3 | ru-auto | russia-auto | rf-auto | tier_ru_auto)
@@ -745,9 +754,15 @@ ask_domain_profile() {
                 AUTO_PROFILE_MODE=true
                 break
                 ;;
-            4 | global-auto | global-ms10-auto | ms10-auto | tier_global_ms10_auto)
+            4 | global-auto | global-50-auto | g50-auto | tier_global_50_auto)
                 DOMAIN_TIER="tier_global_ms10"
                 AUTO_PROFILE_MODE=true
+                break
+                ;;
+            global-ms10-auto | ms10-auto | tier_global_ms10_auto)
+                DOMAIN_TIER="tier_global_ms10"
+                AUTO_PROFILE_MODE=true
+                log WARN "Профиль ${input} является legacy-алиасом; используйте global-50-auto"
                 break
                 ;;
             *)

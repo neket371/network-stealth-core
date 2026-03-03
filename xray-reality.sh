@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2> /dev/null && pwd 2> /dev/null || echo "")"
-MODULE_DIR="${MODULE_DIR:-$SCRIPT_DIR}"
+MODULE_DIR=""
 DEFAULT_DATA_DIR="/usr/local/share/xray-reality"
 XRAY_DATA_DIR="${XRAY_DATA_DIR:-$DEFAULT_DATA_DIR}"
 REPO_URL="${XRAY_REPO_URL:-https://github.com/neket371/network-stealth-core.git}"
@@ -16,6 +16,23 @@ BOOTSTRAP_DEFAULT_REF="${XRAY_BOOTSTRAP_DEFAULT_REF:-main}"
 INSTALL_DIR=""
 INSTALL_DIR_OWNED=false
 FORWARD_ARGS=()
+REQUIRED_MODULES=(
+    install.sh
+    config.sh
+    service.sh
+    health.sh
+    modules/lib/validation.sh
+    modules/lib/globals_contract.sh
+    modules/lib/firewall.sh
+    modules/lib/lifecycle.sh
+    modules/lib/common_utils.sh
+    modules/lib/runtime_reuse.sh
+    modules/lib/domain_sources.sh
+    modules/config/domain_planner.sh
+    modules/config/shared_helpers.sh
+    modules/config/add_clients.sh
+    modules/install/bootstrap.sh
+)
 
 parse_bootstrap_bool() {
     local value="${1:-}"
@@ -109,6 +126,36 @@ cleanup_install_dir() {
     if [[ "$INSTALL_DIR_OWNED" == "true" && -n "${INSTALL_DIR:-}" && -d "$INSTALL_DIR" ]]; then
         rm -rf "$INSTALL_DIR"
     fi
+}
+
+module_dir_has_required_files() {
+    local module_dir="$1"
+    local rel
+    for rel in "${REQUIRED_MODULES[@]}"; do
+        if [[ ! -f "$module_dir/$rel" ]]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+resolve_module_dir() {
+    local -a candidates=()
+    local candidate
+
+    [[ -n "$SCRIPT_DIR" ]] && candidates+=("$SCRIPT_DIR")
+    if [[ -n "$XRAY_DATA_DIR" && "$XRAY_DATA_DIR" != "$SCRIPT_DIR" ]]; then
+        candidates+=("$XRAY_DATA_DIR")
+    fi
+
+    for candidate in "${candidates[@]}"; do
+        [[ -d "$candidate" ]] || continue
+        if module_dir_has_required_files "$candidate"; then
+            MODULE_DIR="$candidate"
+            return 0
+        fi
+    done
+    return 1
 }
 
 verify_pinned_commit() {
@@ -324,34 +371,13 @@ if [[ ! -f "$LIB_PATH" ]]; then
     exit 1
 fi
 
-_MISSING_MODULES=()
-for _MOD in install.sh config.sh service.sh health.sh; do
-    if [[ ! -f "$SCRIPT_DIR/$_MOD" ]] && [[ ! -f "${XRAY_DATA_DIR:-/usr/local/share/xray-reality}/$_MOD" ]]; then
-        _MISSING_MODULES+=("$_MOD")
-    fi
-done
-for _MOD in \
-    modules/lib/validation.sh \
-    modules/lib/globals_contract.sh \
-    modules/lib/firewall.sh \
-    modules/lib/lifecycle.sh \
-    modules/lib/common_utils.sh \
-    modules/lib/runtime_reuse.sh \
-    modules/lib/domain_sources.sh \
-    modules/config/domain_planner.sh \
-    modules/config/shared_helpers.sh \
-    modules/config/add_clients.sh \
-    modules/install/bootstrap.sh; do
-    if [[ ! -f "$SCRIPT_DIR/$_MOD" ]] && [[ ! -f "${XRAY_DATA_DIR:-/usr/local/share/xray-reality}/$_MOD" ]]; then
-        _MISSING_MODULES+=("$_MOD")
-    fi
-done
-if [[ ${#_MISSING_MODULES[@]} -gt 0 ]]; then
-    echo "ERROR: Missing critical modules: ${_MISSING_MODULES[*]}" >&2
+if ! resolve_module_dir; then
+    echo "ERROR: Missing critical modules in trusted directories:" >&2
+    echo "  - SCRIPT_DIR: ${SCRIPT_DIR:-<empty>}" >&2
+    echo "  - XRAY_DATA_DIR: ${XRAY_DATA_DIR:-<empty>}" >&2
     echo "Try re-running the install or check the repository." >&2
     exit 1
 fi
-unset _MISSING_MODULES _MOD
 
 # shellcheck source=/dev/null
 source "$LIB_PATH"

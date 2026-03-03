@@ -30,7 +30,13 @@
     [ "$output" = "tier_ru" ]
 }
 
-@test "normalize_domain_tier accepts global-ms10-auto alias" {
+@test "normalize_domain_tier accepts global-50-auto alias" {
+    run bash -eo pipefail -c 'source ./lib.sh; normalize_domain_tier "global-50-auto"'
+    [ "$status" -eq 0 ]
+    [ "$output" = "tier_global_ms10" ]
+}
+
+@test "normalize_domain_tier keeps legacy global-ms10-auto alias compatibility" {
     run bash -eo pipefail -c 'source ./lib.sh; normalize_domain_tier "global-ms10-auto"'
     [ "$status" -eq 0 ]
     [ "$output" = "tier_global_ms10" ]
@@ -521,7 +527,18 @@ ExecStart=/tmp/pwn"
     [ "$status" -ne 0 ]
 }
 
-@test "strict_validate_runtime_inputs accepts XRAY_DOMAIN_PROFILE global-ms10" {
+@test "strict_validate_runtime_inputs accepts XRAY_DOMAIN_PROFILE global-50" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    XRAY_DOMAIN_PROFILE="global-50"
+    strict_validate_runtime_inputs install
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "strict_validate_runtime_inputs keeps legacy XRAY_DOMAIN_PROFILE global-ms10 compatibility" {
     run bash -eo pipefail -c '
     source ./lib.sh
     XRAY_DOMAIN_PROFILE="global-ms10"
@@ -546,7 +563,7 @@ ExecStart=/tmp/pwn"
     source ./lib.sh
     ACTION="add-clients"
     DOMAIN_TIER="tier_ru"
-    XRAY_DOMAIN_PROFILE="global-ms10"
+    XRAY_DOMAIN_PROFILE="global-50"
     apply_runtime_overrides
     echo "$DOMAIN_TIER"
   '
@@ -559,12 +576,26 @@ ExecStart=/tmp/pwn"
     source ./lib.sh
     ACTION="install"
     DOMAIN_TIER="tier_ru"
-    XRAY_DOMAIN_PROFILE="global-ms10"
+    XRAY_DOMAIN_PROFILE="global-50"
     apply_runtime_overrides
     echo "$DOMAIN_TIER"
   '
     [ "$status" -eq 0 ]
     [ "$output" = "tier_global_ms10" ]
+}
+
+@test "apply_runtime_overrides warns for legacy global-ms10 alias and keeps compatibility" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    ACTION="install"
+    DOMAIN_TIER="tier_ru"
+    XRAY_DOMAIN_PROFILE="global-ms10"
+    apply_runtime_overrides
+    echo "tier=$DOMAIN_TIER"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"legacy-алиасом"* ]]
+    [[ "$output" == *"tier=tier_global_ms10"* ]]
 }
 
 @test "strict_validate_runtime_inputs rejects invalid XRAY_DOMAINS_FILE domain" {

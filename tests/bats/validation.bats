@@ -246,7 +246,7 @@
     source ./lib.sh
     source ./install.sh
     NON_INTERACTIVE=true
-    XRAY_DOMAIN_PROFILE="global-ms10"
+    XRAY_DOMAIN_PROFILE="global-50"
     DOMAIN_TIER="tier_ru"
     ask_domain_profile
     echo "$DOMAIN_TIER"
@@ -262,13 +262,28 @@
     log() { printf "%s %s\n" "$1" "$2"; }
     REUSE_EXISTING_CONFIG=true
     DOMAIN_TIER="tier_ru"
-    XRAY_DOMAIN_PROFILE="global-ms10"
+    XRAY_DOMAIN_PROFILE="global-50"
     ask_domain_profile
     echo "tier=$DOMAIN_TIER"
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"игнорируется"* ]]
     [[ "$output" == *"tier=tier_ru"* ]]
+}
+
+@test "ask_domain_profile accepts legacy global-ms10 alias with compatibility warning" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./install.sh
+    NON_INTERACTIVE=true
+    XRAY_DOMAIN_PROFILE="global-ms10"
+    DOMAIN_TIER="tier_ru"
+    ask_domain_profile
+    echo "$DOMAIN_TIER"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"legacy-алиасом"* ]]
+    [[ "$output" == *"tier_global_ms10"* ]]
 }
 
 @test "ask_domain_profile marks auto mode for ru-auto alias" {

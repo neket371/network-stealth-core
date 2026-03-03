@@ -96,14 +96,16 @@ sudo XRAY_BOOTSTRAP_DEFAULT_REF=release bash /tmp/xray-reality.sh install
 |---|---|---:|---|
 | `ru` | `tier_ru` | 100 | Main RU pool |
 | `ru-auto` | `tier_ru` | auto 5 | Fast RU install |
-| `global-ms10` | `tier_global_ms10` | 10 | Global pool (50 domains) |
-| `global-ms10-auto` | `tier_global_ms10` | auto 10 | Fast global install |
+| `global-50` | `tier_global_ms10` | 10 | Global pool (50 domains) |
+| `global-50-auto` | `tier_global_ms10` | auto 10 | Fast global install |
 | `custom` | `custom` | 100 | User-provided domain set |
+
+Legacy aliases `global-ms10` and `global-ms10-auto` are still accepted for backward compatibility.
 
 ## Key flags
 
 ```bash
---domain-profile ru|ru-auto|global-ms10|global-ms10-auto|custom
+--domain-profile ru|ru-auto|global-50|global-50-auto|custom
 --transport grpc|http2
 --progress-mode auto|bar|plain|none
 --require-minisign

@@ -1505,7 +1505,7 @@ normalize_domain_tier() {
             echo "tier_ru"
             return 0
             ;;
-        global-ms10 | global | ms10 | tier-global-ms10 | global-ms10-auto | global-auto | ms10-auto | tier-global-ms10-auto)
+        global-50 | global | g50 | tier-global-50 | global-50-auto | global-auto | g50-auto | tier-global-50-auto | global-ms10 | ms10 | tier-global-ms10 | global-ms10-auto | ms10-auto | tier-global-ms10-auto)
             echo "tier_global_ms10"
             return 0
             ;;
@@ -1525,7 +1525,22 @@ is_auto_domain_profile_alias() {
     value="${value// /}"
     value="${value//_/-}"
     case "$value" in
-        ru-auto | russia-auto | rf-auto | tier-ru-auto | global-ms10-auto | global-auto | ms10-auto | tier-global-ms10-auto)
+        ru-auto | russia-auto | rf-auto | tier-ru-auto | global-50-auto | global-auto | g50-auto | tier-global-50-auto | global-ms10-auto | ms10-auto | tier-global-ms10-auto)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+is_legacy_global_profile_alias() {
+    local raw="${1:-}"
+    local value="${raw,,}"
+    value="${value// /}"
+    value="${value//_/-}"
+    case "$value" in
+        global-ms10 | ms10 | tier-global-ms10 | global-ms10-auto | ms10-auto | tier-global-ms10-auto)
             return 0
             ;;
         *)
@@ -1553,7 +1568,7 @@ domain_tier_label() {
         tier="tier_ru"
     fi
     case "$tier" in
-        tier_global_ms10) echo "global-ms10" ;;
+        tier_global_ms10) echo "global-50" ;;
         custom) echo "custom" ;;
         *) echo "ru" ;;
     esac
@@ -1655,7 +1670,7 @@ Options:
   --verbose                      More logging (also: detailed status)
   --yes, --non-interactive       Skip prompts (automation mode)
   --num-configs <N>              Number of configs (tier-aware limit)
-  --domain-profile <ru|ru-auto|global-ms10|global-ms10-auto|custom>
+  --domain-profile <ru|ru-auto|global-50|global-50-auto|custom>
                                  Domain profile for install/add (default: ru)
   --start-port <1-65535>         Starting port (default: 443)
   --transport <grpc|http2>       Transport mode (default: grpc)
@@ -1676,7 +1691,7 @@ Options:
   --help                         Show this help
 
 Environment variables:
-  XRAY_DOMAIN_PROFILE            Domain profile (ru|ru-auto|global-ms10|global-ms10-auto|custom)
+  XRAY_DOMAIN_PROFILE            Domain profile (ru|ru-auto|global-50|global-50-auto|custom; legacy aliases global-ms10*)
   TRANSPORT                      Transport mode (grpc|http2, default: grpc)
   SHORT_ID_BYTES_MIN             Min Reality ShortID bytes (default: 8)
   SHORT_ID_BYTES_MAX             Max Reality ShortID bytes (default: 8)
@@ -2336,7 +2351,7 @@ strict_validate_runtime_inputs() {
         fi
     fi
     if [[ -n "${XRAY_DOMAIN_PROFILE:-}" ]] && ! normalize_domain_tier "$XRAY_DOMAIN_PROFILE" > /dev/null 2>&1; then
-        log ERROR "Некорректный XRAY_DOMAIN_PROFILE: ${XRAY_DOMAIN_PROFILE} (ожидается ru|ru-auto|global-ms10|global-ms10-auto|custom)"
+        log ERROR "Некорректный XRAY_DOMAIN_PROFILE: ${XRAY_DOMAIN_PROFILE} (ожидается ru|ru-auto|global-50|global-50-auto|custom)"
         return 1
     fi
     if [[ -n "${XRAY_DOMAIN_TIER:-}" ]] && ! normalize_domain_tier "$XRAY_DOMAIN_TIER" > /dev/null 2>&1; then

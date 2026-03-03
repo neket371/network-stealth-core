@@ -422,6 +422,12 @@ apply_runtime_overrides() {
     if [[ -z "$XRAY_DOMAIN_PROFILE" && -n "${DOMAIN_PROFILE:-}" ]]; then
         XRAY_DOMAIN_PROFILE="$DOMAIN_PROFILE"
     fi
+    if [[ -n "$XRAY_DOMAIN_PROFILE" ]] && is_legacy_global_profile_alias "$XRAY_DOMAIN_PROFILE"; then
+        log WARN "Профиль ${XRAY_DOMAIN_PROFILE} является legacy-алиасом; используйте global-50 или global-50-auto"
+    fi
+    if [[ -n "$XRAY_DOMAIN_TIER" ]] && is_legacy_global_profile_alias "$XRAY_DOMAIN_TIER"; then
+        log WARN "Профиль ${XRAY_DOMAIN_TIER} является legacy-алиасом; используйте global-50 или global-50-auto"
+    fi
 
     if [[ "$action_is_add" == "true" ]]; then
         local current_tier requested_tier="" raw_current_tier

@@ -7,6 +7,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+- Hardened wrapper module loading: runtime now resolves modules only from trusted directories (`SCRIPT_DIR`, `XRAY_DATA_DIR`) instead of honoring external `MODULE_DIR`.
+- Added PowerShell coverage to `check-security-baseline.sh` (blocks `Invoke-Expression`/`iex`, download-pipe execution patterns, encoded-command execution).
+- Introduced canonical global profile names `global-50` / `global-50-auto` with backward-compatible legacy aliases `global-ms10` / `global-ms10-auto`.
+
 ## [4.2.1] - 2026-03-02
 
 ### Changed

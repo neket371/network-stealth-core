@@ -147,6 +147,72 @@
     [[ "$output" == *"XRAY_BOOTSTRAP_REQUIRE_PIN=true"* ]]
 }
 
+@test "wrapper ignores untrusted MODULE_DIR env and sources modules from trusted paths" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    cp ./xray-reality.sh "$tmp/xray-reality.sh"
+    chmod +x "$tmp/xray-reality.sh"
+    mkdir -p "$tmp/mockbin"
+
+    cat > "$tmp/mockbin/git" << '"'"'EOF'"'"'
+#!/usr/bin/env bash
+set -euo pipefail
+log_file="${MOCK_GIT_LOG:?}"
+printf "%s\n" "$*" >> "$log_file"
+
+if [[ "${1:-}" == "clone" ]]; then
+    target="${@: -1}"
+    mkdir -p "$target"
+    cat > "$target/lib.sh" << '"'"'LIBEOF'"'"'
+#!/usr/bin/env bash
+MODULE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+main() { echo "wrapper-ok"; }
+LIBEOF
+    chmod +x "$target/lib.sh"
+    : > "$target/install.sh"
+    : > "$target/config.sh"
+    : > "$target/service.sh"
+    : > "$target/health.sh"
+    : > "$target/export.sh"
+    mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
+    : > "$target/modules/lib/validation.sh"
+    : > "$target/modules/lib/common_utils.sh"
+    : > "$target/modules/lib/globals_contract.sh"
+    : > "$target/modules/lib/firewall.sh"
+    : > "$target/modules/lib/lifecycle.sh"
+    : > "$target/modules/lib/runtime_reuse.sh"
+    : > "$target/modules/lib/domain_sources.sh"
+    : > "$target/modules/config/domain_planner.sh"
+    : > "$target/modules/config/add_clients.sh"
+    : > "$target/modules/config/shared_helpers.sh"
+    : > "$target/modules/install/bootstrap.sh"
+    exit 0
+fi
+
+exit 0
+EOF
+    chmod +x "$tmp/mockbin/git"
+
+    log_file="$tmp/git.log"
+    mkdir -p "$tmp/evil"
+    printf "%s\n" "echo evil-module-source" > "$tmp/evil/install.sh"
+    PATH="$tmp/mockbin:$PATH" \
+        MOCK_GIT_LOG="$log_file" \
+        MODULE_DIR="$tmp/evil" \
+        XRAY_BOOTSTRAP_REQUIRE_PIN=false \
+        XRAY_BOOTSTRAP_AUTO_PIN=false \
+        bash "$tmp/xray-reality.sh" --help > "$tmp/out.txt" 2> "$tmp/err.txt"
+
+    grep -q "wrapper-ok" "$tmp/out.txt"
+    if grep -q "evil-module-source" "$tmp/out.txt"; then
+        echo "wrapper sourced untrusted MODULE_DIR"
+        exit 1
+    fi
+  '
+    [ "$status" -eq 0 ]
+}
+
 @test "wrapper falls back to ref clone when ls-remote fails in non-strict mode" {
     run bash -eo pipefail -c '
     set -euo pipefail
