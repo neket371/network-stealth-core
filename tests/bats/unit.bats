@@ -1401,6 +1401,7 @@ EOF
     grep -Fq "Вы уверены? Введите yes для подтверждения или no для отмены:" ./service.sh
     grep -Fq "prompt_yes_no_from_tty \\" ./service.sh
     grep -Fq "\"Введите '\''yes'\'' для подтверждения или '\''no'\'' для отмены\"" ./service.sh
+    ! grep -Fq "if ! prompt_yes_no_from_tty" ./service.sh
     grep -Fq "open_interactive_tty_fd tty_fd" ./lib.sh
     grep -Fq "Укажите путь вручную для %s:" ./lib.sh
     grep -Fq "read -r -u \"\$tty_fd\" custom_path" ./lib.sh

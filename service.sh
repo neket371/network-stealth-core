@@ -723,20 +723,20 @@ uninstall_all() {
 
     if [[ "$require_confirmation" == "true" ]]; then
         local prompt_rc=0
-        if ! prompt_yes_no_from_tty \
+        prompt_yes_no_from_tty \
             "$tty_fd" \
             "Вы уверены? Введите yes для подтверждения или no для отмены: " \
-            "Введите 'yes' для подтверждения или 'no' для отмены"; then
-            prompt_rc=$?
-            exec {tty_fd}>&-
-            if ((prompt_rc == 1)); then
-                log INFO "Удаление отменено"
-                exit 0
-            fi
+            "Введите 'yes' для подтверждения или 'no' для отмены"
+        prompt_rc=$?
+        exec {tty_fd}>&-
+        if ((prompt_rc == 1)); then
+            log INFO "Удаление отменено"
+            exit 0
+        fi
+        if ((prompt_rc != 0)); then
             log ERROR "Не удалось прочитать подтверждение из /dev/tty"
             exit 1
         fi
-        exec {tty_fd}>&-
     else
         log INFO "Неблокирующее удаление: подтверждение пропущено (--yes/non-interactive)"
     fi

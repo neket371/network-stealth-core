@@ -19,7 +19,7 @@ trap cleanup EXIT
 echo "==> pre-clean"
 cleanup
 
-echo "==> interactive install (global-ms10 profile)"
+echo "==> interactive install (global-50 profile)"
 export ROOT_DIR SCRIPT_PATH START_PORT INITIAL_CONFIGS ADD_CONFIGS
 expect << 'EXPECT_INSTALL'
 set timeout 900
@@ -107,7 +107,7 @@ if ((count_after != expected_after)); then
     exit 1
 fi
 if ((count_after > 10)); then
-    echo "global-ms10 limit violated: got ${count_after} inbounds" >&2
+    echo "global-50 limit violated: got ${count_after} inbounds" >&2
     exit 1
 fi
 
