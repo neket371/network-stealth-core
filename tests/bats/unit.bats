@@ -2318,6 +2318,15 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "make test enforces utf8 locale fallback for bats" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''LANG="$${LANG:-C.UTF-8}" LC_ALL="$${LC_ALL:-C.UTF-8}" bats tests/bats'\'' ./Makefile
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "dockerfile runs non-root and defines healthcheck" {
     run bash -eo pipefail -c '
     grep -Eq '\''^FROM debian:bookworm-[0-9]+-slim(@sha256:[a-f0-9]{64})?$'\'' ./Dockerfile

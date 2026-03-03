@@ -44,7 +44,7 @@ lint:
 
 test:
 	command -v bats >/dev/null
-	bats tests/bats
+	LANG="$${LANG:-C.UTF-8}" LC_ALL="$${LC_ALL:-C.UTF-8}" bats tests/bats
 
 release-check:
 	bash scripts/check-release-consistency.sh
