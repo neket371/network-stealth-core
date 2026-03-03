@@ -556,9 +556,9 @@ render_clients_txt_from_json() {
     header_width=$(ui_box_width_for_lines 60 90 "$header_title")
 
     {
-        ui_box_border_string top "$header_width"
-        ui_box_line_string "$header_title" "$header_width"
-        ui_box_border_string bottom "$header_width"
+        printf '%s\n' "$(ui_box_border_string top "$header_width")"
+        printf '%s\n' "$(ui_box_line_string "$header_title" "$header_width")"
+        printf '%s\n' "$(ui_box_border_string bottom "$header_width")"
         echo ""
     } > "$tmp_client"
 

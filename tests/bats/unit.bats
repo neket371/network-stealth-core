@@ -1437,6 +1437,17 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "clients header box writes one line per segment" {
+    run bash -eo pipefail -c '
+    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_border_string top \"\$header_width\")\"" ./config.sh
+    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_line_string \"\$header_title\" \"\$header_width\")\"" ./config.sh
+    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_border_string bottom \"\$header_width\")\"" ./config.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "yes/no parser normalizes trim and carriage return" {
     run bash -eo pipefail -c '
     source ./lib.sh
