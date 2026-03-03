@@ -1448,6 +1448,39 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "format_generated_timestamp avoids double spaces before day" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    stamp=$(format_generated_timestamp)
+    [[ "$stamp" != *"  "* ]]
+    printf "%s\n" "$stamp" | grep -Eq "^[A-Z][a-z]{2} [A-Z][a-z]{2} [0-9]{1,2} [0-9]{2}:[0-9]{2}:[0-9]{2} (AM|PM) .+ [0-9]{4}$"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "clients update command is rendered as one line" {
+    run bash -eo pipefail -c '
+    grep -Fq "Для обновления Xray до новой версии выполните: sudo xray-reality.sh update" ./config.sh
+    ! grep -Fq "  sudo xray-reality.sh update" ./config.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "config uses formatted generated timestamp helper" {
+    run bash -eo pipefail -c '
+    grep -Fq "[[ -n \"\$generated\" ]] || generated=\"\$(format_generated_timestamp)\"" ./config.sh
+    grep -Fq "Generated: \$(format_generated_timestamp)" ./config.sh
+    grep -Fq -- "--arg generated \"\$(format_generated_timestamp)\"" ./config.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "yes/no parser normalizes trim and carriage return" {
     run bash -eo pipefail -c '
     source ./lib.sh

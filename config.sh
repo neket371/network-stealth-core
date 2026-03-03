@@ -534,7 +534,9 @@ render_clients_txt_from_json() {
 
     [[ -n "$server_ipv4" ]] || server_ipv4="${SERVER_IP:-unknown}"
     [[ -n "$server_ipv6" ]] || server_ipv6="N/A"
-    [[ -n "$generated" ]] || generated="$(date)"
+    generated=$(printf '%s' "$generated" | tr -s '[:space:]' ' ')
+    generated=$(trim_ws "$generated")
+    [[ -n "$generated" ]] || generated="$(format_generated_timestamp)"
 
     local transport_summary="gRPC"
     case "${transport_raw,,}" in
@@ -693,8 +695,7 @@ Health monitoring лог:  tail -f ${HEALTH_LOG}
 
 🔄 ОБНОВЛЕНИЕ:
 
-Для обновления Xray до новой версии выполните:
-  sudo xray-reality.sh update
+Для обновления Xray до новой версии выполните: sudo xray-reality.sh update
 
 Авто-обновления настроены через systemd timer.
 
@@ -769,7 +770,7 @@ $(ui_box_border_string bottom 60)
 
 Server IPv4: ${SERVER_IP}
 Server IPv6: ${SERVER_IP6:-N/A}
-Generated: $(date)
+Generated: $(format_generated_timestamp)
 
 EOF
 
@@ -865,7 +866,7 @@ EOF
     json_output=$(jq -n \
         --arg server_ipv4 "$SERVER_IP" \
         --arg server_ipv6 "${SERVER_IP6:-}" \
-        --arg generated "$(date)" \
+        --arg generated "$(format_generated_timestamp)" \
         --arg transport "$TRANSPORT" \
         --arg spider "$SPIDER_MODE" \
         --argjson configs "$json_configs" \

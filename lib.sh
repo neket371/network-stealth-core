@@ -564,6 +564,14 @@ is_no_input() {
     esac
 }
 
+format_generated_timestamp() {
+    local stamp
+    stamp=$(LC_ALL=C date '+%a %b %d %I:%M:%S %p %Z %Y' 2> /dev/null || date '+%a %b %d %I:%M:%S %p %Z %Y')
+    stamp=$(printf '%s' "$stamp" | sed -E 's/^([A-Za-z]{3}[[:space:]][A-Za-z]{3})[[:space:]]0([0-9])[[:space:]]/\1 \2 /')
+    stamp=$(trim_ws "$stamp")
+    printf '%s' "$stamp"
+}
+
 prompt_yes_no_from_tty() {
     local tty_fd="${1:-}"
     local prompt_text="${2:-}"
