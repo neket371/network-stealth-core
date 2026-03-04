@@ -1537,7 +1537,9 @@ EOF
     [[ "$(canonicalize_confirmation_token "\"yes\"")" == "yes" ]]
     [[ "$(canonicalize_confirmation_token "[ no ]")" == "no" ]]
     sq=$(printf "\\047")
+    bq=$(printf "\\140")
     [[ "$(canonicalize_confirmation_token "${sq}yes${sq}")" == "yes" ]]
+    [[ "$(canonicalize_confirmation_token "${bq}yes${bq}")" == "yes" ]]
     echo "ok"
   '
     [ "$status" -eq 0 ]

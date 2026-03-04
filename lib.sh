@@ -545,7 +545,7 @@ strip_confirmation_wrappers() {
         last="${value: -1}"
         pair="${first}${last}"
         case "$pair" in
-            "''" | "\"\"" | "``" | "[]" | "()" | "{}" | "<>")
+            "''" | "\"\"" | '``' | "[]" | "()" | "{}" | "<>")
                 value="${value:1:${#value}-2}"
                 value=$(trim_ws "$value")
                 ;;
@@ -619,6 +619,7 @@ prompt_yes_no_from_tty() {
         case "$token" in
             yes | y | da | d) return 0 ;;
             no | n | net) return 1 ;;
+            *) ;;
         esac
         if ! tty_printf "$tty_fd" '%s\n' "$retry_text"; then
             return 2
