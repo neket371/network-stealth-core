@@ -461,6 +461,15 @@ open_interactive_tty_fd() {
     local out_var="${1:-}"
     [[ -n "$out_var" ]] || return 1
 
+    if command -v tty > /dev/null 2>&1; then
+        if ! tty -s > /dev/null 2>&1; then
+            return 1
+        fi
+    fi
+    if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+        return 1
+    fi
+
     local opened_fd=""
     if ! exec {opened_fd}<> /dev/tty 2> /dev/null; then
         return 1

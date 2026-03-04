@@ -1546,6 +1546,19 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "open_interactive_tty_fd fails quietly without controlling tty" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    if open_interactive_tty_fd fd; then
+      echo "unexpected-success"
+      exit 1
+    fi
+    [[ -z "${fd:-}" ]]
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"/dev/tty"* ]]
+}
+
 @test "prompt_yes_no_from_tty accepts yes without retry" {
     run bash -eo pipefail -c '
     source ./lib.sh
