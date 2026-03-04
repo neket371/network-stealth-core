@@ -32,7 +32,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y shellcheck bats python3-pip tar
+          sudo apt-get install -y shellcheck bats python3-pip tar ripgrep
           mkdir -p "$HOME/.local/bin"
           export PATH="$HOME/.local/bin:$PATH"
           if ! command -v shfmt >/dev/null 2>&1; then

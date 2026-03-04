@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 shopt -s nullglob
 
+if ! command -v rg > /dev/null 2>&1; then
+    echo "dead-function-check: rg (ripgrep) is required in PATH" >&2
+    exit 2
+fi
+
 FILES=(
     "$ROOT_DIR/xray-reality.sh"
     "$ROOT_DIR/lib.sh"
