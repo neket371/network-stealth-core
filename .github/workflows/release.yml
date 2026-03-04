@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
-      - name: Validate tag against main and script version
+      - name: Validate tag against default branch and script version
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
@@ -26,12 +26,16 @@ jobs:
             echo "Release tag must follow vMAJOR.MINOR.PATCH, got: $tag" >&2
             exit 1
           fi
-          git fetch --no-tags origin main
+          default_branch="${{ github.event.repository.default_branch }}"
+          if [[ -z "$default_branch" ]]; then
+            default_branch="ubuntu"
+          fi
+          git fetch --no-tags origin "$default_branch"
           tag_sha=$(git rev-parse "$GITHUB_SHA")
-          main_sha=$(git rev-parse origin/main)
-          if [[ "$tag_sha" != "$main_sha" ]]; then
-            echo "Tag $tag points to $tag_sha, but origin/main is $main_sha" >&2
-            echo "Create tags only from the current tip of main." >&2
+          branch_sha=$(git rev-parse "origin/${default_branch}")
+          if [[ "$tag_sha" != "$branch_sha" ]]; then
+            echo "Tag $tag points to $tag_sha, but origin/${default_branch} is $branch_sha" >&2
+            echo "Create tags only from the current tip of ${default_branch}." >&2
             exit 1
           fi
           bash scripts/check-release-consistency.sh --tag "$tag"

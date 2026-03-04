@@ -4,7 +4,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 shopt -s nullglob globstar
 FAST_MODE=false
-LINT_BASE_REF="${LINT_BASE_REF:-origin/main}"
+LINT_BASE_REF="${LINT_BASE_REF:-}"
+
+if [[ -z "$LINT_BASE_REF" ]]; then
+    if git -C "$SCRIPT_DIR" rev-parse --verify origin/HEAD > /dev/null 2>&1; then
+        LINT_BASE_REF="origin/HEAD"
+    elif git -C "$SCRIPT_DIR" rev-parse --verify origin/ubuntu > /dev/null 2>&1; then
+        LINT_BASE_REF="origin/ubuntu"
+    else
+        LINT_BASE_REF="origin/main"
+    fi
+fi
 
 while (($# > 0)); do
     case "$1" in

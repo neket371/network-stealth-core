@@ -39,14 +39,14 @@ If commands are copied from a mirror or fork, verify the source before execution
 ### Recommended: universal install
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 ```
 
 ### Alternative: one-line install
 
 ```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh) install
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh) install
 ```
 
 If `/dev/fd` is unavailable, use the universal install form.
@@ -54,25 +54,30 @@ If `/dev/fd` is unavailable, use the universal install form.
 ### Pinned bootstrap by commit
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install
 ```
 
 ### Bootstrap source mode
 
-Default source is `main`:
+Default source is `ubuntu`:
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 ```
 
 Use latest release tag instead:
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo XRAY_BOOTSTRAP_DEFAULT_REF=release bash /tmp/xray-reality.sh install
 ```
+
+Legacy alias note:
+
+- `main` is still accepted as a temporary compatibility alias for one release cycle.
+- Prefer `ubuntu` in all scripts and automation.
 
 ## Command map
 

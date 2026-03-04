@@ -39,14 +39,14 @@
 ### Рекомендуемый способ: universal install
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 ```
 
 ### Альтернатива: one-line install
 
 ```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh) install
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh) install
 ```
 
 Если появляется `/dev/fd/...: no such file or directory`, используйте universal install.
@@ -54,25 +54,30 @@ sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealt
 ### Bootstrap с pin по commit
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install
 ```
 
 ### Выбор источника bootstrap
 
-По умолчанию используется `main`:
+По умолчанию используется `ubuntu`:
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 ```
 
 Чтобы брать последний релизный тег:
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo XRAY_BOOTSTRAP_DEFAULT_REF=release bash /tmp/xray-reality.sh install
 ```
+
+Заметка по совместимости:
+
+- `main` пока принимается как временный alias на один релизный цикл.
+- Во всех скриптах и автоматизации используйте `ubuntu`.
 
 ## Карта команд
 

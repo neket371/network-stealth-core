@@ -213,7 +213,7 @@ EOF
     [ "$status" -eq 0 ]
 }
 
-@test "wrapper falls back to ref clone when ls-remote fails in non-strict mode" {
+@test "wrapper maps legacy main ref to ubuntu and falls back to ref clone in non-strict mode" {
     run bash -eo pipefail -c '
     set -euo pipefail
     tmp="$(mktemp -d)"
@@ -273,13 +273,14 @@ EOF
         bash "$tmp/xray-reality.sh" --help > "$tmp/out.txt" 2> "$tmp/err.txt"
 
     grep -q "wrapper-ok" "$tmp/out.txt"
-    grep -q "failed to resolve commit for ref '\''main'\''" "$tmp/err.txt"
-    grep -Eq "^clone .*--branch[[:space:]]+main" "$log_file"
+    grep -q "XRAY_REPO_REF=main is deprecated; using '\''ubuntu'\''" "$tmp/err.txt"
+    grep -q "failed to resolve commit for ref '\''ubuntu'\''" "$tmp/err.txt"
+    grep -Eq "^clone .*--branch[[:space:]]+ubuntu" "$log_file"
   '
     [ "$status" -eq 0 ]
 }
 
-@test "wrapper defaults to main branch when no ref is provided" {
+@test "wrapper defaults to ubuntu branch when no ref is provided" {
     run bash -eo pipefail -c '
     set -euo pipefail
     tmp="$(mktemp -d)"
@@ -334,8 +335,8 @@ EOF
         bash "$tmp/xray-reality.sh" --help > "$tmp/out.txt" 2> "$tmp/err.txt"
 
     grep -q "wrapper-ok" "$tmp/out.txt"
-    grep -q "Using default bootstrap ref: main" "$tmp/out.txt"
-    grep -Eq "^clone .*--branch[[:space:]]+main" "$log_file"
+    grep -q "Using default bootstrap ref: ubuntu" "$tmp/out.txt"
+    grep -Eq "^clone .*--branch[[:space:]]+ubuntu" "$log_file"
   '
     [ "$status" -eq 0 ]
 }
@@ -589,7 +590,7 @@ if [[ "${1:-}" == "-C" ]]; then
 fi
 
 if [[ "${1:-}" == "ls-remote" ]]; then
-    echo "1111111111111111111111111111111111111111    refs/heads/main"
+    echo "1111111111111111111111111111111111111111    refs/heads/ubuntu"
     exit 0
 fi
 

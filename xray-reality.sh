@@ -12,7 +12,9 @@ REPO_REF="${XRAY_REPO_REF:-${XRAY_REPO_BRANCH:-}}"
 REPO_COMMIT="${XRAY_REPO_COMMIT:-}"
 BOOTSTRAP_REQUIRE_PIN="${XRAY_BOOTSTRAP_REQUIRE_PIN:-true}"
 BOOTSTRAP_AUTO_PIN="${XRAY_BOOTSTRAP_AUTO_PIN:-true}"
-BOOTSTRAP_DEFAULT_REF="${XRAY_BOOTSTRAP_DEFAULT_REF:-main}"
+CANONICAL_BOOTSTRAP_BRANCH="ubuntu"
+LEGACY_BOOTSTRAP_BRANCH="main"
+BOOTSTRAP_DEFAULT_REF="${XRAY_BOOTSTRAP_DEFAULT_REF:-$CANONICAL_BOOTSTRAP_BRANCH}"
 INSTALL_DIR=""
 INSTALL_DIR_OWNED=false
 FORWARD_ARGS=()
@@ -77,17 +79,38 @@ parse_wrapper_args() {
 }
 
 normalize_bootstrap_default_ref() {
-    local value="${1:-main}"
+    local value="${1:-$CANONICAL_BOOTSTRAP_BRANCH}"
     case "${value,,}" in
-        main)
-            echo "main"
+        "$CANONICAL_BOOTSTRAP_BRANCH")
+            echo "$CANONICAL_BOOTSTRAP_BRANCH"
+            ;;
+        "$LEGACY_BOOTSTRAP_BRANCH")
+            echo "WARN: XRAY_BOOTSTRAP_DEFAULT_REF=main is deprecated; use '$CANONICAL_BOOTSTRAP_BRANCH'" >&2
+            echo "$CANONICAL_BOOTSTRAP_BRANCH"
             ;;
         release | latest-release | latest_release | release-tag | release_tag | tag)
             echo "release"
             ;;
         *)
-            echo "ERROR: XRAY_BOOTSTRAP_DEFAULT_REF must be one of: main, release" >&2
+            echo "ERROR: XRAY_BOOTSTRAP_DEFAULT_REF must be one of: $CANONICAL_BOOTSTRAP_BRANCH, release (legacy: main)" >&2
             exit 1
+            ;;
+    esac
+}
+
+normalize_repo_ref_alias() {
+    local value="${1:-}"
+    [[ -n "$value" ]] || return 0
+    case "${value,,}" in
+        "$LEGACY_BOOTSTRAP_BRANCH")
+            echo "WARN: XRAY_REPO_REF=main is deprecated; using '$CANONICAL_BOOTSTRAP_BRANCH'" >&2
+            echo "$CANONICAL_BOOTSTRAP_BRANCH"
+            ;;
+        "$CANONICAL_BOOTSTRAP_BRANCH")
+            echo "$CANONICAL_BOOTSTRAP_BRANCH"
+            ;;
+        *)
+            echo "$value"
             ;;
     esac
 }
@@ -278,6 +301,7 @@ is_commit_ref() {
 
 parse_wrapper_args "$@"
 BOOTSTRAP_DEFAULT_REF=$(normalize_bootstrap_default_ref "$BOOTSTRAP_DEFAULT_REF")
+REPO_REF=$(normalize_repo_ref_alias "$REPO_REF")
 
 LIB_PATH=""
 for dir in "$SCRIPT_DIR" "$XRAY_DATA_DIR"; do
@@ -327,11 +351,11 @@ if [[ -z "$LIB_PATH" ]] || { [[ -z "$SCRIPT_DIR" || ! -f "$SCRIPT_DIR/config.sh"
                 REPO_REF="$resolved_tag"
                 echo "Using latest release tag for bootstrap: $REPO_REF"
             else
-                REPO_REF="main"
+                REPO_REF="$CANONICAL_BOOTSTRAP_BRANCH"
                 echo "WARN: failed to resolve latest release tag; falling back to ref '$REPO_REF'" >&2
             fi
         else
-            REPO_REF="main"
+            REPO_REF="$CANONICAL_BOOTSTRAP_BRANCH"
             echo "Using default bootstrap ref: $REPO_REF"
         fi
     fi

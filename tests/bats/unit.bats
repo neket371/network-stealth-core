@@ -2328,6 +2328,8 @@ EOF
 @test "release workflow avoids curl pipe sh and unpinned release action" {
     run bash -eo pipefail -c '
     grep -q '\''gh release create'\'' ./.github/workflows/release.yml
+    grep -q '\''default_branch="${{ github.event.repository.default_branch }}"'\'' ./.github/workflows/release.yml
+    ! grep -q '\''origin/main'\'' ./.github/workflows/release.yml
     ! grep -Eq '\''curl[[:space:]]+-sSfL[[:space:]]+https://raw.githubusercontent.com/anchore/syft/main/install.sh[[:space:]]*\\|[[:space:]]*sudo[[:space:]]+sh'\'' ./.github/workflows/release.yml
     ! grep -q '\''softprops/action-gh-release'\'' ./.github/workflows/release.yml
     echo "ok"
@@ -2396,6 +2398,10 @@ EOF
     run bash -eo pipefail -c '
     grep -q '\''name: ubuntu-24.04'\'' ./.github/workflows/os-matrix-smoke.yml
     grep -q '\''image: ubuntu:24.04'\'' ./.github/workflows/os-matrix-smoke.yml
+    grep -Fq -- '\''- ubuntu'\'' ./.github/workflows/os-matrix-smoke.yml
+    grep -Fq -- '\''- main'\'' ./.github/workflows/os-matrix-smoke.yml
+    grep -Fq -- '\''- ubuntu'\'' ./.github/workflows/packages.yml
+    grep -Fq -- '\''- main'\'' ./.github/workflows/packages.yml
     echo "ok"
   '
     [ "$status" -eq 0 ]

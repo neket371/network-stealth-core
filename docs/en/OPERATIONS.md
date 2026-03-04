@@ -7,17 +7,19 @@ This runbook is the operations reference for **Network Stealth Core**.
 ### Universal install (recommended)
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 ```
 
 ### One-line install
 
 ```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh) install
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh) install
 ```
 
 If `/dev/fd` is unavailable, use universal install.
+
+Migration note: legacy `main` is supported as a temporary alias for one release cycle; canonical branch is `ubuntu`.
 
 ## Runtime assumptions
 
@@ -46,7 +48,7 @@ make ci
 On clean Ubuntu 24.04:
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 sudo xray-reality.sh status
 sudo xray -test -c /etc/xray/config.json

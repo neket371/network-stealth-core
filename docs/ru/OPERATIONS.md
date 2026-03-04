@@ -7,17 +7,19 @@
 ### Universal install (рекомендуется)
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 ```
 
 ### One-line install
 
 ```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh) install
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh) install
 ```
 
 Если `/dev/fd` недоступен, используйте universal install.
+
+Заметка миграции: legacy `main` поддерживается как временный alias на один релизный цикл; каноническая ветка — `ubuntu`.
 
 ## Runtime-допущения
 
@@ -44,7 +46,7 @@ make ci
 ### Smoke на чистой VM
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/main/xray-reality.sh -o /tmp/xray-reality.sh
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
 sudo xray-reality.sh status
 sudo xray -test -c /etc/xray/config.json
