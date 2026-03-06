@@ -16,7 +16,7 @@ source "$GLOBAL_CONTRACT_MODULE"
 cli_is_action() {
     local value="${1:-}"
     case "$value" in
-        install | add-clients | add-keys | update | repair | diagnose | rollback | uninstall | status | logs | check-update)
+        install | add-clients | add-keys | update | repair | migrate-stealth | diagnose | rollback | uninstall | status | logs | check-update)
             return 0
             ;;
         *)
@@ -77,6 +77,9 @@ cli_handle_long_option() {
         yes | non-interactive)
             NON_INTERACTIVE=true
             ASSUME_YES=true
+            ;;
+        advanced)
+            XRAY_ADVANCED="true"
             ;;
         dry-run)
             DRY_RUN=true
@@ -237,6 +240,9 @@ cli_handle_long_option() {
             ;;
         repair)
             ACTION="repair"
+            ;;
+        migrate-stealth)
+            ACTION="migrate-stealth"
             ;;
         diagnose)
             ACTION="diagnose"
@@ -489,6 +495,7 @@ apply_runtime_overrides() {
         TRANSPORT="$XRAY_TRANSPORT"
     fi
     TRANSPORT="${TRANSPORT,,}"
+    ADVANCED_MODE=$(parse_bool "${XRAY_ADVANCED:-${ADVANCED_MODE:-false}}" false)
     MUX_MODE="${MUX_MODE,,}"
     QR_ENABLED="${QR_ENABLED,,}"
 

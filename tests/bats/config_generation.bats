@@ -1,27 +1,27 @@
 #!/usr/bin/env bats
 
-@test "generate_inbound_json produces valid JSON for grpc" {
+@test "generate_inbound_json produces valid JSON for xhttp" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
     json=$(generate_inbound_json 443 "test-uuid" "example.com:443" "example.com" \
-      "privkey" "abcd1234" "chrome" "TestService" 30 60 15)
+      "privkey" "abcd1234" "chrome" "/edge/api/demo" 30 60 15)
     echo "$json" | jq -e .port
   '
     [ "$status" -eq 0 ]
     [ "$output" = "443" ]
 }
 
-@test "generate_inbound_json grpc includes serviceName" {
+@test "generate_inbound_json xhttp includes path" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
     json=$(generate_inbound_json 443 "uuid" "d.com:443" "d.com" \
-      "pk" "sid" "chrome" "MyService" 30 45 10)
-    echo "$json" | jq -r .streamSettings.grpcSettings.serviceName
+      "pk" "sid" "chrome" "/edge/api/demo" 30 45 10)
+    echo "$json" | jq -r .streamSettings.xhttpSettings.path
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "MyService" ]
+    [ "$output" = "/edge/api/demo" ]
 }
 
 @test "generate_inbound_json includes reality settings" {
@@ -29,7 +29,7 @@
     source ./lib.sh
     source ./config.sh
     json=$(generate_inbound_json 443 "my-uuid" "target.com:443" "target.com" \
-      "myprivkey" "aabb" "chrome" "SvcName" 30 60 15)
+      "myprivkey" "aabb" "chrome" "/edge/api/demo" 30 60 15)
     echo "$json" | jq -r .streamSettings.realitySettings.privateKey
   '
     [ "$status" -eq 0 ]
@@ -41,7 +41,7 @@
     source ./lib.sh
     source ./config.sh
     json=$(generate_inbound_json 443 "uuid" "d.com:443" "d.com" \
-      "pk" "sid" "chrome" "Svc" 30 45 10)
+      "pk" "sid" "chrome" "/edge/api/demo" 30 45 10)
     echo "$json" | jq -r .streamSettings.sockopt.tcpCongestion
   '
     [ "$status" -eq 0 ]

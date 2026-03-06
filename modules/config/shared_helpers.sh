@@ -59,6 +59,7 @@ build_vless_query_params() {
     local sid="$4"
     local transport="$5"
     local endpoint="$6"
+    local mode="${7:-}"
 
     local params=(
         "encryption=none"
@@ -69,23 +70,56 @@ build_vless_query_params() {
         "sid=$(url_encode_component "$sid")"
     )
 
-    if [[ "$transport" == "http2" ]]; then
-        params+=(
-            "type=http"
-            "host=$(url_encode_component "$sni")"
-            "path=$(url_encode_component "$endpoint")"
-            "alpn=h2"
-        )
-    else
-        params+=(
-            "type=grpc"
-            "serviceName=$(url_encode_component "$endpoint")"
-            "mode=multi"
-        )
-    fi
+    case "$transport" in
+        xhttp)
+            params+=(
+                "type=xhttp"
+                "path=$(url_encode_component "$endpoint")"
+                "mode=$(url_encode_component "${mode:-auto}")"
+            )
+            ;;
+        http2)
+            params+=(
+                "type=http"
+                "host=$(url_encode_component "$sni")"
+                "path=$(url_encode_component "$endpoint")"
+                "alpn=h2"
+            )
+            ;;
+        *)
+            params+=(
+                "type=grpc"
+                "serviceName=$(url_encode_component "$endpoint")"
+                "mode=multi"
+            )
+            ;;
+    esac
 
     local IFS='&'
     printf '%s' "${params[*]}"
+}
+
+transport_display_name() {
+    local transport="${1:-${TRANSPORT:-xhttp}}"
+    case "${transport,,}" in
+        xhttp) printf '%s' "xhttp" ;;
+        http2 | h2 | http/2) printf '%s' "http/2" ;;
+        *) printf '%s' "grpc" ;;
+    esac
+}
+
+transport_endpoint_label() {
+    local transport="${1:-${TRANSPORT:-xhttp}}"
+    case "${transport,,}" in
+        xhttp) printf '%s' "xhttp path" ;;
+        http2 | h2 | http/2) printf '%s' "http/2 path" ;;
+        *) printf '%s' "grpc service" ;;
+    esac
+}
+
+transport_is_legacy() {
+    local transport="${1:-${TRANSPORT:-xhttp}}"
+    [[ "${transport,,}" == "grpc" || "${transport,,}" == "http2" || "${transport,,}" == "h2" || "${transport,,}" == "http/2" ]]
 }
 
 client_link_prefix_for_tier() {

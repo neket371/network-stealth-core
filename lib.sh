@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Network Stealth Core 4.2.3 - Автоматизация установки и сопровождения Xray Reality (gRPC/HTTP2 + Reality + MUX)
+# Network Stealth Core 4.2.3 - Автоматизация установки и сопровождения Xray Reality (xhttp-first + Reality)
 
 set -euo pipefail
 
@@ -32,8 +32,9 @@ LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-30}"
 LOG_MAX_SIZE_MB="${LOG_MAX_SIZE_MB:-10}"
 KEEP_LOCAL_BACKUPS="${KEEP_LOCAL_BACKUPS:-true}"
 XRAY_TRANSPORT="${XRAY_TRANSPORT:-}"
-TRANSPORT="${TRANSPORT:-grpc}" # grpc|http2
-MUX_MODE="${MUX_MODE:-on}"     # on|off|auto (on = максимальная обфускация)
+XRAY_ADVANCED="${XRAY_ADVANCED:-}"
+TRANSPORT="${TRANSPORT:-xhttp}" # xhttp|grpc|http2
+MUX_MODE="${MUX_MODE:-off}"     # off by default for xhttp-first installs
 MUX_CONCURRENCY_MIN="${MUX_CONCURRENCY_MIN:-3}"
 MUX_CONCURRENCY_MAX="${MUX_CONCURRENCY_MAX:-20}"
 GRPC_IDLE_TIMEOUT_MIN="${GRPC_IDLE_TIMEOUT_MIN:-60}"
@@ -125,7 +126,8 @@ UUIDS=()
 SHORT_IDS=()
 CONFIG_DOMAINS=()
 CONFIG_SNIS=()
-CONFIG_GRPC_SERVICES=()
+CONFIG_TRANSPORT_ENDPOINTS=()
+CONFIG_DESTS=()
 CONFIG_FPS=()
 AVAILABLE_DOMAINS=()
 REUSE_EXISTING_CONFIG=false
@@ -154,7 +156,7 @@ declare -A CREATED_PATH_SET=()
 : "${HEALTH_LOG}"
 : "${PORTS[@]}" "${PORTS_V6[@]}"
 : "${PRIVATE_KEYS[@]}" "${PUBLIC_KEYS[@]}" "${UUIDS[@]}" "${SHORT_IDS[@]}"
-: "${CONFIG_DOMAINS[@]}" "${CONFIG_SNIS[@]}" "${CONFIG_GRPC_SERVICES[@]}" "${CONFIG_FPS[@]}" "${AVAILABLE_DOMAINS[@]}"
+: "${CONFIG_DOMAINS[@]}" "${CONFIG_SNIS[@]}" "${CONFIG_TRANSPORT_ENDPOINTS[@]}" "${CONFIG_DESTS[@]}" "${CONFIG_FPS[@]}" "${AVAILABLE_DOMAINS[@]}"
 
 DEFAULT_DATA_DIR="/usr/local/share/xray-reality"
 if [[ -z "${XRAY_DATA_DIR:-}" ]]; then
@@ -774,7 +776,7 @@ setup_logging() {
 
     local inner_width
     local title="${SCRIPT_NAME} v${SCRIPT_VERSION}"
-    local subtitle="Автоматизация установки и сопровождения Xray Reality (gRPC/HTTP2 + Reality + MUX)"
+    local subtitle="Автоматизация установки и сопровождения Xray Reality (xhttp-first + Reality)"
     inner_width=$(ui_box_width_for_lines 60 92 "$title" "$subtitle")
     local box_top box_bottom
     box_top=$(ui_box_border_string top "$inner_width")
@@ -1702,6 +1704,7 @@ Commands:
   add-keys [N]                   Alias of add-clients [N]
   update                         Update Xray-core
   repair                         Re-apply units/firewall/monitoring and recover artifacts
+  migrate-stealth                Migrate managed legacy transport (gRPC/HTTP2) to xhttp
   status                         Show current configuration and status
   logs [xray|health|all]         View service logs (default: all)
   diagnose                       Collect diagnostics
@@ -1714,11 +1717,12 @@ Options:
   --dry-run                      Show actions without executing
   --verbose                      More logging (also: detailed status)
   --yes, --non-interactive       Skip prompts (automation mode)
+  --advanced                     Enable legacy interactive prompt flow
   --num-configs <N>              Number of configs (tier-aware limit)
   --domain-profile <ru|ru-auto|global-50|global-50-auto|custom>
-                                 Domain profile for install/add (default: ru)
+                                  Domain profile for install/add (default install path: ru-auto)
   --start-port <1-65535>         Starting port (default: 443)
-  --transport <grpc|http2>       Transport mode (default: grpc)
+  --transport <xhttp|grpc|http2> Transport mode (default: xhttp; grpc/http2 are legacy)
   --progress-mode <mode>         Progress output: auto|bar|plain|none
   --require-minisign             Fail when minisign is unavailable or signature is missing
   --allow-no-systemd             Allow install/update/repair without systemd (compat mode)
@@ -1737,7 +1741,8 @@ Options:
 
 Environment variables:
   XRAY_DOMAIN_PROFILE            Domain profile (ru|ru-auto|global-50|global-50-auto|custom; legacy aliases global-ms10*)
-  TRANSPORT                      Transport mode (grpc|http2, default: grpc)
+  TRANSPORT                      Transport mode (xhttp|grpc|http2, default: xhttp)
+  XRAY_ADVANCED                  Enable legacy interactive prompt flow
   SHORT_ID_BYTES_MIN             Min Reality ShortID bytes (default: 8)
   SHORT_ID_BYTES_MAX             Max Reality ShortID bytes (default: 8)
   DOMAIN_HEALTH_RANKING          Use adaptive domain ranking (default: true)
@@ -1792,6 +1797,7 @@ dry_run_summary() {
             echo "  Начальный порт: ${START_PORT}"
             echo "  Spider Mode:   ${SPIDER_MODE}"
             echo "  Transport:     ${TRANSPORT}"
+            echo "  Advanced UX:   ${ADVANCED_MODE}"
             echo "  MUX:           ${MUX_MODE}"
             echo "  Auto-update:   ${AUTO_UPDATE}"
             echo "  IPv4:          ${SERVER_IP:-auto-detect}"
@@ -1875,7 +1881,7 @@ load_config_file() {
             fi
         fi
         case "$key" in
-            XRAY_DOMAIN_TIER | XRAY_DOMAIN_PROFILE | XRAY_NUM_CONFIGS | XRAY_SPIDER_MODE | XRAY_START_PORT | XRAY_PROGRESS_MODE | DOMAIN_PROFILE | DOMAIN_TIER | NUM_CONFIGS | SPIDER_MODE | START_PORT | PROGRESS_MODE | XRAY_TRANSPORT | TRANSPORT | MUX_MODE | MUX_CONCURRENCY_MIN | MUX_CONCURRENCY_MAX | GRPC_IDLE_TIMEOUT_MIN | GRPC_IDLE_TIMEOUT_MAX | GRPC_HEALTH_TIMEOUT_MIN | GRPC_HEALTH_TIMEOUT_MAX | TCP_KEEPALIVE_MIN | TCP_KEEPALIVE_MAX | SHORT_ID_BYTES_MIN | SHORT_ID_BYTES_MAX | KEEP_LOCAL_BACKUPS | MAX_BACKUPS | REUSE_EXISTING | AUTO_ROLLBACK | XRAY_VERSION | XRAY_MIRRORS | MINISIGN_MIRRORS | QR_ENABLED | AUTO_UPDATE | AUTO_UPDATE_ONCALENDAR | AUTO_UPDATE_RANDOM_DELAY | ALLOW_INSECURE_SHA256 | ALLOW_UNVERIFIED_MINISIGN_BOOTSTRAP | REQUIRE_MINISIGN | ALLOW_NO_SYSTEMD | GEO_VERIFY_HASH | GEO_VERIFY_STRICT | XRAY_CUSTOM_DOMAINS | XRAY_DOMAINS_FILE | XRAY_SNI_POOLS_FILE | XRAY_GRPC_SERVICES_FILE | XRAY_TIERS_FILE | XRAY_DATA_DIR | XRAY_GEO_DIR | XRAY_SCRIPT_PATH | XRAY_UPDATE_SCRIPT | DOMAIN_CHECK | DOMAIN_CHECK_TIMEOUT | DOMAIN_CHECK_PARALLELISM | REALITY_TEST_PORTS | SKIP_REALITY_CHECK | DOMAIN_HEALTH_FILE | DOMAIN_HEALTH_PROBE_TIMEOUT | DOMAIN_HEALTH_RATE_LIMIT_MS | DOMAIN_HEALTH_MAX_PROBES | DOMAIN_HEALTH_RANKING | DOMAIN_QUARANTINE_FAIL_STREAK | DOMAIN_QUARANTINE_COOLDOWN_MIN | PRIMARY_DOMAIN_MODE | PRIMARY_PIN_DOMAIN | PRIMARY_ADAPTIVE_TOP_N | DOWNLOAD_HOST_ALLOWLIST | GH_PROXY_BASE | DOWNLOAD_TIMEOUT | DOWNLOAD_RETRIES | DOWNLOAD_RETRY_DELAY | SERVER_IP | SERVER_IP6 | DRY_RUN | VERBOSE | HEALTH_CHECK_INTERVAL | LOG_RETENTION_DAYS | LOG_MAX_SIZE_MB | HEALTH_LOG)
+            XRAY_DOMAIN_TIER | XRAY_DOMAIN_PROFILE | XRAY_NUM_CONFIGS | XRAY_SPIDER_MODE | XRAY_START_PORT | XRAY_PROGRESS_MODE | XRAY_ADVANCED | DOMAIN_PROFILE | DOMAIN_TIER | NUM_CONFIGS | SPIDER_MODE | START_PORT | PROGRESS_MODE | ADVANCED_MODE | XRAY_TRANSPORT | TRANSPORT | MUX_MODE | MUX_CONCURRENCY_MIN | MUX_CONCURRENCY_MAX | GRPC_IDLE_TIMEOUT_MIN | GRPC_IDLE_TIMEOUT_MAX | GRPC_HEALTH_TIMEOUT_MIN | GRPC_HEALTH_TIMEOUT_MAX | TCP_KEEPALIVE_MIN | TCP_KEEPALIVE_MAX | SHORT_ID_BYTES_MIN | SHORT_ID_BYTES_MAX | KEEP_LOCAL_BACKUPS | MAX_BACKUPS | REUSE_EXISTING | AUTO_ROLLBACK | XRAY_VERSION | XRAY_MIRRORS | MINISIGN_MIRRORS | QR_ENABLED | AUTO_UPDATE | AUTO_UPDATE_ONCALENDAR | AUTO_UPDATE_RANDOM_DELAY | ALLOW_INSECURE_SHA256 | ALLOW_UNVERIFIED_MINISIGN_BOOTSTRAP | REQUIRE_MINISIGN | ALLOW_NO_SYSTEMD | GEO_VERIFY_HASH | GEO_VERIFY_STRICT | XRAY_CUSTOM_DOMAINS | XRAY_DOMAINS_FILE | XRAY_SNI_POOLS_FILE | XRAY_GRPC_SERVICES_FILE | XRAY_TIERS_FILE | XRAY_DATA_DIR | XRAY_GEO_DIR | XRAY_SCRIPT_PATH | XRAY_UPDATE_SCRIPT | DOMAIN_CHECK | DOMAIN_CHECK_TIMEOUT | DOMAIN_CHECK_PARALLELISM | REALITY_TEST_PORTS | SKIP_REALITY_CHECK | DOMAIN_HEALTH_FILE | DOMAIN_HEALTH_PROBE_TIMEOUT | DOMAIN_HEALTH_RATE_LIMIT_MS | DOMAIN_HEALTH_MAX_PROBES | DOMAIN_HEALTH_RANKING | DOMAIN_QUARANTINE_FAIL_STREAK | DOMAIN_QUARANTINE_COOLDOWN_MIN | PRIMARY_DOMAIN_MODE | PRIMARY_PIN_DOMAIN | PRIMARY_ADAPTIVE_TOP_N | DOWNLOAD_HOST_ALLOWLIST | GH_PROXY_BASE | DOWNLOAD_TIMEOUT | DOWNLOAD_RETRIES | DOWNLOAD_RETRY_DELAY | SERVER_IP | SERVER_IP6 | DRY_RUN | VERBOSE | HEALTH_CHECK_INTERVAL | LOG_RETENTION_DAYS | LOG_MAX_SIZE_MB | HEALTH_LOG)
                 printf -v "$key" '%s' "$value"
                 ;;
             *) ;;
@@ -2456,10 +2462,10 @@ validate_install_config() {
     fi
     DOMAIN_TIER="$normalized_tier"
     case "$TRANSPORT" in
-        grpc | http2) ;;
+        xhttp | grpc | http2) ;;
         *)
-            log WARN "Неверный TRANSPORT: $TRANSPORT (используем grpc)"
-            TRANSPORT="grpc"
+            log WARN "Неверный TRANSPORT: $TRANSPORT (используем xhttp)"
+            TRANSPORT="xhttp"
             ;;
     esac
     local max_configs
@@ -2475,10 +2481,14 @@ validate_install_config() {
     case "$MUX_MODE" in
         on | off | auto) ;;
         *)
-            log WARN "Неверный MUX_MODE: $MUX_MODE (используем on)"
-            MUX_MODE="on"
+            log WARN "Неверный MUX_MODE: $MUX_MODE (используем off)"
+            MUX_MODE="off"
             ;;
     esac
+    if [[ "$TRANSPORT" == "xhttp" && "$MUX_MODE" != "off" ]]; then
+        log WARN "MUX не используется в xhttp-first режиме; принудительно отключаем"
+        MUX_MODE="off"
+    fi
     if [[ ! "$MUX_CONCURRENCY_MIN" =~ ^[0-9]+$ ]] || [[ ! "$MUX_CONCURRENCY_MAX" =~ ^[0-9]+$ ]]; then
         log ERROR "Некорректные значения MUX_CONCURRENCY"
         return 1
@@ -2562,7 +2572,7 @@ require_root() {
 require_systemd_runtime_for_action() {
     local action="${1:-$ACTION}"
     case "$action" in
-        install | update | repair | add-clients | add-keys) ;;
+        install | update | repair | migrate-stealth | add-clients | add-keys) ;;
         *)
             return 0
             ;;
@@ -2652,6 +2662,12 @@ main() {
             require_root
             require_systemd_runtime_for_action "repair"
             repair_flow
+            ;;
+        migrate-stealth)
+            strict_validate_runtime_inputs "migrate-stealth"
+            require_root
+            require_systemd_runtime_for_action "migrate-stealth"
+            migrate_stealth_flow
             ;;
         diagnose)
             strict_validate_runtime_inputs "diagnose"

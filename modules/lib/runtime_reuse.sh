@@ -41,6 +41,10 @@ load_existing_metadata_from_config() {
         | select(.streamSettings.realitySettings != null)
         | select((.listen // "0.0.0.0") | test(":") | not)
         | .streamSettings.realitySettings.dest // empty' "$XRAY_CONFIG" | sed 's/:.*//')
+    mapfile -t CONFIG_DESTS < <(jq -r '.inbounds[]
+        | select(.streamSettings.realitySettings != null)
+        | select((.listen // "0.0.0.0") | test(":") | not)
+        | .streamSettings.realitySettings.dest // empty' "$XRAY_CONFIG")
     mapfile -t CONFIG_SNIS < <(jq -r '.inbounds[]
         | select(.streamSettings.realitySettings != null)
         | select((.listen // "0.0.0.0") | test(":") | not)
@@ -49,10 +53,28 @@ load_existing_metadata_from_config() {
         | select(.streamSettings.realitySettings != null)
         | select((.listen // "0.0.0.0") | test(":") | not)
         | .streamSettings.realitySettings.fingerprint // "chrome"' "$XRAY_CONFIG")
-    mapfile -t CONFIG_GRPC_SERVICES < <(jq -r '.inbounds[]
+    mapfile -t CONFIG_TRANSPORT_ENDPOINTS < <(jq -r '.inbounds[]
         | select(.streamSettings.realitySettings != null)
         | select((.listen // "0.0.0.0") | test(":") | not)
-        | .streamSettings.grpcSettings.serviceName // .streamSettings.httpSettings.path // "-" ' "$XRAY_CONFIG")
+        | .streamSettings.xhttpSettings.path // .streamSettings.grpcSettings.serviceName // .streamSettings.httpSettings.path // "-" ' "$XRAY_CONFIG")
+
+    local first_transport
+    first_transport=$(jq -r '
+        .inbounds[]
+        | select(.streamSettings.realitySettings != null)
+        | select((.listen // "0.0.0.0") | test(":") | not)
+        | .streamSettings.network // empty
+        ' "$XRAY_CONFIG" 2> /dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')
+    case "$first_transport" in
+        h2 | http/2) TRANSPORT="http2" ;;
+        grpc | xhttp) TRANSPORT="$first_transport" ;;
+        *)
+            if [[ -n "$first_transport" ]]; then
+                log WARN "Обнаружен нестандартный transport в config.json: ${first_transport} (используем xhttp-safe fallback)"
+            fi
+            TRANSPORT="xhttp"
+            ;;
+    esac
 }
 
 load_keys_from_config() {
@@ -111,6 +133,7 @@ load_keys_from_clients_file() {
     PUBLIC_KEYS=()
     UUIDS=()
     SHORT_IDS=()
+    local seen=" "
 
     local line uuid params pbk sid
     while IFS= read -r line; do
@@ -124,6 +147,8 @@ load_keys_from_clients_file() {
         pbk=$(get_query_param "$params" "pbk" || true)
         sid=$(get_query_param "$params" "sid" || true)
 
+        [[ " $seen " == *" $uuid "* ]] && continue
+        seen="${seen}${uuid} "
         UUIDS+=("$uuid")
         PUBLIC_KEYS+=("$pbk")
         SHORT_IDS+=("$sid")

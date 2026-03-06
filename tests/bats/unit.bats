@@ -208,10 +208,17 @@
     [ "$output" = "ok" ]
 }
 
-@test "yaml_escape always returns quoted safe scalar" {
-    run bash -eo pipefail -c 'source ./lib.sh; source ./export.sh; yaml_escape "a:b # test"'
+@test "export_compatibility_notes writes non-empty text artifact" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./export.sh
+    tmp=$(mktemp)
+    export_compatibility_notes "$tmp"
+    grep -q "network stealth core export notes" "$tmp"
+    echo ok
+  '
     [ "$status" -eq 0 ]
-    [ "$output" = "\"a:b # test\"" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "resolve_mirror_base replaces version placeholders" {
@@ -663,28 +670,28 @@ EOF
     [ "$status" -ne 0 ]
 }
 
-@test "validate_export_json_schema accepts minimal singbox shape" {
+@test "validate_export_json_schema accepts minimal json export" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./export.sh
     tmp=$(mktemp)
     cat > "$tmp" <<EOF
-{"dns":{"servers":[{"tag":"d1"}]},"inbounds":[{"type":"mixed"}],"outbounds":[{"type":"vless"},{"type":"direct"},{"type":"block"}]}
+{"profiles":[{"name":"x","vless_link":"vless://demo"}]}
 EOF
-    validate_export_json_schema "$tmp" "singbox"
+    validate_export_json_schema "$tmp" "json"
     echo ok
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
 }
 
-@test "validate_export_json_schema rejects invalid v2rayn shape" {
+@test "validate_export_json_schema rejects empty text export" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./export.sh
     tmp=$(mktemp)
-    echo "{\"profiles\":[{\"name\":\"x\"}]}" > "$tmp"
-    validate_export_json_schema "$tmp" "v2rayn"
+    : > "$tmp"
+    validate_export_json_schema "$tmp" "text"
   '
     [ "$status" -ne 0 ]
 }
@@ -1152,7 +1159,7 @@ EOF
     tmp=$(mktemp)
     trap "rm -f \"$tmp\"" EXIT
     cat > "$tmp" <<EOF
-{"configs":[]}
+{"schema_version":2,"transport":"xhttp","configs":[]}
 EOF
     validate_clients_json_file "$tmp"
     echo "ok"
@@ -1204,7 +1211,7 @@ EOF
 [{"name":"Config 1"}]
 EOF
     validate_clients_json_file "$tmp"
-    jq -e '\''type=="object" and (.configs|type=="array") and (.configs|length==1)'\'' "$tmp" > /dev/null
+    jq -e '\''type=="object" and (.configs|type=="array") and (.configs|length==1) and (.configs[0].variants|length==1)'\'' "$tmp" > /dev/null
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1229,7 +1236,7 @@ EOF
 {"profiles":[{"name":"Config 1"}]}
 EOF
     validate_clients_json_file "$tmp"
-    jq -e '\''type=="object" and (.configs|type=="array") and (.configs|length==1) and (has("profiles")|not)'\'' "$tmp" > /dev/null
+    jq -e '\''type=="object" and (.configs|type=="array") and (.configs|length==1) and (has("profiles")|not) and (.configs[0].variants|length==1)'\'' "$tmp" > /dev/null
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1312,9 +1319,7 @@ EOF
 @test "add_clients_flow backs up artifacts before write" {
     run bash -eo pipefail -c '
     grep -q '\''backup_file "\$keys_file"'\'' ./modules/config/add_clients.sh
-    grep -q '\''backup_file "\$json_file"'\'' ./modules/config/add_clients.sh
-    grep -q '\''validate_clients_json_file "\$json_file"'\'' ./modules/config/add_clients.sh
-    grep -q '\''render_clients_txt_from_json "\$json_file" "\$client_file"'\'' ./modules/config/add_clients.sh
+    grep -q '\''rebuild_client_artifacts_from_config || {'\'' ./modules/config/add_clients.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1791,12 +1796,15 @@ Private Key: p1
 Private Key: p2
 EOF
     cat > "$XRAY_KEYS/clients.txt" <<EOF
+Config 1:
+variant: recommended
 vless://u1@1.1.1.1:444?pbk=pk1#cfg1
+Config 2:
+variant: recommended
 vless://u2@1.1.1.1:445?pbk=pk2#cfg2
-vless://u2@[2001:db8::1]:1445?pbk=pk2#cfg2-v6
 EOF
     cat > "$XRAY_KEYS/clients.json" <<EOF
-{"configs":[{"name":"Config 1"},{"name":"Config 2"}]}
+{"schema_version":2,"transport":"xhttp","configs":[{"name":"Config 1","recommended_variant":"recommended","variants":[{"key":"recommended"}]},{"name":"Config 2","recommended_variant":"recommended","variants":[{"key":"recommended"}]}]}
 EOF
     if client_artifacts_inconsistent 2; then
       echo "inconsistent"
@@ -1808,9 +1816,9 @@ EOF
     [ "$output" = "consistent" ]
 }
 
-@test "add_clients_flow checks missing and inconsistent artifacts before finalize" {
+@test "add_clients_flow always rebuilds artifacts after finalize" {
     run bash -eo pipefail -c '
-    grep -q '\''client_artifacts_missing || client_artifacts_inconsistent "\$new_total"'\'' ./modules/config/add_clients.sh
+    grep -q '\''rebuild_client_artifacts_from_config || {'\'' ./modules/config/add_clients.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1849,7 +1857,7 @@ EOF
     SERVER_IP="1.1.1.1"
     SERVER_IP6=""
     HAS_IPV6=false
-    TRANSPORT="grpc"
+    TRANSPORT="xhttp"
     SPIDER_MODE=false
     MUX_ENABLED=false
     MUX_CONCURRENCY=0
@@ -1865,24 +1873,25 @@ EOF
     CONFIG_DOMAINS=(example.com example.org)
     CONFIG_SNIS=(example.com example.org)
     CONFIG_FPS=(chrome firefox)
-    CONFIG_GRPC_SERVICES=(svc.one svc.two)
+    CONFIG_TRANSPORT_ENDPOINTS=(/edge/api/one /edge/api/two)
+    CONFIG_DESTS=(example.com:443 example.org:443)
 
     save_client_configs
 
     count=$(jq -r ".configs | length" "$XRAY_KEYS/clients.json")
     [[ "$count" == "2" ]]
-    jq -e ".configs[] | .vless_v4 | select(type == \"string\" and length > 0)" "$XRAY_KEYS/clients.json" > /dev/null
+    jq -e ".configs[] | .variants | select(type == \"array\" and length == 2)" "$XRAY_KEYS/clients.json" > /dev/null
+    jq -e ".configs[] | .recommended_variant | select(. == \"recommended\")" "$XRAY_KEYS/clients.json" > /dev/null
     echo "ok"
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
 }
 
-@test "add_clients_flow re-renders clients.txt from clients.json after append" {
+@test "add_clients_flow rebuilds artifacts from config after append" {
     run bash -eo pipefail -c '
-    grep -q '\''jq --argjson new "\$new_json_configs"'\'' ./modules/config/add_clients.sh
-    grep -q '\''\.configs += \$new'\'' ./modules/config/add_clients.sh
-    grep -q '\''render_clients_txt_from_json "\$json_file" "\$client_file"'\'' ./modules/config/add_clients.sh
+    grep -q '\''rebuild_client_artifacts_from_config || {'\'' ./modules/config/add_clients.sh
+    grep -q '\''print_add_clients_result "\$add_count" "\$client_file"'\'' ./modules/config/add_clients.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1894,7 +1903,7 @@ EOF
     source ./lib.sh
     source ./config.sh
     load_existing_ports_from_config() { PORTS=(444); PORTS_V6=(); HAS_IPV6=false; }
-    load_existing_metadata_from_config() { CONFIG_DOMAINS=(yandex.ru); CONFIG_SNIS=(yandex.ru); CONFIG_FPS=(chrome); CONFIG_GRPC_SERVICES=(svc.Test); }
+    load_existing_metadata_from_config() { CONFIG_DOMAINS=(yandex.ru); CONFIG_SNIS=(yandex.ru); CONFIG_FPS=(chrome); CONFIG_TRANSPORT_ENDPOINTS=(/edge/api/demo); CONFIG_DESTS=(yandex.ru:443); TRANSPORT=xhttp; }
     load_keys_from_config() { UUIDS=(u1); SHORT_IDS=(abcd1234); PRIVATE_KEYS=(priv1); }
     build_public_keys_for_current_config() { PUBLIC_KEYS=(pub1); return 0; }
     save_client_configs() { echo "saved"; return 0; }
@@ -1902,7 +1911,7 @@ EOF
     XRAY_KEYS="$(mktemp -d)"
     SERVER_IP="127.0.0.1"
     SERVER_IP6=""
-    TRANSPORT="grpc"
+    TRANSPORT="xhttp"
     SPIDER_MODE=true
     MUX_ENABLED=false
     MUX_CONCURRENCY=0
@@ -2056,7 +2065,7 @@ EOF
     NUM_CONFIGS=3
     START_PORT=24440
     SPIDER_MODE="true"
-    TRANSPORT="http2"
+    TRANSPORT="xhttp"
     PROGRESS_MODE="plain"
     SERVER_IP="127.0.0.1"
     SERVER_IP6="::1"
@@ -2144,12 +2153,14 @@ EOF
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
-    params=$(build_vless_query_params "exa&mple.com" "fire fox" "abc+123" "s#id" "grpc" "svc/one?x=1")
+    params=$(build_vless_query_params "exa&mple.com" "fire fox" "abc+123" "s#id" "xhttp" "/svc/one-x" "packet-up")
     [[ "$params" == *"sni=exa%26mple.com"* ]]
     [[ "$params" == *"fp=fire%20fox"* ]]
     [[ "$params" == *"pbk=abc%2B123"* ]]
     [[ "$params" == *"sid=s%23id"* ]]
-    [[ "$params" == *"serviceName=svc%2Fone%3Fx%3D1"* ]]
+    [[ "$params" == *"type=xhttp"* ]]
+    [[ "$params" == *"path=%2Fsvc%2Fone-x"* ]]
+    [[ "$params" == *"mode=packet-up"* ]]
     [[ "$params" != *"sni=exa&mple.com"* ]]
     echo "ok"
   '

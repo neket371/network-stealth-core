@@ -248,7 +248,7 @@ build_add_clients_inbounds() {
     local out_inbounds_name="$8"
     local out_domains_name="$9"
     local out_snis_name="${10}"
-    local out_grpc_name="${11}"
+    local out_transport_endpoint_name="${11}"
     local out_fps_name="${12}"
 
     local -n _new_ports="$new_ports_name"
@@ -258,11 +258,11 @@ build_add_clients_inbounds() {
     local -n _new_short_ids="$new_short_ids_name"
     local -n _out_domains="$out_domains_name"
     local -n _out_snis="$out_snis_name"
-    local -n _out_grpc="$out_grpc_name"
+    local -n _out_transport_endpoints="$out_transport_endpoint_name"
     local -n _out_fps="$out_fps_name"
     _out_domains=()
     _out_snis=()
-    _out_grpc=()
+    _out_transport_endpoints=()
     _out_fps=()
 
     if ! build_domain_plan "$add_count" "false"; then
@@ -284,7 +284,7 @@ build_add_clients_inbounds() {
         build_inbound_profile_for_domain "$domain" fp_pool
         _out_domains+=("$domain")
         _out_snis+=("$PROFILE_SNI")
-        _out_grpc+=("$PROFILE_GRPC")
+        _out_transport_endpoints+=("$PROFILE_TRANSPORT_ENDPOINT")
         _out_fps+=("$PROFILE_FP")
 
         local config_num=$((existing_count + i + 1))
@@ -369,183 +369,7 @@ EOF
 
     mv "$tmp_keys" "$keys_file"
     chmod 400 "$keys_file"
-    chown root:root "$keys_file"
-}
-
-build_add_clients_links() {
-    local existing_count="$1"
-    local add_count="$2"
-    local add_domains_name="$3"
-    local add_snis_name="$4"
-    local add_fps_name="$5"
-    local add_grpc_name="$6"
-    local new_public_keys_name="$7"
-    local new_short_ids_name="$8"
-    local new_uuids_name="$9"
-    local new_ports_name="${10}"
-    local new_ports_v6_name="${11}"
-    local out_vless_v4_name="${12}"
-    local out_vless_v6_name="${13}"
-
-    local -n _add_domains="$add_domains_name"
-    local -n _add_snis="$add_snis_name"
-    local -n _add_fps="$add_fps_name"
-    local -n _add_grpc="$add_grpc_name"
-    local -n _new_public_keys="$new_public_keys_name"
-    local -n _new_short_ids="$new_short_ids_name"
-    local -n _new_uuids="$new_uuids_name"
-    local -n _new_ports="$new_ports_name"
-    local -n _new_ports_v6="$new_ports_v6_name"
-    local -n _out_vless_v4="$out_vless_v4_name"
-    local -n _out_vless_v6="$out_vless_v6_name"
-    _out_vless_v4=()
-    _out_vless_v6=()
-
-    local i
-    local link_prefix
-    link_prefix=$(client_link_prefix_for_tier "$DOMAIN_TIER")
-    for ((i = 0; i < add_count; i++)); do
-        local config_num=$((existing_count + i + 1))
-        local domain="${_add_domains[$i]}"
-        local sni="${_add_snis[$i]}"
-        local fp="${_add_fps[$i]}"
-        local grpc="${_add_grpc[$i]}"
-        local clean_name endpoint params
-
-        clean_name=$(echo "$domain" | sed 's/www\.//; s/\./-/g')
-        endpoint="$grpc"
-        if [[ "$TRANSPORT" == "http2" ]]; then
-            endpoint=$(grpc_service_to_http2_path "$grpc")
-        fi
-        params=$(build_vless_query_params "$sni" "$fp" "${_new_public_keys[$i]}" "${_new_short_ids[$i]}" "$TRANSPORT" "$endpoint")
-        _out_vless_v4+=("vless://${_new_uuids[$i]}@${SERVER_IP}:${_new_ports[$i]}?${params}#${link_prefix}-${clean_name}-${config_num}")
-
-        if [[ "$HAS_IPV6" == true && -n "${SERVER_IP6:-}" && -n "${_new_ports_v6[$i]:-}" ]]; then
-            _out_vless_v6+=("vless://${_new_uuids[$i]}@[${SERVER_IP6}]:${_new_ports_v6[$i]}?${params}#${link_prefix}-${clean_name}-v6-${config_num}")
-        else
-            _out_vless_v6+=("")
-        fi
-    done
-}
-
-append_add_clients_json() {
-    local existing_count="$1"
-    local add_count="$2"
-    local add_domains_name="$3"
-    local add_snis_name="$4"
-    local add_fps_name="$5"
-    local add_grpc_name="$6"
-    local new_uuids_name="$7"
-    local new_short_ids_name="$8"
-    local new_public_keys_name="$9"
-    local new_ports_name="${10}"
-    local new_ports_v6_name="${11}"
-    local new_vless_v4_name="${12}"
-    local new_vless_v6_name="${13}"
-    local client_file="${14}"
-
-    local -n _add_domains="$add_domains_name"
-    local -n _add_snis="$add_snis_name"
-    local -n _add_fps="$add_fps_name"
-    local -n _add_grpc="$add_grpc_name"
-    local -n _new_uuids="$new_uuids_name"
-    local -n _new_short_ids="$new_short_ids_name"
-    local -n _new_public_keys="$new_public_keys_name"
-    local -n _new_ports="$new_ports_name"
-    local -n _new_ports_v6="$new_ports_v6_name"
-    local -n _new_vless_v4="$new_vless_v4_name"
-    local -n _new_vless_v6="$new_vless_v6_name"
-
-    local json_file="${XRAY_KEYS}/clients.json"
-    if [[ ! -f "$json_file" ]]; then
-        log WARN "Файл clients.json не найден; пересобираем клиентские артефакты из текущей конфигурации"
-        save_client_configs
-        return 0
-    fi
-
-    backup_file "$json_file"
-    validate_clients_json_file "$json_file" || return 1
-
-    local profiles_tmp
-    profiles_tmp=$(mktemp "${TMPDIR:-/tmp}/xray-add-profiles.XXXXXX")
-    local i
-    for ((i = 0; i < add_count; i++)); do
-        local config_num=$((existing_count + i + 1))
-        local json_transport_endpoint="${_add_grpc[$i]}"
-        if [[ "$TRANSPORT" == "http2" ]]; then
-            json_transport_endpoint=$(grpc_service_to_http2_path "$json_transport_endpoint")
-        fi
-
-        jq -n \
-            --arg name "Config ${config_num}" \
-            --arg domain "${_add_domains[$i]}" \
-            --arg sni "${_add_snis[$i]}" \
-            --arg fp "${_add_fps[$i]}" \
-            --arg grpc "$json_transport_endpoint" \
-            --arg transport "$TRANSPORT" \
-            --arg uuid "${_new_uuids[$i]}" \
-            --arg short_id "${_new_short_ids[$i]}" \
-            --arg public_key "${_new_public_keys[$i]}" \
-            --arg port_ipv4 "${_new_ports[$i]}" \
-            --arg port_ipv6 "${_new_ports_v6[$i]:-}" \
-            --arg vless_v4 "${_new_vless_v4[$i]}" \
-            --arg vless_v6 "${_new_vless_v6[$i]:-}" \
-            '{
-                name: $name,
-                domain: $domain,
-                sni: $sni,
-                fingerprint: $fp,
-                transport: $transport,
-                grpc_service: $grpc,
-                transport_endpoint: $grpc,
-                uuid: $uuid,
-                short_id: $short_id,
-                public_key: $public_key,
-                port_ipv4: ($port_ipv4 | tonumber),
-                port_ipv6: (if ($port_ipv6 | length) > 0 then ($port_ipv6 | tonumber?) else null end),
-                vless_v4: $vless_v4,
-                vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end)
-            }' >> "$profiles_tmp"
-    done
-
-    local new_json_configs='[]'
-    if [[ -s "$profiles_tmp" ]]; then
-        new_json_configs=$(jq -s '.' "$profiles_tmp")
-    fi
-    rm -f "$profiles_tmp"
-
-    local tmp_json
-    tmp_json=$(mktemp "${json_file}.tmp.XXXXXX")
-    jq --argjson new "$new_json_configs" '.configs += $new' "$json_file" > "$tmp_json"
-    mv "$tmp_json" "$json_file"
-    secure_clients_json_permissions "$json_file"
-    render_clients_txt_from_json "$json_file" "$client_file"
-}
-
-add_clients_generate_qr() {
-    local existing_count="$1"
-    local add_count="$2"
-    local new_vless_v4_name="$3"
-    local new_vless_v6_name="$4"
-    local -n _new_vless_v4="$new_vless_v4_name"
-    local -n _new_vless_v6="$new_vless_v6_name"
-
-    if [[ "$QR_ENABLED" == "false" ]] || ! command -v qrencode > /dev/null 2>&1; then
-        return 0
-    fi
-
-    local qr_dir="${XRAY_KEYS}/qr"
-    mkdir -p "$qr_dir"
-    local i
-    for ((i = 0; i < add_count; i++)); do
-        local idx=$((existing_count + i))
-        if [[ -n "${_new_vless_v4[$i]:-}" ]]; then
-            qrencode -o "${qr_dir}/config-${idx}-v4.png" -s 6 -m 2 "${_new_vless_v4[$i]}" > /dev/null 2>&1 || true
-        fi
-        if [[ -n "${_new_vless_v6[$i]:-}" ]]; then
-            qrencode -o "${qr_dir}/config-${idx}-v6.png" -s 6 -m 2 "${_new_vless_v6[$i]}" > /dev/null 2>&1 || true
-        fi
-    done
+    chown root:root "$keys_file" 2> /dev/null || true
 }
 
 restart_and_verify_add_clients_ports() {
@@ -595,13 +419,7 @@ restart_and_verify_add_clients_ports() {
 
 print_add_clients_result() {
     local add_count="$1"
-    local existing_count="$2"
-    local client_file="$3"
-    local new_vless_v4_name="$4"
-    local new_vless_v6_name="$5"
-    local -n _new_vless_v4="$new_vless_v4_name"
-    local -n _new_vless_v6="$new_vless_v6_name"
-
+    local client_file="$2"
     echo ""
     local title="ДОБАВЛЕНО ${add_count} НОВЫХ КОНФИГУРАЦИЙ"
     local box_width box_top box_line box_bottom
@@ -614,46 +432,10 @@ print_add_clients_result() {
     echo -e "${BOLD}${GREEN}${box_bottom}${NC}"
     echo ""
 
-    if ! can_write_dev_tty; then
-        log INFO "Терминал недоступен; новые ссылки не печатаются в лог. Откройте файл: ${client_file}"
-        echo -e "📁 Обновлено: ${client_file}"
-        echo ""
-        return 0
-    fi
-
-    local tty_write_ok=true
-    local i
-    for ((i = 0; i < add_count; i++)); do
-        local config_num=$((existing_count + i + 1))
-        if ! {
-            echo -e "${BOLD}$(ui_section_title_string "Конфиг #${config_num}")${NC}"
-            echo "${_new_vless_v4[$i]}"
-            if [[ -n "${_new_vless_v6[$i]:-}" ]]; then
-                echo "${_new_vless_v6[$i]}"
-            fi
-            echo ""
-        } > /dev/tty 2> /dev/null; then
-            tty_write_ok=false
-            break
-        fi
-    done
-
-    if [[ "$tty_write_ok" == true ]]; then
-        if ! {
-            echo -e "📁 Обновлено: ${client_file}"
-            echo ""
-        } > /dev/tty 2> /dev/null; then
-            tty_write_ok=false
-        fi
-    fi
-
-    if [[ "$tty_write_ok" == true ]]; then
-        log INFO "Новые клиентские ссылки выведены только в /dev/tty (в install log не записаны)"
-    else
-        log INFO "Терминал недоступен; новые ссылки не печатаются в лог. Откройте файл: ${client_file}"
-        echo -e "📁 Обновлено: ${client_file}"
-        echo ""
-    fi
+    log INFO "Клиентские артефакты полностью пересобраны"
+    echo -e "📁 Обновлено: ${client_file}"
+    echo -e "📁 raw xray: ${XRAY_KEYS}/export/raw-xray/"
+    echo ""
 }
 
 add_clients_flow() {
@@ -697,7 +479,7 @@ add_clients_flow() {
     # shellcheck disable=SC2034 # Passed to helper functions via nameref.
     local -a add_snis=()
     # shellcheck disable=SC2034 # Passed to helper functions via nameref.
-    local -a add_grpc_services=()
+    local -a add_transport_endpoints=()
     # shellcheck disable=SC2034 # Passed to helper functions via nameref.
     local -a add_fps=()
     local new_inbounds='[]'
@@ -712,7 +494,7 @@ add_clients_flow() {
         new_inbounds \
         add_domains \
         add_snis \
-        add_grpc_services \
+        add_transport_endpoints \
         add_fps || exit 1
 
     backup_file "$XRAY_CONFIG"
@@ -732,7 +514,7 @@ add_clients_flow() {
     fw_status=$(open_firewall_ports "${new_ports[*]}" "${new_ports_v6[*]}")
     case "$fw_status" in
         ok) log OK "Файрвол обновлён" ;;
-        partial) log WARN "Файрвол обновлён частично — проверьте правила" ;;
+        partial) log WARN "Файрвол обновлён частично - проверьте правила" ;;
         *)
             log INFO "Автоматическая настройка файрвола пропущена"
             log INFO "Откройте порты вручную: ${fw_ports[*]}"
@@ -751,56 +533,18 @@ add_clients_flow() {
         new_ports_v6
 
     local client_file="${XRAY_KEYS}/clients.txt"
-    # shellcheck disable=SC2034 # Passed to helper functions via nameref.
-    local -a new_vless_v4=()
-    # shellcheck disable=SC2034 # Passed to helper functions via nameref.
-    local -a new_vless_v6=()
-    build_add_clients_links \
-        "$existing_count" \
-        "$add_count" \
-        add_domains \
-        add_snis \
-        add_fps \
-        add_grpc_services \
-        new_public_keys \
-        new_short_ids \
-        new_uuids \
-        new_ports \
-        new_ports_v6 \
-        new_vless_v4 \
-        new_vless_v6
-
-    append_add_clients_json \
-        "$existing_count" \
-        "$add_count" \
-        add_domains \
-        add_snis \
-        add_fps \
-        add_grpc_services \
-        new_uuids \
-        new_short_ids \
-        new_public_keys \
-        new_ports \
-        new_ports_v6 \
-        new_vless_v4 \
-        new_vless_v6 \
-        "$client_file" || exit 1
-
-    add_clients_generate_qr "$existing_count" "$add_count" new_vless_v4 new_vless_v6
     if [[ -f "$XRAY_ENV" ]]; then
         update_env_num_configs "$XRAY_ENV" "$new_total" || log WARN "Не удалось обновить NUM_CONFIGS в $XRAY_ENV"
     fi
 
     restart_and_verify_add_clients_ports new_ports || exit 1
-    if client_artifacts_missing || client_artifacts_inconsistent "$new_total"; then
-        log WARN "Обнаружены отсутствующие или рассинхронизированные клиентские артефакты; выполняем полную пересборку"
-        rebuild_client_artifacts_from_config || {
-            log ERROR "Не удалось пересобрать клиентские артефакты"
-            exit 1
-        }
-    fi
+    log INFO "После add-clients выполняем полную пересборку клиентских артефактов"
+    rebuild_client_artifacts_from_config || {
+        log ERROR "Не удалось пересобрать клиентские артефакты"
+        exit 1
+    }
 
-    print_add_clients_result "$add_count" "$existing_count" "$client_file" new_vless_v4 new_vless_v6
+    print_add_clients_result "$add_count" "$client_file"
 }
 
 verify_ports_listening_after_start() {

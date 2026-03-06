@@ -1,41 +1,30 @@
 #!/usr/bin/env bats
 
-# By default transport is gRPC; optional HTTP/2 mode is supported.
-
-@test "generate_inbound_json uses grpc network" {
+@test "generate_inbound_json uses xhttp network by default" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
-    json=$(generate_inbound_json 443 "test-uuid" "yandex.ru:443" "yandex.ru" "privkey" "abcd" "chrome" "TestService" 30 60 20)
-    echo "$json" | jq -r ".streamSettings.network"
+    json=$(generate_inbound_json 443 "test-uuid" "yandex.ru:443" "yandex.ru" "privkey" "abcd" "chrome" "/edge/api/demo" 30 60 20)
+    net=$(echo "$json" | jq -r ".streamSettings.network")
+    path=$(echo "$json" | jq -r ".streamSettings.xhttpSettings.path")
+    echo "${net}:${path}"
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "grpc" ]
+    [ "$output" = "xhttp:/edge/api/demo" ]
 }
 
-@test "generate_inbound_json sets grpc serviceName" {
+@test "generate_inbound_json keeps grpc legacy mode" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
-    json=$(generate_inbound_json 443 "test-uuid" "yandex.ru:443" "yandex.ru" "privkey" "abcd" "chrome" "my.api.v1.Service" 30 60 20)
+    json=$(generate_inbound_json 443 "test-uuid" "yandex.ru:443" "yandex.ru" "privkey" "abcd" "chrome" "my.api.v1.Service" 30 60 20 "grpc" "my.api.v1.Service")
     echo "$json" | jq -r ".streamSettings.grpcSettings.serviceName"
   '
     [ "$status" -eq 0 ]
     [ "$output" = "my.api.v1.Service" ]
 }
 
-@test "generate_inbound_json enables multiMode" {
-    run bash -eo pipefail -c '
-    source ./lib.sh
-    source ./config.sh
-    json=$(generate_inbound_json 443 "test-uuid" "yandex.ru:443" "yandex.ru" "privkey" "abcd" "chrome" "TestService" 30 60 20)
-    echo "$json" | jq -r ".streamSettings.grpcSettings.multiMode"
-  '
-    [ "$status" -eq 0 ]
-    [ "$output" = "true" ]
-}
-
-@test "generate_inbound_json supports http2 mode" {
+@test "generate_inbound_json supports http2 legacy mode" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
@@ -48,41 +37,40 @@
     [ "$output" = "h2:/my/api/v1/Service" ]
 }
 
-@test "build_inbound_profile_for_domain derives http2 payload from grpc service" {
+@test "build_inbound_profile_for_domain generates xhttp path for xhttp mode" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
-    TRANSPORT="http2"
+    TRANSPORT="xhttp"
     SKIP_REALITY_CHECK=true
     declare -A SNI_POOLS
     declare -A GRPC_SERVICES
     SNI_POOLS["yandex.ru"]="yandex.ru"
-    GRPC_SERVICES["yandex.ru"]="my.api.v1.Service"
     declare -a fp_pool=("chrome")
     build_inbound_profile_for_domain "yandex.ru" fp_pool
-    echo "${PROFILE_GRPC}|${PROFILE_TRANSPORT_PAYLOAD}|${PROFILE_FP}|${PROFILE_DEST}"
+    [[ "$PROFILE_TRANSPORT_ENDPOINT" == /* ]]
+    echo "${PROFILE_FP}|${PROFILE_DEST}"
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "my.api.v1.Service|/my/api/v1/Service|chrome|yandex.ru:443" ]
+    [ "$output" = "chrome|yandex.ru:443" ]
 }
 
-@test "generate_profile_inbound_json uses prepared profile fields" {
+@test "generate_profile_inbound_json uses prepared xhttp profile fields" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
-    TRANSPORT="http2"
+    TRANSPORT="xhttp"
     SKIP_REALITY_CHECK=true
     declare -A SNI_POOLS
     declare -A GRPC_SERVICES
     SNI_POOLS["yandex.ru"]="yandex.ru"
-    GRPC_SERVICES["yandex.ru"]="my.api.v1.Service"
     declare -a fp_pool=("chrome")
     build_inbound_profile_for_domain "yandex.ru" fp_pool
     json=$(generate_profile_inbound_json 443 "test-uuid" "privkey" "abcd")
     net=$(echo "$json" | jq -r ".streamSettings.network")
-    path=$(echo "$json" | jq -r ".streamSettings.httpSettings.path")
+    path=$(echo "$json" | jq -r ".streamSettings.xhttpSettings.path")
     echo "${net}:${path}"
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "h2:/my/api/v1/Service" ]
+    [[ "$output" == xhttp:/* ]]
 }

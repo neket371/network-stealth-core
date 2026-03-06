@@ -115,6 +115,18 @@ is_valid_grpc_service_name() {
     return 0
 }
 
+is_valid_xhttp_path() {
+    local path="${1:-}"
+    [[ -n "$path" ]] || return 1
+    [[ ${#path} -le 160 ]] || return 1
+    [[ "$path" == /* ]] || return 1
+    [[ "$path" != *"//"* ]] || return 1
+    [[ "$path" != *".."* ]] || return 1
+    [[ "$path" != *[[:space:]?#]* ]] || return 1
+    [[ "$path" =~ ^/[A-Za-z0-9._~/-]+$ ]] || return 1
+    return 0
+}
+
 version_lt() {
     local a="${1#v}"
     local b="${2#v}"

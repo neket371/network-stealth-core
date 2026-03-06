@@ -31,6 +31,7 @@
 : "${XRAY_START_PORT:=}"
 : "${XRAY_SPIDER_MODE:=}"
 : "${XRAY_TRANSPORT:=}"
+: "${XRAY_ADVANCED:=}"
 : "${XRAY_PROGRESS_MODE:=}"
 : "${XRAY_DOMAINS_FILE:=}"
 : "${XRAY_CUSTOM_DOMAINS:=}"
@@ -84,9 +85,9 @@
 : "${AUTO_UPDATE_RANDOM_DELAY:=1h}"
 : "${AUTO_ROLLBACK:=true}"
 
-: "${TRANSPORT:=grpc}"
+: "${TRANSPORT:=xhttp}"
 : "${PROGRESS_MODE:=auto}"
-: "${MUX_MODE:=on}"
+: "${MUX_MODE:=off}"
 : "${MUX_ENABLED:=false}"
 : "${MUX_CONCURRENCY:=0}"
 : "${MUX_CONCURRENCY_MIN:=3}"
@@ -129,10 +130,12 @@
 : "${HAS_IPV6:=false}"
 : "${ROLLBACK_DIR:=}"
 : "${PROFILE_SNI:=}"
-: "${PROFILE_GRPC:=}"
+: "${PROFILE_TRANSPORT_ENDPOINT:=}"
 : "${PROFILE_FP:=}"
 : "${PROFILE_SNI_JSON:=}"
 : "${PROFILE_DEST:=}"
+: "${PROFILE_TRANSPORT_PAYLOAD:=}"
+: "${ADVANCED_MODE:=false}"
 : "${SYSTEMD_MANAGEMENT_DISABLED:=false}"
 
 : "${ID:=}"
@@ -158,7 +161,8 @@ if ! declare -p UUIDS > /dev/null 2>&1; then UUIDS=(); fi
 if ! declare -p SHORT_IDS > /dev/null 2>&1; then SHORT_IDS=(); fi
 if ! declare -p CONFIG_DOMAINS > /dev/null 2>&1; then CONFIG_DOMAINS=(); fi
 if ! declare -p CONFIG_SNIS > /dev/null 2>&1; then CONFIG_SNIS=(); fi
-if ! declare -p CONFIG_GRPC_SERVICES > /dev/null 2>&1; then CONFIG_GRPC_SERVICES=(); fi
+if ! declare -p CONFIG_TRANSPORT_ENDPOINTS > /dev/null 2>&1; then CONFIG_TRANSPORT_ENDPOINTS=(); fi
+if ! declare -p CONFIG_DESTS > /dev/null 2>&1; then CONFIG_DESTS=(); fi
 if ! declare -p CONFIG_FPS > /dev/null 2>&1; then CONFIG_FPS=(); fi
 if ! declare -p AVAILABLE_DOMAINS > /dev/null 2>&1; then AVAILABLE_DOMAINS=(); fi
 if ! declare -p FIREWALL_ROLLBACK_ENTRIES > /dev/null 2>&1; then FIREWALL_ROLLBACK_ENTRIES=(); fi

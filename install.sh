@@ -695,10 +695,17 @@ ask_domain_profile() {
         return 0
     fi
 
+    if [[ "${ADVANCED_MODE:-false}" != "true" ]]; then
+        DOMAIN_TIER="tier_ru"
+        AUTO_PROFILE_MODE=true
+        log INFO "Минимальный install path: профиль доменов ru-auto (${DOMAIN_TIER})"
+        return 0
+    fi
+
     if [[ "$NON_INTERACTIVE" == "true" ]]; then
         DOMAIN_TIER="tier_ru"
-        AUTO_PROFILE_MODE=false
-        log INFO "Non-interactive режим: профиль доменов по умолчанию ru (${DOMAIN_TIER})"
+        AUTO_PROFILE_MODE=true
+        log INFO "Non-interactive режим: профиль доменов по умолчанию ru-auto (${DOMAIN_TIER})"
         return 0
     fi
 
@@ -795,34 +802,20 @@ ask_num_configs() {
     local max_configs
     max_configs=$(max_configs_for_tier "$DOMAIN_TIER")
 
-    if [[ "${AUTO_PROFILE_MODE:-false}" == "true" ]]; then
-        if [[ -n "${XRAY_NUM_CONFIGS:-}" ]]; then
-            if [[ "$XRAY_NUM_CONFIGS" =~ ^[0-9]+$ ]] && ((XRAY_NUM_CONFIGS >= 1 && XRAY_NUM_CONFIGS <= max_configs)); then
-                NUM_CONFIGS="$XRAY_NUM_CONFIGS"
-                log INFO "AUTO-профиль: используем переданный NUM_CONFIGS=${NUM_CONFIGS}"
-                return 0
-            fi
-            log ERROR "Некорректное значение --num-configs: ${XRAY_NUM_CONFIGS} (допустимо 1-${max_configs})"
-            exit 1
-        fi
-
-        NUM_CONFIGS=$(auto_profile_default_num_configs "$DOMAIN_TIER")
-        log INFO "AUTO-профиль: количество ключей выбрано автоматически (${NUM_CONFIGS})"
-        return 0
-    fi
-
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        if [[ -z "${XRAY_NUM_CONFIGS:-}" ]]; then
-            log ERROR "Non-interactive режим: укажите --num-configs <1-${max_configs}>"
-            exit 1
-        fi
+    if [[ -n "${XRAY_NUM_CONFIGS:-}" ]]; then
         if [[ "$XRAY_NUM_CONFIGS" =~ ^[0-9]+$ ]] && ((XRAY_NUM_CONFIGS >= 1 && XRAY_NUM_CONFIGS <= max_configs)); then
             NUM_CONFIGS="$XRAY_NUM_CONFIGS"
-            log INFO "Non-interactive режим: используем NUM_CONFIGS=${NUM_CONFIGS}"
+            log INFO "Используем переданный NUM_CONFIGS=${NUM_CONFIGS}"
             return 0
         fi
         log ERROR "Некорректное значение --num-configs: ${XRAY_NUM_CONFIGS} (допустимо 1-${max_configs})"
         exit 1
+    fi
+
+    if [[ "${AUTO_PROFILE_MODE:-false}" == "true" ]] || [[ "${ADVANCED_MODE:-false}" != "true" ]] || [[ "$NON_INTERACTIVE" == "true" ]]; then
+        NUM_CONFIGS=$(auto_profile_default_num_configs "$DOMAIN_TIER")
+        log INFO "Количество ключей выбрано автоматически (${NUM_CONFIGS})"
+        return 0
     fi
 
     if [[ "$has_tty" != "true" ]]; then
@@ -948,7 +941,7 @@ show_install_result() {
         echo -e "  QR-коды: ${XRAY_KEYS}/qr/"
     fi
     if [[ -d "${XRAY_KEYS}/export" ]]; then
-        echo -e "  Экспорт: ${XRAY_KEYS}/export/ (ClashMeta, SingBox)"
+        echo -e "  Экспорт: ${XRAY_KEYS}/export/ (raw xray, client templates)"
     fi
     echo -e "  Конфигурация Xray: ${XRAY_CONFIG}"
     echo -e "  Окружение: ${XRAY_ENV}"
@@ -1077,6 +1070,91 @@ repair_flow() {
     fi
 
     log OK "Восстановление завершено"
+}
+
+migrate_stealth_flow() {
+    LOG_CONTEXT="миграции transport"
+    : "${LOG_CONTEXT}"
+    INSTALL_LOG="/var/log/xray-migrate-stealth.log"
+    : "${INSTALL_LOG}"
+    setup_logging
+    resolve_paths
+    detect_distro
+    install_dependencies
+    require_cmd curl
+    require_cmd jq
+    require_cmd openssl
+    require_cmd unzip
+
+    install_self
+    setup_logrotate
+    create_users
+    install_minisign
+
+    if [[ -x "$XRAY_BIN" ]]; then
+        update_xray
+    else
+        install_xray
+    fi
+
+    if [[ ! -f "$XRAY_CONFIG" ]]; then
+        log ERROR "Конфигурация Xray не найдена: ${XRAY_CONFIG}"
+        exit 1
+    fi
+    if ! jq empty "$XRAY_CONFIG" > /dev/null 2>&1; then
+        log ERROR "config.json повреждён (невалидный JSON)"
+        exit 1
+    fi
+    if ! xray_config_test_ok "$XRAY_CONFIG"; then
+        log ERROR "Текущий config.json не проходит xray -test"
+        exit 1
+    fi
+
+    load_existing_ports_from_config
+    load_existing_metadata_from_config
+    load_keys_from_config
+    NUM_CONFIGS=${#PORTS[@]}
+    if ((NUM_CONFIGS < 1)); then
+        log ERROR "Не найдены managed reality inbounds для миграции"
+        exit 1
+    fi
+    if ! build_public_keys_for_current_config; then
+        exit 1
+    fi
+
+    if [[ -z "${SERVER_IP:-}" ]]; then
+        detect_ips
+    fi
+
+    MUX_MODE="off"
+    if [[ "${TRANSPORT:-xhttp}" == "xhttp" ]]; then
+        log INFO "Managed transport уже использует xhttp; обновляем только артефакты и окружение"
+    else
+        log WARN "Обнаружен legacy transport (${TRANSPORT}); выполняем миграцию на xhttp"
+        if ! rebuild_config_for_transport "xhttp"; then
+            log ERROR "Не удалось пересобрать config.json под xhttp"
+            exit 1
+        fi
+    fi
+
+    create_systemd_service
+    setup_diagnose_service
+    configure_firewall
+    setup_health_monitoring
+    setup_auto_update
+    save_environment
+    start_services
+    if ! verify_ports_listening_after_start; then
+        log ERROR "Проверка listening-портов после migrate-stealth не пройдена."
+        exit 1
+    fi
+    test_reality_connectivity
+    rebuild_client_artifacts_from_config || exit 1
+    if ! post_action_verdict "migrate-stealth"; then
+        log ERROR "Финальная self-check (migrate-stealth) завершилась с verdict=BROKEN"
+        exit 1
+    fi
+    log OK "Миграция на xhttp завершена"
 }
 
 diagnose_flow() {

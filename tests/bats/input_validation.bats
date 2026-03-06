@@ -278,3 +278,13 @@
     run bash -eo pipefail -c 'source ./lib.sh; is_valid_grpc_service_name "com.2vk.api.v1.GatewayService"'
     [ "$status" -eq 1 ]
 }
+
+@test "is_valid_xhttp_path accepts normalized secret path" {
+    run bash -eo pipefail -c 'source ./lib.sh; is_valid_xhttp_path "/edge/api/demo-01"'
+    [ "$status" -eq 0 ]
+}
+
+@test "is_valid_xhttp_path rejects query string" {
+    run bash -eo pipefail -c 'source ./lib.sh; is_valid_xhttp_path "/edge/api/demo?bad=1"'
+    [ "$status" -eq 1 ]
+}

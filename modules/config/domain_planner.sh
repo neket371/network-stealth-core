@@ -78,10 +78,12 @@ setup_domains() {
     else
         log WARN "SNI pools file не найден: $XRAY_SNI_POOLS_FILE"
     fi
-    if [[ -n "$XRAY_GRPC_SERVICES_FILE" && -f "$XRAY_GRPC_SERVICES_FILE" ]]; then
-        load_map_file "$XRAY_GRPC_SERVICES_FILE" GRPC_SERVICES || return 1
-    else
-        log WARN "gRPC services file не найден: $XRAY_GRPC_SERVICES_FILE"
+    if transport_is_legacy "$TRANSPORT"; then
+        if [[ -n "$XRAY_GRPC_SERVICES_FILE" && -f "$XRAY_GRPC_SERVICES_FILE" ]]; then
+            load_map_file "$XRAY_GRPC_SERVICES_FILE" GRPC_SERVICES || return 1
+        else
+            log WARN "gRPC services file не найден: $XRAY_GRPC_SERVICES_FILE"
+        fi
     fi
     validate_domain_map_coverage || return 1
     local tier_limit
@@ -206,7 +208,9 @@ validate_domain_map_coverage() {
     local domain
     for domain in "${AVAILABLE_DOMAINS[@]}"; do
         [[ -n "${SNI_POOLS[$domain]:-}" ]] || missing_sni+=("$domain")
-        [[ -n "${GRPC_SERVICES[$domain]:-}" ]] || missing_grpc+=("$domain")
+        if transport_is_legacy "$TRANSPORT"; then
+            [[ -n "${GRPC_SERVICES[$domain]:-}" ]] || missing_grpc+=("$domain")
+        fi
     done
 
     if [[ ${#missing_sni[@]} -eq 0 && ${#missing_grpc[@]} -eq 0 ]]; then
@@ -221,7 +225,7 @@ validate_domain_map_coverage() {
     fi
 
     if [[ "$strict" == "true" ]]; then
-        log ERROR "Неполное покрытие map-файлов для ${DOMAIN_TIER} (SNI/gRPC). Исправьте sni_pools.map и grpc_services.map."
+        log ERROR "Неполное покрытие map-файлов для ${DOMAIN_TIER}. Исправьте sni_pools.map и legacy grpc_services.map."
         return 1
     fi
 }
@@ -707,6 +711,35 @@ grpc_service_to_http2_path() {
     printf '/%s' "$path"
 }
 
+sanitize_xhttp_path_segment() {
+    local value="${1:-}"
+    value="${value,,}"
+    value="${value//_/-}"
+    value=$(printf '%s' "$value" | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//; s/-{2,}/-/g')
+    [[ -n "$value" ]] || value="edge"
+    printf '%s' "${value:0:24}"
+}
+
+generate_xhttp_path_for_domain() {
+    local domain="$1"
+    local left="${domain%%.*}"
+    local rest="${domain#*.}"
+    if [[ "$rest" == "$domain" ]]; then
+        rest="$left"
+    else
+        rest="${rest%%.*}"
+    fi
+    local seg1 seg2 suffix
+    seg1=$(sanitize_xhttp_path_segment "$left")
+    seg2=$(sanitize_xhttp_path_segment "$rest")
+    suffix=$(openssl rand -hex 4 2> /dev/null || printf '%08x' "$(rand_between 0 2147483647)")
+    local candidate="/${seg1}/api/${seg2}/${suffix}"
+    if ! is_valid_xhttp_path "$candidate"; then
+        candidate="/${seg1}/sync/${suffix}"
+    fi
+    printf '%s' "$candidate"
+}
+
 build_inbound_profile_for_domain() {
     local domain="$1"
     local fp_pool_name="$2"
@@ -748,7 +781,12 @@ build_inbound_profile_for_domain() {
     done
     PROFILE_SNI_JSON=$(printf '%s\n' "${server_names[@]}" | jq -R . | jq -s .)
 
-    PROFILE_GRPC=$(select_grpc_service_name "$domain")
+    PROFILE_TRANSPORT_ENDPOINT=""
+    if [[ "$TRANSPORT" == "xhttp" ]]; then
+        PROFILE_TRANSPORT_ENDPOINT=$(generate_xhttp_path_for_domain "$domain")
+    else
+        PROFILE_TRANSPORT_ENDPOINT=$(select_grpc_service_name "$domain")
+    fi
     if ! PROFILE_FP=$(pick_random_from_array _fp_pool); then
         PROFILE_FP="chrome"
     fi
@@ -761,9 +799,9 @@ build_inbound_profile_for_domain() {
     PROFILE_GRPC_IDLE=$(rand_between "$GRPC_IDLE_TIMEOUT_MIN" "$GRPC_IDLE_TIMEOUT_MAX")
     PROFILE_GRPC_HEALTH=$(rand_between "$GRPC_HEALTH_TIMEOUT_MIN" "$GRPC_HEALTH_TIMEOUT_MAX")
 
-    PROFILE_TRANSPORT_PAYLOAD="$PROFILE_GRPC"
+    PROFILE_TRANSPORT_PAYLOAD="$PROFILE_TRANSPORT_ENDPOINT"
     if [[ "$TRANSPORT" == "http2" ]]; then
-        PROFILE_TRANSPORT_PAYLOAD=$(grpc_service_to_http2_path "$PROFILE_GRPC")
+        PROFILE_TRANSPORT_PAYLOAD=$(grpc_service_to_http2_path "$PROFILE_TRANSPORT_ENDPOINT")
     fi
 }
 
@@ -775,7 +813,7 @@ generate_profile_inbound_json() {
 
     generate_inbound_json \
         "$port" "$uuid" "$PROFILE_DEST" "$PROFILE_SNI_JSON" "$private_key" "$short_id" \
-        "$PROFILE_FP" "$PROFILE_GRPC" "$PROFILE_KEEPALIVE" "$PROFILE_GRPC_IDLE" "$PROFILE_GRPC_HEALTH" \
+        "$PROFILE_FP" "$PROFILE_TRANSPORT_ENDPOINT" "$PROFILE_KEEPALIVE" "$PROFILE_GRPC_IDLE" "$PROFILE_GRPC_HEALTH" \
         "$TRANSPORT" "$PROFILE_TRANSPORT_PAYLOAD"
 }
 
@@ -816,7 +854,6 @@ generate_keys() {
 
 PROFILE_SNI=""
 PROFILE_SNI_JSON='[]'
-PROFILE_GRPC=""
 PROFILE_FP="chrome"
 PROFILE_DEST=""
 PROFILE_KEEPALIVE=30

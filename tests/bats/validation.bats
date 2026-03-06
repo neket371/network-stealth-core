@@ -137,6 +137,7 @@
     DOMAIN_TIER="tier_ru"
     NUM_CONFIGS=5
     START_PORT=443
+    TRANSPORT="grpc"
     MUX_MODE="on"
     MUX_CONCURRENCY_MIN=6
     MUX_CONCURRENCY_MAX=12
@@ -153,7 +154,7 @@
     DOMAIN_TIER="invalid"
     NUM_CONFIGS=5
     START_PORT=443
-    TRANSPORT="grpc"
+    TRANSPORT="xhttp"
     MUX_MODE="on"
     MUX_CONCURRENCY_MIN=6
     MUX_CONCURRENCY_MAX=12
@@ -164,23 +165,23 @@
     [[ "$output" == *"tier_ru"* ]]
 }
 
-@test "validate_install_config accepts http2 transport" {
+@test "validate_install_config accepts xhttp transport and disables mux" {
     run bash -eo pipefail -c '
     source ./lib.sh
     DOMAIN_TIER="tier_ru"
     NUM_CONFIGS=5
     START_PORT=443
-    TRANSPORT="http2"
+    TRANSPORT="xhttp"
     MUX_MODE="on"
     MUX_CONCURRENCY_MIN=3
     MUX_CONCURRENCY_MAX=20
     SHORT_ID_BYTES_MIN=8
     SHORT_ID_BYTES_MAX=16
     validate_install_config
-    echo "$TRANSPORT"
+    echo "${TRANSPORT}|${MUX_MODE}"
   '
     [ "$status" -eq 0 ]
-    [[ "$output" == *"http2"* ]]
+    [[ "$output" == *"xhttp|off"* ]]
 }
 
 @test "validate_install_config clamps weak short id length" {
@@ -189,7 +190,7 @@
     DOMAIN_TIER="tier_ru"
     NUM_CONFIGS=5
     START_PORT=443
-    TRANSPORT="grpc"
+    TRANSPORT="xhttp"
     MUX_MODE="on"
     MUX_CONCURRENCY_MIN=3
     MUX_CONCURRENCY_MAX=20
@@ -202,18 +203,34 @@
     [[ "$output" == *"8"* ]]
 }
 
-@test "ask_num_configs uses XRAY_NUM_CONFIGS in non-interactive mode" {
+@test "ask_num_configs uses XRAY_NUM_CONFIGS when explicitly provided" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./install.sh
     NON_INTERACTIVE=true
     XRAY_NUM_CONFIGS=3
     NUM_CONFIGS=5
+    ADVANCED_MODE=false
     ask_num_configs
     echo "$NUM_CONFIGS"
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"3"* ]]
+}
+
+@test "ask_num_configs auto-selects default on minimal path" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./install.sh
+    NON_INTERACTIVE=true
+    XRAY_NUM_CONFIGS=""
+    DOMAIN_TIER="tier_ru"
+    ADVANCED_MODE=false
+    ask_num_configs
+    echo "$NUM_CONFIGS"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"5"* ]]
 }
 
 @test "ask_num_configs skips when reusing config" {
@@ -228,17 +245,17 @@
     [[ "$output" == *"ok"* ]]
 }
 
-@test "ask_domain_profile defaults to tier_ru in non-interactive mode" {
+@test "ask_domain_profile defaults to ru-auto on minimal path" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./install.sh
     NON_INTERACTIVE=true
     DOMAIN_TIER="tier_global_ms10"
     ask_domain_profile
-    echo "$DOMAIN_TIER"
+    echo "${DOMAIN_TIER}|${AUTO_PROFILE_MODE}"
   '
     [ "$status" -eq 0 ]
-    [[ "$output" == *"tier_ru"* ]]
+    [[ "$output" == *"tier_ru|true"* ]]
 }
 
 @test "ask_domain_profile accepts XRAY_DOMAIN_PROFILE override" {
@@ -330,15 +347,17 @@
     [[ "$output" == *"NUM=10"* ]]
 }
 
-@test "ask_num_configs fails in non-interactive mode without explicit value" {
+@test "ask_num_configs auto-selects default in non-interactive minimal mode" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./install.sh
     NON_INTERACTIVE=true
+    DOMAIN_TIER="tier_ru"
     ask_num_configs
+    echo "$NUM_CONFIGS"
   '
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"--num-configs <1-100>"* ]]
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"5"* ]]
 }
 
 @test "ask_num_configs enforces tier_global_ms10 limit in non-interactive mode" {

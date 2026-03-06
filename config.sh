@@ -53,12 +53,12 @@ generate_inbound_json() {
     local privkey="$5"
     local shortid="$6"
     local fp="$7"
-    local grpc_service="$8"
+    local transport_endpoint="$8"
     local keepalive="$9"
     local grpc_idle="${10}"
     local grpc_health="${11}"
     local transport_mode="${12:-$TRANSPORT}"
-    local transport_label="${13:-$grpc_service}"
+    local transport_label="${13:-$transport_endpoint}"
 
     if ! printf '%s\n' "$sni_json" | jq -e 'type == "array"' > /dev/null 2>&1; then
         sni_json=$(jq -cn --arg sni "$sni_json" '[$sni]')
@@ -77,7 +77,7 @@ generate_inbound_json() {
         --arg privkey "$privkey" \
         --arg shortid "$shortid" \
         --arg fp "$fp" \
-        --arg grpc "$grpc_service" \
+        --arg endpoint "$transport_endpoint" \
         --arg h2_path "$transport_label" \
         --arg h2_host "$primary_sni" \
         --arg transport "$transport_mode" \
@@ -110,7 +110,14 @@ generate_inbound_json() {
                         tcpCongestion: "bbr"
                     }
                 }
-                + (if $transport == "http2" then
+                + (if $transport == "xhttp" then
+                    {
+                        network: "xhttp",
+                        xhttpSettings: {
+                            path: $endpoint
+                        }
+                    }
+                elif $transport == "http2" then
                     {
                         network: "h2",
                         httpSettings: {
@@ -122,7 +129,7 @@ generate_inbound_json() {
                     {
                         network: "grpc",
                         grpcSettings: {
-                            serviceName: $grpc,
+                            serviceName: $endpoint,
                             multiMode: true,
                             idle_timeout: $grpc_idle,
                             health_check_timeout: $grpc_health,
@@ -186,6 +193,11 @@ generate_routing_json() {
 }
 
 setup_mux_settings() {
+    if [[ "${TRANSPORT:-xhttp}" == "xhttp" ]]; then
+        MUX_ENABLED=false
+        MUX_CONCURRENCY=0
+        return 0
+    fi
     case "$MUX_MODE" in
         on) MUX_ENABLED=true ;;
         off) MUX_ENABLED=false ;;
@@ -219,7 +231,8 @@ build_config() {
 
     CONFIG_DOMAINS=()
     CONFIG_SNIS=()
-    CONFIG_GRPC_SERVICES=()
+    CONFIG_TRANSPORT_ENDPOINTS=()
+    CONFIG_DESTS=()
     CONFIG_FPS=()
 
     setup_mux_settings
@@ -245,12 +258,13 @@ build_config() {
         build_inbound_profile_for_domain "$domain" fp_pool
         CONFIG_DOMAINS+=("$domain")
         CONFIG_SNIS+=("$PROFILE_SNI")
-        CONFIG_GRPC_SERVICES+=("$PROFILE_GRPC")
+        CONFIG_TRANSPORT_ENDPOINTS+=("$PROFILE_TRANSPORT_ENDPOINT")
+        CONFIG_DESTS+=("$PROFILE_DEST")
         CONFIG_FPS+=("$PROFILE_FP")
 
         local sni_count
         sni_count=$(echo "$PROFILE_SNI_JSON" | jq 'length' 2> /dev/null || echo 1)
-        log INFO "Config $((i + 1)): ${domain} → ${PROFILE_DEST} (${PROFILE_FP}, ${TRANSPORT}, SNIs: ${sni_count})"
+        log INFO "Config $((i + 1)): ${domain} -> ${PROFILE_DEST} (${PROFILE_FP}, ${TRANSPORT}, SNIs: ${sni_count})"
 
         local inbound_v4
         inbound_v4=$(generate_profile_inbound_json \
@@ -327,6 +341,138 @@ build_config() {
     fi
 
     log OK "Конфигурация создана"
+}
+
+rebuild_config_for_transport() {
+    local target_transport="${1:-xhttp}"
+    local inbounds='[]'
+    local -a next_domains=()
+    local -a next_snis=()
+    local -a next_endpoints=()
+    local -a next_dests=()
+    local -a next_fps=()
+    local i
+
+    if ((NUM_CONFIGS < 1)); then
+        log ERROR "Нет конфигураций для rebuild transport"
+        return 1
+    fi
+
+    check_xray_version_for_config_generation
+    local previous_transport="${TRANSPORT:-xhttp}"
+    TRANSPORT="$target_transport"
+    setup_mux_settings
+
+    for ((i = 0; i < NUM_CONFIGS; i++)); do
+        local domain="${CONFIG_DOMAINS[$i]:-}"
+        local sni="${CONFIG_SNIS[$i]:-$domain}"
+        local fp="${CONFIG_FPS[$i]:-chrome}"
+        local dest="${CONFIG_DESTS[$i]:-}"
+        local transport_endpoint
+        transport_endpoint="${CONFIG_TRANSPORT_ENDPOINTS[$i]:-}"
+
+        [[ -n "$domain" ]] || {
+            log ERROR "Не найден домен для конфига #$((i + 1))"
+            TRANSPORT="$previous_transport"
+            return 1
+        }
+        [[ -n "$dest" ]] || dest="${domain}:$(detect_reality_dest "$domain")"
+        [[ -n "$sni" ]] || sni="$domain"
+        if [[ -z "$transport_endpoint" || "$target_transport" == "xhttp" ]]; then
+            if [[ "$target_transport" == "xhttp" ]]; then
+                transport_endpoint=$(generate_xhttp_path_for_domain "$domain")
+            else
+                transport_endpoint=$(select_grpc_service_name "$domain")
+            fi
+        fi
+
+        local payload="$transport_endpoint"
+        if [[ "$target_transport" == "http2" ]]; then
+            payload=$(grpc_service_to_http2_path "$transport_endpoint")
+        fi
+
+        local sni_json
+        sni_json=$(jq -cn --arg sni "$sni" '[$sni]')
+        local keepalive grpc_idle grpc_health
+        keepalive=$(rand_between "$TCP_KEEPALIVE_MIN" "$TCP_KEEPALIVE_MAX")
+        grpc_idle=$(rand_between "$GRPC_IDLE_TIMEOUT_MIN" "$GRPC_IDLE_TIMEOUT_MAX")
+        grpc_health=$(rand_between "$GRPC_HEALTH_TIMEOUT_MIN" "$GRPC_HEALTH_TIMEOUT_MAX")
+
+        local inbound_v4
+        inbound_v4=$(generate_inbound_json \
+            "${PORTS[$i]}" "${UUIDS[$i]}" "$dest" "$sni_json" "${PRIVATE_KEYS[$i]}" "${SHORT_IDS[$i]}" \
+            "$fp" "$transport_endpoint" "$keepalive" "$grpc_idle" "$grpc_health" \
+            "$target_transport" "$payload")
+        inbounds=$(echo "$inbounds" | jq --argjson ib "$inbound_v4" '. + [$ib]')
+
+        if [[ "$HAS_IPV6" == true && -n "${PORTS_V6[$i]:-}" ]]; then
+            local inbound_v6
+            inbound_v6=$(echo "$inbound_v4" | jq --arg port "${PORTS_V6[$i]}" '.listen = "::" | .port = ($port|tonumber)')
+            inbounds=$(echo "$inbounds" | jq --argjson ib "$inbound_v6" '. + [$ib]')
+        fi
+
+        next_domains+=("$domain")
+        next_snis+=("$sni")
+        next_endpoints+=("$transport_endpoint")
+        next_dests+=("$dest")
+        next_fps+=("$fp")
+    done
+
+    local outbounds routing tmp_config
+    outbounds=$(generate_outbounds_json)
+    routing=$(generate_routing_json)
+    backup_file "$XRAY_CONFIG"
+    tmp_config=$(create_temp_xray_config_file)
+    jq -n \
+        --argjson inbounds "$inbounds" \
+        --argjson outbounds "$outbounds" \
+        --argjson routing "$routing" \
+        '{
+            log: {
+                loglevel: "warning",
+                access: "/var/log/xray/access.log",
+                error: "/var/log/xray/error.log"
+            },
+            dns: {
+                servers: [
+                    "https+local://1.1.1.1/dns-query",
+                    "https+local://8.8.8.8/dns-query",
+                    "localhost"
+                ],
+                queryStrategy: "UseIPv4"
+            },
+            inbounds: $inbounds,
+            outbounds: $outbounds,
+            routing: $routing,
+            policy: {
+                levels: {
+                    "0": {
+                        handshake: 4,
+                        connIdle: 600,
+                        uplinkOnly: 2,
+                        downlinkOnly: 5,
+                        bufferSize: 1024
+                    }
+                },
+                system: {
+                    statsInboundUplink: false,
+                    statsInboundDownlink: false
+                }
+            }
+        }' > "$tmp_config"
+    set_temp_xray_config_permissions "$tmp_config"
+    if ! apply_validated_config "$tmp_config"; then
+        TRANSPORT="$previous_transport"
+        return 1
+    fi
+
+    CONFIG_DOMAINS=("${next_domains[@]}")
+    CONFIG_SNIS=("${next_snis[@]}")
+    CONFIG_TRANSPORT_ENDPOINTS=("${next_endpoints[@]}")
+    CONFIG_DESTS=("${next_dests[@]}")
+    CONFIG_FPS=("${next_fps[@]}")
+    TRANSPORT="$target_transport"
+    return 0
 }
 
 xray_test_config_as_service_user() {
@@ -434,6 +580,8 @@ save_environment() {
         write_env_kv MUX_MODE "$MUX_MODE"
         write_env_kv TRANSPORT "$TRANSPORT"
         write_env_kv XRAY_TRANSPORT "$TRANSPORT"
+        write_env_kv ADVANCED_MODE "$ADVANCED_MODE"
+        write_env_kv XRAY_ADVANCED "$ADVANCED_MODE"
         write_env_kv PROGRESS_MODE "$PROGRESS_MODE"
         write_env_kv XRAY_PROGRESS_MODE "$PROGRESS_MODE"
         write_env_kv MUX_ENABLED "$MUX_ENABLED"
@@ -513,6 +661,177 @@ box60_line() {
     printf '%s\n' "$(ui_box_line_string "$text" "$BOX60_WIDTH")"
 }
 
+client_variant_catalog() {
+    local transport="${1:-${TRANSPORT:-xhttp}}"
+    case "${transport,,}" in
+        xhttp)
+            printf '%s\n' "recommended	auto"
+            printf '%s\n' "rescue	packet-up"
+            ;;
+        *)
+            printf '%s\n' "standard	"
+            ;;
+    esac
+}
+
+client_variant_title() {
+    local key="${1:-standard}"
+    case "$key" in
+        recommended) printf '%s' "recommended" ;;
+        rescue) printf '%s' "rescue" ;;
+        *) printf '%s' "standard" ;;
+    esac
+}
+
+client_variant_note() {
+    local key="${1:-standard}"
+    case "$key" in
+        recommended) printf '%s' "use this first" ;;
+        rescue) printf '%s' "fallback for difficult networks" ;;
+        *) printf '%s' "legacy-compatible profile" ;;
+    esac
+}
+
+client_variant_link_suffix() {
+    local key="${1:-standard}"
+    local suffix="${2:-}"
+    if [[ -n "$suffix" ]]; then
+        printf '%s' "${key}-${suffix}"
+    else
+        printf '%s' "$key"
+    fi
+}
+
+build_client_vless_link() {
+    local server="$1"
+    local port="$2"
+    local uuid="$3"
+    local sni="$4"
+    local fp="$5"
+    local public_key="$6"
+    local short_id="$7"
+    local transport="$8"
+    local endpoint="$9"
+    local mode="${10:-}"
+    local label="${11:-config}"
+    local params
+    params=$(build_vless_query_params "$sni" "$fp" "$public_key" "$short_id" "$transport" "$endpoint" "$mode")
+    printf 'vless://%s@%s:%s?%s#%s' "$uuid" "$server" "$port" "$params" "$label"
+}
+
+variant_xray_relative_path() {
+    local config_index="$1"
+    local variant_key="$2"
+    local ip_family="$3"
+    printf 'raw-xray/config-%s-%s-%s.json' "$config_index" "$variant_key" "$ip_family"
+}
+
+build_xray_client_variant_json() {
+    local server="$1"
+    local port="$2"
+    local uuid="$3"
+    local sni="$4"
+    local fp="$5"
+    local public_key="$6"
+    local short_id="$7"
+    local transport="$8"
+    local endpoint="$9"
+    local mode="${10:-}"
+
+    local transport_json='{}'
+    case "${transport,,}" in
+        xhttp)
+            transport_json=$(jq -n --arg path "$endpoint" --arg variant_mode "${mode:-auto}" '{
+                network: "xhttp",
+                xhttpSettings: {
+                    path: $path,
+                    mode: $variant_mode
+                }
+            }')
+            ;;
+        http2)
+            transport_json=$(jq -n --arg path "$endpoint" --arg host "$sni" '{
+                network: "h2",
+                httpSettings: {
+                    path: $path,
+                    host: [$host]
+                }
+            }')
+            ;;
+        *)
+            transport_json=$(jq -n --arg service "$endpoint" '{
+                network: "grpc",
+                grpcSettings: {
+                    serviceName: $service,
+                    multiMode: true
+                }
+            }')
+            ;;
+    esac
+
+    jq -n \
+        --arg server "$server" \
+        --argjson port "$port" \
+        --arg uuid "$uuid" \
+        --arg sni "$sni" \
+        --arg fp "$fp" \
+        --arg public_key "$public_key" \
+        --arg short_id "$short_id" \
+        --argjson transport_obj "$transport_json" \
+        '{
+            log: {loglevel: "warning"},
+            inbounds: [
+                {
+                    tag: "socks",
+                    listen: "127.0.0.1",
+                    port: 10808,
+                    protocol: "socks",
+                    settings: {
+                        udp: true
+                    }
+                }
+            ],
+            outbounds: [
+                (
+                    {
+                        tag: "proxy",
+                        protocol: "vless",
+                        settings: {
+                            vnext: [
+                                {
+                                    address: $server,
+                                    port: $port,
+                                    users: [
+                                        {
+                                            id: $uuid,
+                                            encryption: "none"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        streamSettings: (
+                            {
+                                security: "reality",
+                                realitySettings: {
+                                    serverName: $sni,
+                                    fingerprint: $fp,
+                                    publicKey: $public_key,
+                                    shortId: $short_id
+                                }
+                            } + $transport_obj
+                        )
+                    }
+                ),
+                {tag: "direct", protocol: "freedom"},
+                {tag: "block", protocol: "blackhole"}
+            ],
+            routing: {
+                domainStrategy: "AsIs"
+            }
+        }'
+}
+
 render_clients_txt_from_json() {
     local json_file="$1"
     local client_file="$2"
@@ -529,7 +848,7 @@ render_clients_txt_from_json() {
     server_ipv4=$(jq -r '.server_ipv4 // empty' "$json_file" 2> /dev/null || true)
     server_ipv6=$(jq -r '.server_ipv6 // empty' "$json_file" 2> /dev/null || true)
     generated=$(jq -r '.generated // empty' "$json_file" 2> /dev/null || true)
-    transport_raw=$(jq -r '.transport // "grpc"' "$json_file" 2> /dev/null || echo "grpc")
+    transport_raw=$(jq -r '.transport // "xhttp"' "$json_file" 2> /dev/null || echo "xhttp")
     spider_mode=$(jq -r '.spider_mode // false' "$json_file" 2> /dev/null || echo "false")
 
     [[ -n "$server_ipv4" ]] || server_ipv4="${SERVER_IP:-unknown}"
@@ -538,14 +857,13 @@ render_clients_txt_from_json() {
     generated=$(trim_ws "$generated")
     [[ -n "$generated" ]] || generated="$(format_generated_timestamp)"
 
-    local transport_summary="gRPC"
-    case "${transport_raw,,}" in
-        http2 | h2 | http/2) transport_summary="HTTP/2" ;;
-        *) ;;
-    esac
+    local transport_summary
+    transport_summary=$(transport_display_name "$transport_raw")
 
     local mux_summary="Disabled"
-    if [[ "${MUX_ENABLED:-false}" == true ]]; then
+    if [[ "${transport_raw,,}" == "xhttp" ]]; then
+        mux_summary="Disabled (xhttp handles transport mixing itself)"
+    elif [[ "${MUX_ENABLED:-false}" == true ]]; then
         mux_summary="Enabled (Concurrency: ${MUX_CONCURRENCY})"
     fi
 
@@ -572,6 +890,7 @@ Transport: ${transport_summary}
 Security: Reality + TLS 1.3
 DPI Bypass: Reality (built-in)
 Spider Mode: $([[ "${spider_mode}" == "true" ]] && echo "Enabled" || echo "Disabled")
+Install UX: $([[ "${ADVANCED_MODE:-false}" == "true" ]] && echo "advanced" || echo "minimal")
 
 ${rule58}
 
@@ -591,8 +910,8 @@ ${rule58}
 ✓ TCP Fast Open: ON
 ✓ Domain Strategy: AsIs
 ✓ Sniffing: Enabled
-✓ Fragment: tlshello (100-200 bytes, interval 10-20ms)
-✓ Fragment packets: 5-10, endpoint-independent-nat
+✓ Transport default: xhttp auto
+✓ Fallback: xhttp packet-up
 
 ${rule58}
 
@@ -605,16 +924,14 @@ EOF
 
     local i
     for ((i = 0; i < config_count; i++)); do
-        local domain sni fp transport_value endpoint port_v4 port_v6 vless_v4 vless_v6
+        local domain sni fp transport_value endpoint port_v4 port_v6
         domain=$(jq -r ".configs[$i].domain // \"unknown\"" "$json_file" 2> /dev/null || echo "unknown")
         sni=$(jq -r ".configs[$i].sni // .configs[$i].domain // \"unknown\"" "$json_file" 2> /dev/null || echo "unknown")
         fp=$(jq -r ".configs[$i].fingerprint // \"chrome\"" "$json_file" 2> /dev/null || echo "chrome")
-        transport_value=$(jq -r ".configs[$i].transport // \"grpc\"" "$json_file" 2> /dev/null || echo "grpc")
+        transport_value=$(jq -r ".configs[$i].transport // \"xhttp\"" "$json_file" 2> /dev/null || echo "xhttp")
         endpoint=$(jq -r ".configs[$i].transport_endpoint // .configs[$i].grpc_service // \"-\"" "$json_file" 2> /dev/null || echo "-")
         port_v4=$(jq -r ".configs[$i].port_ipv4 // \"N/A\"" "$json_file" 2> /dev/null || echo "N/A")
         port_v6=$(jq -r ".configs[$i].port_ipv6 // empty | tostring" "$json_file" 2> /dev/null || true)
-        vless_v4=$(jq -r ".configs[$i].vless_v4 // empty" "$json_file" 2> /dev/null || true)
-        vless_v6=$(jq -r ".configs[$i].vless_v6 // empty" "$json_file" 2> /dev/null || true)
 
         [[ -n "$port_v6" && "$port_v6" != "null" ]] || port_v6="N/A"
 
@@ -625,15 +942,9 @@ EOF
             priority=" ~ РЕЗЕРВНЫЙ"
         fi
 
-        local transport_display="gRPC"
-        local transport_extra_key="gRPC Service"
-        case "${transport_value,,}" in
-            http2 | h2 | http/2)
-                transport_display="HTTP/2"
-                transport_extra_key="HTTP/2 Path"
-                ;;
-            *) ;;
-        esac
+        local transport_display transport_extra_key
+        transport_display=$(transport_display_name "$transport_value")
+        transport_extra_key=$(transport_endpoint_label "$transport_value")
 
         {
             echo "$BOX60_TOP"
@@ -647,18 +958,49 @@ EOF
             box60_line "${transport_extra_key}: ${endpoint}"
             echo "$BOX60_BOT"
             echo ""
-            echo "📱 VLESS Link (IPv4):"
-            echo "${vless_v4}"
-            echo ""
         } >> "$tmp_client"
 
-        if [[ -n "$vless_v6" && "$vless_v6" != "null" ]]; then
+        local variant_count
+        variant_count=$(jq -r ".configs[$i].variants | length" "$json_file" 2> /dev/null || echo 0)
+        if [[ ! "$variant_count" =~ ^[0-9]+$ ]] || ((variant_count < 1)); then
+            variant_count=1
+        fi
+
+        local j
+        for ((j = 0; j < variant_count; j++)); do
+            local variant_key variant_note variant_mode vless_v4 vless_v6 raw_v4 raw_v6
+            variant_key=$(jq -r ".configs[$i].variants[$j].key // .configs[$i].recommended_variant // \"standard\"" "$json_file" 2> /dev/null || echo "standard")
+            variant_note=$(jq -r ".configs[$i].variants[$j].note // empty" "$json_file" 2> /dev/null || true)
+            variant_mode=$(jq -r ".configs[$i].variants[$j].mode // empty" "$json_file" 2> /dev/null || true)
+            vless_v4=$(jq -r ".configs[$i].variants[$j].vless_v4 // .configs[$i].vless_v4 // empty" "$json_file" 2> /dev/null || true)
+            vless_v6=$(jq -r ".configs[$i].variants[$j].vless_v6 // .configs[$i].vless_v6 // empty" "$json_file" 2> /dev/null || true)
+            raw_v4=$(jq -r ".configs[$i].variants[$j].xray_client_file_v4 // empty" "$json_file" 2> /dev/null || true)
+            raw_v6=$(jq -r ".configs[$i].variants[$j].xray_client_file_v6 // empty" "$json_file" 2> /dev/null || true)
+            [[ -n "$variant_note" && "$variant_note" != "null" ]] || variant_note=$(client_variant_note "$variant_key")
+
             {
-                echo "📱 VLESS Link (IPv6):"
-                echo "${vless_v6}"
+                echo "variant: $(client_variant_title "$variant_key")"
+                if [[ -n "$variant_mode" && "$variant_mode" != "null" ]]; then
+                    echo "mode: ${variant_mode}"
+                fi
+                echo "note: ${variant_note}"
+                if [[ -n "$vless_v4" && "$vless_v4" != "null" ]]; then
+                    echo "vless link (ipv4):"
+                    echo "${vless_v4}"
+                fi
+                if [[ -n "$vless_v6" && "$vless_v6" != "null" ]]; then
+                    echo "vless link (ipv6):"
+                    echo "${vless_v6}"
+                fi
+                if [[ -n "$raw_v4" && "$raw_v4" != "null" ]]; then
+                    echo "raw xray (ipv4): ${raw_v4}"
+                fi
+                if [[ -n "$raw_v6" && "$raw_v6" != "null" ]]; then
+                    echo "raw xray (ipv6): ${raw_v6}"
+                fi
                 echo ""
             } >> "$tmp_client"
-        fi
+        done
 
         {
             echo "${rule58}"
@@ -679,7 +1021,8 @@ EOF
 🔒 УЛУЧШЕНИЯ БЕЗОПАСНОСТИ (v4.0):
 
 ✓ Minisign проверка Xray (защита от supply chain атак)
-✓ Реалистичные API service names (для gRPC/HTTP2)
+✓ xhttp-first strong default для reality
+✓ rescue-профиль packet-up для сложных сетей
 ✓ Динамический Reality dest port (обход port-based блокировок)
 ✓ Spider Mode v2 (приоритетные домены)
 ✓ Раздельные порты IPv4/IPv6 (избегание конфликтов)
@@ -713,7 +1056,7 @@ EOF
 
     mv "$tmp_client" "$client_file"
     chmod 640 "$client_file"
-    chown "root:${XRAY_GROUP}" "$client_file"
+    chown "root:${XRAY_GROUP}" "$client_file" 2> /dev/null || true
 }
 
 secure_clients_json_permissions() {
@@ -791,42 +1134,111 @@ EOF
 
     mv "$tmp_keys" "$keys_file"
     chmod 400 "$keys_file"
-    chown root:root "$keys_file"
+    chown root:root "$keys_file" 2> /dev/null || true
 
     local json_configs
     json_configs=$(jq -n '[]')
-    local -a vless_links_v4=()
-    local -a vless_links_v6=()
+    local -a qr_links_v4=()
+    local -a qr_links_v6=()
     local link_prefix
     link_prefix=$(client_link_prefix_for_tier "$DOMAIN_TIER")
+    local raw_xray_dir="${XRAY_KEYS}/export/raw-xray"
+    mkdir -p "$raw_xray_dir"
+    find "$raw_xray_dir" -maxdepth 1 -type f -name 'config-*.json' -delete 2> /dev/null || true
 
     for ((i = 0; i < NUM_CONFIGS; i++)); do
         local domain="${CONFIG_DOMAINS[$i]:-unknown}"
         local sni="${CONFIG_SNIS[$i]:-$domain}"
         local fp="${CONFIG_FPS[$i]:-chrome}"
-        local grpc="${CONFIG_GRPC_SERVICES[$i]:-GunService}"
-        local transport_extra_value="$grpc"
+        local transport_value="${TRANSPORT:-xhttp}"
+        local transport_endpoint="${CONFIG_TRANSPORT_ENDPOINTS[$i]:-/edge/api/default}"
+        local transport_extra_value="$transport_endpoint"
 
         local clean_name
         clean_name=$(echo "$domain" | sed 's/www\.//; s/\./-/g')
 
-        local endpoint="$grpc"
-        if [[ "$TRANSPORT" == "http2" ]]; then
-            endpoint=$(grpc_service_to_http2_path "$grpc")
+        local endpoint="$transport_endpoint"
+        if [[ "$transport_value" == "http2" ]]; then
+            endpoint=$(grpc_service_to_http2_path "$transport_endpoint")
         fi
         transport_extra_value="$endpoint"
-        local params
-        params=$(build_vless_query_params "$sni" "$fp" "${PUBLIC_KEYS[$i]}" "${SHORT_IDS[$i]}" "$TRANSPORT" "$endpoint")
+        local variants='[]'
+        local default_variant_key="standard"
+        local primary_vless_v4=""
+        local primary_vless_v6=""
+        local variant_key variant_mode
+        while IFS=$'\t' read -r variant_key variant_mode; do
+            [[ -n "$variant_key" ]] || continue
+            local variant_label variant_note variant_name
+            variant_label=$(client_variant_title "$variant_key")
+            variant_note=$(client_variant_note "$variant_key")
+            variant_name="${link_prefix}-${clean_name}-$(client_variant_link_suffix "$variant_key" "$((i + 1))")"
 
-        local vless_v4="vless://${UUIDS[$i]}@${SERVER_IP}:${PORTS[$i]}?${params}#${link_prefix}-${clean_name}-$((i + 1))"
-        vless_links_v4+=("$vless_v4")
+            local variant_v4 variant_v6
+            variant_v4=$(build_client_vless_link \
+                "$SERVER_IP" "${PORTS[$i]}" "${UUIDS[$i]}" "$sni" "$fp" "${PUBLIC_KEYS[$i]}" "${SHORT_IDS[$i]}" \
+                "$transport_value" "$endpoint" "$variant_mode" "$variant_name")
 
-        if [[ "$HAS_IPV6" == true && -n "${SERVER_IP6:-}" && -n "${PORTS_V6[$i]:-}" ]]; then
-            local vless_v6="vless://${UUIDS[$i]}@[${SERVER_IP6}]:${PORTS_V6[$i]}?${params}#${link_prefix}-${clean_name}-v6-$((i + 1))"
-            vless_links_v6+=("$vless_v6")
-        else
-            vless_links_v6+=("")
-        fi
+            variant_v6=""
+            if [[ "$HAS_IPV6" == true && -n "${SERVER_IP6:-}" && -n "${PORTS_V6[$i]:-}" ]]; then
+                variant_v6=$(build_client_vless_link \
+                    "[${SERVER_IP6}]" "${PORTS_V6[$i]}" "${UUIDS[$i]}" "$sni" "$fp" "${PUBLIC_KEYS[$i]}" "${SHORT_IDS[$i]}" \
+                    "$transport_value" "$endpoint" "$variant_mode" "${variant_name}-v6")
+            fi
+
+            local raw_v4="" raw_v6=""
+            if [[ "$transport_value" == "xhttp" ]]; then
+                raw_v4="${XRAY_KEYS}/export/$(variant_xray_relative_path "$((i + 1))" "$variant_key" "ipv4")"
+                mkdir -p "$(dirname "$raw_v4")"
+                build_xray_client_variant_json \
+                    "$SERVER_IP" "${PORTS[$i]}" "${UUIDS[$i]}" "$sni" "$fp" "${PUBLIC_KEYS[$i]}" "${SHORT_IDS[$i]}" \
+                    "$transport_value" "$endpoint" "$variant_mode" | jq '.' | atomic_write "$raw_v4" 0640
+                chown "root:${XRAY_GROUP}" "$raw_v4" 2> /dev/null || true
+
+                if [[ "$HAS_IPV6" == true && -n "${SERVER_IP6:-}" && -n "${PORTS_V6[$i]:-}" ]]; then
+                    raw_v6="${XRAY_KEYS}/export/$(variant_xray_relative_path "$((i + 1))" "$variant_key" "ipv6")"
+                    mkdir -p "$(dirname "$raw_v6")"
+                    build_xray_client_variant_json \
+                        "$SERVER_IP6" "${PORTS_V6[$i]}" "${UUIDS[$i]}" "$sni" "$fp" "${PUBLIC_KEYS[$i]}" "${SHORT_IDS[$i]}" \
+                        "$transport_value" "$endpoint" "$variant_mode" | jq '.' | atomic_write "$raw_v6" 0640
+                    chown "root:${XRAY_GROUP}" "$raw_v6" 2> /dev/null || true
+                fi
+            fi
+
+            if [[ -z "$primary_vless_v4" ]]; then
+                default_variant_key="$variant_key"
+                primary_vless_v4="$variant_v4"
+                primary_vless_v6="$variant_v6"
+            fi
+
+            variants=$(jq -n \
+                --argjson arr "$variants" \
+                --arg key "$variant_key" \
+                --arg label "$variant_label" \
+                --arg note "$variant_note" \
+                --arg mode "$variant_mode" \
+                --arg transport "$transport_value" \
+                --arg endpoint "$endpoint" \
+                --arg raw_v4 "$raw_v4" \
+                --arg raw_v6 "$raw_v6" \
+                --arg vless_v4 "$variant_v4" \
+                --arg vless_v6 "$variant_v6" \
+                '$arr + [{
+                    key: $key,
+                    label: $label,
+                    note: $note,
+                    mode: (if ($mode | length) > 0 then $mode else null end),
+                    transport: $transport,
+                    transport_endpoint: $endpoint,
+                    vless_v4: $vless_v4,
+                    vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end),
+                    xray_client_file_v4: (if ($raw_v4 | length) > 0 then $raw_v4 else null end),
+                    xray_client_file_v6: (if ($raw_v6 | length) > 0 then $raw_v6 else null end)
+                }]')
+        done < <(client_variant_catalog "$transport_value")
+
+        qr_links_v4+=("$primary_vless_v4")
+        qr_links_v6+=("$primary_vless_v6")
 
         json_configs=$(jq -n \
             --argjson arr "$json_configs" \
@@ -834,30 +1246,35 @@ EOF
             --arg domain "$domain" \
             --arg sni "$sni" \
             --arg fp "$fp" \
-            --arg transport "$TRANSPORT" \
-            --arg grpc "$transport_extra_value" \
+            --arg transport "$transport_value" \
+            --arg transport_endpoint "$transport_extra_value" \
             --arg uuid "${UUIDS[$i]}" \
             --arg short_id "${SHORT_IDS[$i]}" \
             --arg public_key "${PUBLIC_KEYS[$i]}" \
             --arg port_ipv4 "${PORTS[$i]}" \
             --arg port_ipv6 "${PORTS_V6[$i]:-}" \
-            --arg vless_v4 "$vless_v4" \
-            --arg vless_v6 "${vless_links_v6[$i]}" \
+            --arg default_variant_key "$default_variant_key" \
+            --arg vless_v4 "$primary_vless_v4" \
+            --arg vless_v6 "$primary_vless_v6" \
+            --arg dest "${CONFIG_DESTS[$i]:-${domain}:443}" \
+            --argjson variants "$variants" \
             '$arr + [{
                 name: $name,
                 domain: $domain,
+                dest: $dest,
                 sni: $sni,
                 fingerprint: $fp,
                 transport: $transport,
-                grpc_service: $grpc,
-                transport_endpoint: $grpc,
+                transport_endpoint: $transport_endpoint,
                 uuid: $uuid,
                 short_id: $short_id,
                 public_key: $public_key,
                 port_ipv4: ($port_ipv4|tonumber),
                 port_ipv6: (if ($port_ipv6 | length) > 0 then ($port_ipv6 | tonumber?) else null end),
                 vless_v4: $vless_v4,
-                vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end)
+                vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end),
+                recommended_variant: $default_variant_key,
+                variants: $variants
             }]')
     done
 
@@ -871,6 +1288,7 @@ EOF
         --arg spider "$SPIDER_MODE" \
         --argjson configs "$json_configs" \
         '{
+            schema_version: 2,
             server_ipv4: $server_ipv4,
             server_ipv6: (if ($server_ipv6 | length) > 0 then $server_ipv6 else null end),
             generated: $generated,
@@ -887,11 +1305,11 @@ EOF
             local qr_dir="${XRAY_KEYS}/qr"
             mkdir -p "$qr_dir"
             for ((i = 0; i < NUM_CONFIGS; i++)); do
-                if [[ -n "${vless_links_v4[$i]:-}" ]]; then
-                    qrencode -o "${qr_dir}/config-${i}-v4.png" -s 6 -m 2 "${vless_links_v4[$i]}" > /dev/null 2>&1 || true
+                if [[ -n "${qr_links_v4[$i]:-}" ]]; then
+                    qrencode -o "${qr_dir}/config-${i}-v4.png" -s 6 -m 2 "${qr_links_v4[$i]}" > /dev/null 2>&1 || true
                 fi
-                if [[ -n "${vless_links_v6[$i]:-}" ]]; then
-                    qrencode -o "${qr_dir}/config-${i}-v6.png" -s 6 -m 2 "${vless_links_v6[$i]}" > /dev/null 2>&1 || true
+                if [[ -n "${qr_links_v6[$i]:-}" ]]; then
+                    qrencode -o "${qr_dir}/config-${i}-v6.png" -s 6 -m 2 "${qr_links_v6[$i]}" > /dev/null 2>&1 || true
                 fi
             done
             log OK "QR-коды сохранены в ${qr_dir}"
@@ -944,12 +1362,14 @@ validate_clients_json_file() {
     local json_file="$1"
     [[ -f "$json_file" ]] || return 0
 
-    if jq -e 'type == "object" and (.configs | type == "array")' "$json_file" > /dev/null 2>&1; then
+    if jq -e 'type == "object" and (.configs | type == "array") and ((.schema_version // 0) >= 2) and ([.configs[]? | (.variants | type == "array" and length >= 1)] | all)' "$json_file" > /dev/null 2>&1; then
         return 0
     fi
 
     local normalized_json=""
-    if jq -e 'type == "array"' "$json_file" > /dev/null 2>&1; then
+    if jq -e 'type == "object" and (.configs | type == "array")' "$json_file" > /dev/null 2>&1; then
+        normalized_json=$(cat "$json_file")
+    elif jq -e 'type == "array"' "$json_file" > /dev/null 2>&1; then
         normalized_json=$(jq -n --slurpfile cfg "$json_file" '{configs: $cfg[0]}')
     elif jq -e 'type == "object" and (.profiles | type == "array")' "$json_file" > /dev/null 2>&1; then
         normalized_json=$(jq '. + {configs: .profiles} | del(.profiles)' "$json_file")
@@ -958,7 +1378,39 @@ validate_clients_json_file() {
         log WARN "Некорректный формат ${json_file}; файл будет пересоздан в схеме .configs"
     fi
 
-    if ! printf '%s\n' "$normalized_json" | jq -e 'type == "object" and (.configs | type == "array")' > /dev/null 2>&1; then
+    normalized_json=$(printf '%s\n' "$normalized_json" | jq '
+        .schema_version = (.schema_version // 2)
+        | .transport = (.transport // "xhttp")
+        | .configs = (
+            (.configs // [])
+            | map(
+                . as $cfg
+                | ($cfg.variants // []) as $variants
+                | .transport = ($cfg.transport // $cfg.transport_type // ($variants[0].transport // "xhttp"))
+                | .transport_endpoint = ($cfg.transport_endpoint // $cfg.grpc_service // ($variants[0].transport_endpoint // ""))
+                | .recommended_variant = ($cfg.recommended_variant // ($variants[0].key // "standard"))
+                | .variants = (
+                    if ($variants | type == "array" and ($variants | length) > 0) then
+                        $variants
+                    else
+                        [{
+                            key: (.recommended_variant // "standard"),
+                            label: (.recommended_variant // "standard"),
+                            note: "normalized from legacy schema",
+                            mode: (if (.transport // "xhttp") == "xhttp" then "auto" else null end),
+                            transport: (.transport // "xhttp"),
+                            transport_endpoint: (.transport_endpoint // .grpc_service // ""),
+                            vless_v4: (.vless_v4 // null),
+                            vless_v6: (.vless_v6 // null),
+                            xray_client_file_v4: null,
+                            xray_client_file_v6: null
+                        }]
+                    end
+                )
+            )
+        )')
+
+    if ! printf '%s\n' "$normalized_json" | jq -e 'type == "object" and (.configs | type == "array") and (.schema_version // 0) >= 2' > /dev/null 2>&1; then
         log ERROR "Не удалось привести ${json_file} к схеме .configs"
         return 1
     fi
@@ -993,14 +1445,17 @@ collect_fallback_public_keys_from_artifacts() {
     fi
 
     if [[ -f "$client_file" ]]; then
-        local line params pbk
+        local line params pbk seen=" "
         while IFS= read -r line; do
             [[ "$line" == vless://* ]] || continue
             [[ "$line" == *"@["* ]] && continue
             params="${line#*\?}"
             params="${params%%#*}"
             pbk=$(get_query_param "$params" "pbk" || true)
-            [[ -n "$pbk" ]] && from_clients+=("$pbk")
+            [[ -n "$pbk" ]] || continue
+            [[ " $seen " == *" $pbk "* ]] && continue
+            seen="${seen}${pbk} "
+            from_clients+=("$pbk")
         done < "$client_file"
     fi
 
@@ -1108,9 +1563,9 @@ client_artifacts_inconsistent() {
     fi
 
     if [[ -f "$client_file" ]]; then
-        count=$(awk '/^vless:\/\// { if ($0 !~ /@\[/) c++ } END {print c+0}' "$client_file")
+        count=$(awk '/Config [0-9]+:/ {c++} END {print c+0}' "$client_file")
         if ((count != expected_count)); then
-            log WARN "clients.txt рассинхронизирован: ${count}/${expected_count} IPv4 ссылок"
+            log WARN "clients.txt рассинхронизирован: ${count}/${expected_count} секций"
             inconsistent=true
         fi
     fi

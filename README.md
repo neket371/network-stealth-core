@@ -38,6 +38,8 @@ If commands are copied from a mirror or fork, verify the source before execution
 
 ### Recommended: universal install
 
+default install is xhttp-first and keeps prompts to a minimum (`ru-auto`, strongest default path).
+
 ```bash
 curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
 sudo bash /tmp/xray-reality.sh install
@@ -111,7 +113,8 @@ Legacy aliases `global-ms10` and `global-ms10-auto` are still accepted for backw
 
 ```bash
 --domain-profile ru|ru-auto|global-50|global-50-auto|custom
---transport grpc|http2
+--transport xhttp|grpc|http2
+--advanced
 --progress-mode auto|bar|plain|none
 --require-minisign
 --allow-no-systemd

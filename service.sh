@@ -12,6 +12,15 @@ fi
 # shellcheck source=modules/lib/globals_contract.sh
 source "$GLOBAL_CONTRACT_MODULE"
 
+CONFIG_SHARED_HELPERS_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/config/shared_helpers.sh"
+if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    CONFIG_SHARED_HELPERS_MODULE="$XRAY_DATA_DIR/modules/config/shared_helpers.sh"
+fi
+if [[ -f "$CONFIG_SHARED_HELPERS_MODULE" ]]; then
+    # shellcheck source=/dev/null
+    source "$CONFIG_SHARED_HELPERS_MODULE"
+fi
+
 sanitize_systemd_value() {
     local out_name="$1"
     local value="${2:-}"
@@ -931,6 +940,22 @@ status_flow() {
         local num_inbounds
         num_inbounds=$(jq '.inbounds | length' "$XRAY_CONFIG" 2> /dev/null || echo "?")
         echo -e "  Inbounds: ${num_inbounds}"
+        local transport_mode
+        transport_mode=$(jq -r '
+            .inbounds[]
+            | select(.streamSettings.realitySettings != null)
+            | select((.listen // "0.0.0.0") | test(":") | not)
+            | .streamSettings.network // "xhttp"
+            ' "$XRAY_CONFIG" 2> /dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')
+        case "$transport_mode" in
+            h2 | http/2) transport_mode="http2" ;;
+            grpc | xhttp) ;;
+            *) transport_mode="unknown" ;;
+        esac
+        echo -e "  Transport: ${transport_mode}"
+        if [[ "$transport_mode" == "grpc" || "$transport_mode" == "http2" ]]; then
+            echo -e "  Режим: legacy transport (рекомендуется xray-reality.sh migrate-stealth)"
+        fi
 
         local ports
         ports=$(jq -r '.inbounds[] | select(.listen == "0.0.0.0" or .listen == null) | .port' "$XRAY_CONFIG" 2> /dev/null | tr '\n' ' ')
@@ -988,17 +1013,15 @@ status_flow() {
                     port_status="${GREEN}активен${NC}"
                 fi
 
-                local transport_label="gRPC Service"
-                if [[ "$net" == "h2" ]]; then
-                    transport_label="HTTP/2 Path"
-                fi
+                local transport_label
+                transport_label=$(transport_endpoint_label "$net")
 
                 echo -e "  Config ${i}:"
                 echo -e "    Порт:        ${port} (${port_status})"
                 echo -e "    Домен:       ${domain:-?}"
                 echo -e "    SNI:         ${sni:-?}"
                 echo -e "    Fingerprint: ${fp:-?}"
-                echo -e "    Transport:   ${net:-grpc}"
+                echo -e "    Transport:   $(transport_display_name "${net:-xhttp}")"
                 echo -e "    ${transport_label}: ${service:-?}"
                 echo ""
             done < <(jq -r '
@@ -1009,8 +1032,8 @@ status_flow() {
                     (.streamSettings.realitySettings.dest // "?"),
                     (.streamSettings.realitySettings.serverNames[0] // "?"),
                     (.streamSettings.realitySettings.fingerprint // "?"),
-                    (.streamSettings.network // "grpc"),
-                    (.streamSettings.grpcSettings.serviceName // .streamSettings.httpSettings.path // "?")
+                    (.streamSettings.network // "xhttp"),
+                    (.streamSettings.xhttpSettings.path // .streamSettings.grpcSettings.serviceName // .streamSettings.httpSettings.path // "?")
                   ] | @tsv
             ' "$XRAY_CONFIG" 2> /dev/null)
         fi
