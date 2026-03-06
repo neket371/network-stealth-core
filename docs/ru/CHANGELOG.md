@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [4.2.3] - 2026-03-06
+
 ### Changed
 - Усилена загрузка модулей в wrapper: `source` выполняется только из доверенных директорий (`SCRIPT_DIR`, `XRAY_DATA_DIR`) и больше не зависит от внешнего `MODULE_DIR`.
 - В `check-security-baseline.sh` добавлено покрытие PowerShell (запрет `Invoke-Expression`/`iex`, download-pipe execution и encoded-command исполнения).
