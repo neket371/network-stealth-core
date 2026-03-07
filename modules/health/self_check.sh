@@ -88,6 +88,32 @@ self_check_default_urls() {
     printf '%s\n' "${SELF_CHECK_URLS:-https://cp.cloudflare.com/generate_204,https://www.gstatic.com/generate_204}"
 }
 
+self_check_is_loopback_runtime() {
+    local ipv4="${SERVER_IP:-}"
+    local ipv6="${SERVER_IP6:-}"
+
+    ipv4=$(self_check_trim_ws "$ipv4")
+    ipv6=$(self_check_trim_ws "$ipv6")
+
+    case "$ipv4" in
+        127.0.0.1 | localhost)
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+
+    case "$ipv6" in
+        ::1 | "[::1]" | localhost)
+            return 0
+            ;;
+        *)
+            ;;
+    esac
+
+    return 1
+}
+
 self_check_urls_json() {
     local raw_urls
     raw_urls=$(self_check_default_urls)
@@ -483,6 +509,12 @@ self_check_post_action_verdict() {
                 runtime_ok=false
                 reasons+=("systemd unit xray не active")
             fi
+        elif self_check_is_loopback_runtime; then
+            transport_probe_required=false
+            if [[ "$verdict" != "BROKEN" ]]; then
+                verdict="WARNING"
+            fi
+            reasons+=("loopback install detected: transport-aware self-check пропущен")
         else
             transport_probe_required=false
             if [[ "$verdict" != "BROKEN" ]]; then
@@ -490,6 +522,13 @@ self_check_post_action_verdict() {
             fi
             reasons+=("systemd недоступен: transport-aware self-check пропущен")
         fi
+    fi
+    if [[ "$runtime_ok" == true && "$transport_probe_required" == true ]] && self_check_is_loopback_runtime; then
+        transport_probe_required=false
+        if [[ "$verdict" != "BROKEN" ]]; then
+            verdict="WARNING"
+        fi
+        reasons+=("loopback install detected: transport-aware self-check пропущен")
     fi
 
     local json_file="${XRAY_KEYS}/clients.json"

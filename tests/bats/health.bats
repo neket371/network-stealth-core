@@ -531,3 +531,47 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "self_check_post_action_verdict skips transport probes on loopback installs" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    XRAY_GROUP="xray"
+    XRAY_BIN="$tmp_dir/xray"
+    XRAY_CONFIG="$tmp_dir/config.json"
+    XRAY_KEYS="$tmp_dir/keys"
+    SELF_CHECK_STATE_FILE="$tmp_dir/self-check.json"
+    SERVER_IP="127.0.0.1"
+    mkdir -p "$XRAY_KEYS"
+    : > "$XRAY_CONFIG"
+    cat > "$XRAY_BIN" <<EOF
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$XRAY_BIN"
+
+    log() { :; }
+    backup_file() { :; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      cat > "$target"
+      [[ -n "$mode" ]] && chmod "$mode" "$target"
+    }
+    xray_config_test_ok() { return 0; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl() { return 0; }
+
+    self_check_post_action_verdict install > /dev/null
+    jq -e '\''.verdict == "warning"'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e '\''(.reasons | any(. == "loopback install detected: transport-aware self-check пропущен"))'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e '\''.selected_variant == null'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
