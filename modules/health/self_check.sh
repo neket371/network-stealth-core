@@ -87,7 +87,7 @@ self_check_state_file_path() {
 self_check_history_file_path() {
     local state_file
     state_file=$(self_check_state_file_path)
-    if [[ -n "${SELF_CHECK_HISTORY_FILE:-}" && ! ( "${SELF_CHECK_HISTORY_FILE:-}" == "/var/lib/xray/self-check-history.ndjson" && "$(dirname "$state_file")" != "/var/lib/xray" ) ]]; then
+    if [[ -n "${SELF_CHECK_HISTORY_FILE:-}" && ! ("${SELF_CHECK_HISTORY_FILE:-}" == "/var/lib/xray/self-check-history.ndjson" && "$(dirname "$state_file")" != "/var/lib/xray") ]]; then
         printf '%s\n' "$SELF_CHECK_HISTORY_FILE"
         return 0
     fi
