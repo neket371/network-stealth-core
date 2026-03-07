@@ -1075,11 +1075,12 @@ status_flow() {
             self_check_summary=$(self_check_status_summary_tsv 2> /dev/null || true)
             echo -e "${BOLD}Self-check:${NC}"
             if [[ -n "$self_check_summary" ]]; then
-                local verdict action checked_at variant_key variant_mode variant_family latency_ms
-                IFS=$'\t' read -r verdict action checked_at variant_key variant_mode variant_family latency_ms <<< "$self_check_summary"
+                local verdict action checked_at config_name variant_key variant_mode variant_family latency_ms
+                IFS=$'\t' read -r verdict action checked_at config_name variant_key variant_mode variant_family latency_ms <<< "$self_check_summary"
                 echo -e "  Verdict: ${verdict}"
                 echo -e "  Action: ${action}"
                 echo -e "  Checked: ${checked_at}"
+                echo -e "  Config: ${config_name}"
                 echo -e "  Variant: ${variant_key} (${variant_mode}, ${variant_family}, ${latency_ms}ms)"
             else
                 echo -e "  Verdict: ${YELLOW}нет данных${NC}"

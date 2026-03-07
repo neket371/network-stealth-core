@@ -248,6 +248,7 @@
   "action": "repair",
   "checked_at": "2026-03-07T12:00:00Z",
   "selected_variant": {
+    "config_name": "config-2",
     "variant_key": "rescue",
     "mode": "packet-up",
     "ip_family": "ipv4",
@@ -256,7 +257,7 @@
 }
 EOF
     out=$(self_check_status_summary_tsv)
-    [[ "$out" == $'\''warning\trepair\t2026-03-07T12:00:00Z\trescue\tpacket-up\tipv4\t321'\'' ]]
+    [[ "$out" == $'\''warning\trepair\t2026-03-07T12:00:00Z\tconfig-2\trescue\tpacket-up\tipv4\t321'\'' ]]
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -366,7 +367,127 @@ EOF
     echo ok
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "${lines[-1]}" = "ok" ]]
+}
+
+@test "self_check_post_action_verdict falls back to secondary config when primary config fails" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    XRAY_GROUP="xray"
+    XRAY_BIN="$tmp_dir/xray"
+    XRAY_CONFIG="$tmp_dir/config.json"
+    XRAY_KEYS="$tmp_dir/keys"
+    SELF_CHECK_STATE_FILE="$tmp_dir/self-check.json"
+    mkdir -p "$XRAY_KEYS"
+    : > "$XRAY_CONFIG"
+    cat > "$XRAY_BIN" <<EOF
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$XRAY_BIN"
+    : > "$XRAY_KEYS/primary-recommended.json"
+    : > "$XRAY_KEYS/primary-rescue.json"
+    : > "$XRAY_KEYS/secondary-recommended.json"
+    cat > "$XRAY_KEYS/clients.json" <<EOF
+{
+  "configs": [
+    {
+      "name": "config-1",
+      "recommended_variant": "recommended",
+      "variants": [
+        {
+          "key": "recommended",
+          "mode": "auto",
+          "xray_client_file_v4": "$XRAY_KEYS/primary-recommended.json"
+        },
+        {
+          "key": "rescue",
+          "mode": "packet-up",
+          "xray_client_file_v4": "$XRAY_KEYS/primary-rescue.json"
+        }
+      ]
+    },
+    {
+      "name": "config-2",
+      "recommended_variant": "recommended",
+      "variants": [
+        {
+          "key": "recommended",
+          "mode": "auto",
+          "xray_client_file_v4": "$XRAY_KEYS/secondary-recommended.json"
+        }
+      ]
+    }
+  ]
+}
+EOF
+
+    log() { :; }
+    backup_file() { :; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      cat > "$target"
+      [[ -n "$mode" ]] && chmod "$mode" "$target"
+    }
+    xray_config_test_ok() { return 0; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl() { return 0; }
+    self_check_run_variant_probe() {
+      local action="$1"
+      local config_name="$2"
+      local variant_key="$3"
+      local mode="$4"
+      local ip_family="$5"
+      local raw_file="$6"
+      if [[ "$config_name" == "config-2" && "$variant_key" == "recommended" ]]; then
+        jq -n --arg action "$action" --arg config_name "$config_name" --arg variant_key "$variant_key" --arg mode "$mode" --arg ip_family "$ip_family" --arg raw_file "$raw_file" '\''{
+          checked_at: "2026-03-07T12:00:00Z",
+          action: $action,
+          config_name: $config_name,
+          variant_key: $variant_key,
+          mode: $mode,
+          ip_family: $ip_family,
+          raw_config_file: $raw_file,
+          success: true,
+          latency_ms: 144,
+          selected_url: "https://cp.cloudflare.com/generate_204",
+          reason: null,
+          probe_results: []
+        }'\''
+      else
+        jq -n --arg action "$action" --arg config_name "$config_name" --arg variant_key "$variant_key" --arg mode "$mode" --arg ip_family "$ip_family" --arg raw_file "$raw_file" '\''{
+          checked_at: "2026-03-07T12:00:00Z",
+          action: $action,
+          config_name: $config_name,
+          variant_key: $variant_key,
+          mode: $mode,
+          ip_family: $ip_family,
+          raw_config_file: $raw_file,
+          success: false,
+          latency_ms: 0,
+          selected_url: null,
+          reason: "probe_failed",
+          probe_results: []
+        }'\''
+      fi
+    }
+
+    self_check_post_action_verdict install > /dev/null
+    jq -e '\''.verdict == "warning"'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e '\''.selected_variant.config_name == "config-2"'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e '\''.selected_variant.variant_key == "recommended"'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e '\''(.attempted_variants | length) == 3'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e '\''(.reasons | any(test("primary-конфиг не прошёл self-check; используем запасной конфиг config-2")) )'\'' "$SELF_CHECK_STATE_FILE" > /dev/null
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "${lines[-1]}" = "ok" ]]
 }
 
 @test "self_check_post_action_verdict warns instead of failing when systemd is unavailable" {
