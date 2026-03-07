@@ -68,7 +68,7 @@ self_check_split_list() {
         split_list "$raw"
         return 0
     fi
-    printf '%s\n' "$raw" | tr ', ' '\n\n' | sed '/^$/d'
+    printf '%s\n' "$raw" | sed -E 's/[[:space:],]+/\n/g' | sed '/^$/d'
 }
 
 self_check_port_is_listening() {
@@ -134,13 +134,15 @@ self_check_now_utc() {
 self_check_pick_free_port() {
     local base=38080
     local span=800
-    local attempt candidate
-    for attempt in $(seq 1 64); do
+    local candidate
+    local tries_left=64
+    while ((tries_left > 0)); do
         candidate=$((base + RANDOM % span))
         if ! self_check_port_is_listening "$candidate"; then
             printf '%s\n' "$candidate"
             return 0
         fi
+        tries_left=$((tries_left - 1))
     done
 
     for candidate in $(seq $base $((base + span))); do
@@ -334,7 +336,9 @@ self_check_run_variant_probe() {
             reason="client_start_failed"
         elif ! self_check_wait_for_proxy "$proxy_port"; then
             reason="proxy_not_ready"
-            self_check_debug "self-check proxy failed to start for ${config_name}/${variant_key}; log=$(tail -n 20 \"$runtime_log\" 2>/dev/null || true)"
+            local runtime_tail=""
+            runtime_tail=$(tail -n 20 "$runtime_log" 2> /dev/null || true)
+            self_check_debug "self-check proxy failed to start for ${config_name}/${variant_key}; log=${runtime_tail}"
         fi
     fi
 
