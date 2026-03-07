@@ -692,6 +692,68 @@ uninstall_close_ports() {
     fi
 }
 
+uninstall_terminate_user_processes() {
+    local user_name="${1:-}"
+    [[ -n "$user_name" ]] || return 0
+    if ! id "$user_name" > /dev/null 2>&1; then
+        return 0
+    fi
+
+    if command -v loginctl > /dev/null 2>&1; then
+        loginctl terminate-user "$user_name" > /dev/null 2>&1 || true
+    fi
+
+    if command -v pkill > /dev/null 2>&1; then
+        pkill -TERM -u "$user_name" > /dev/null 2>&1 || true
+        sleep 1
+        if command -v pgrep > /dev/null 2>&1 && pgrep -u "$user_name" > /dev/null 2>&1; then
+            pkill -KILL -u "$user_name" > /dev/null 2>&1 || true
+            sleep 1
+        fi
+    fi
+}
+
+uninstall_remove_user_account() {
+    local user_name="${1:-}"
+    [[ -n "$user_name" ]] || return 0
+
+    local retries_left=3
+    while ((retries_left > 0)); do
+        if ! id "$user_name" > /dev/null 2>&1; then
+            return 0
+        fi
+        uninstall_terminate_user_processes "$user_name"
+        userdel -r "$user_name" > /dev/null 2>&1 || userdel "$user_name" > /dev/null 2>&1 || true
+        if ! id "$user_name" > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+        retries_left=$((retries_left - 1))
+    done
+
+    return 1
+}
+
+uninstall_remove_group_account() {
+    local group_name="${1:-}"
+    [[ -n "$group_name" ]] || return 0
+
+    local retries_left=3
+    while ((retries_left > 0)); do
+        if ! getent group "$group_name" > /dev/null 2>&1; then
+            return 0
+        fi
+        groupdel "$group_name" > /dev/null 2>&1 || true
+        if ! getent group "$group_name" > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+        retries_left=$((retries_left - 1))
+    done
+
+    return 1
+}
+
 uninstall_all() {
     local uninstall_box_width uninstall_title
     uninstall_title="УДАЛЕНИЕ NETWORK STEALTH CORE"
@@ -771,6 +833,7 @@ uninstall_all() {
     set +e
 
     local manage_systemd_uninstall=true
+    local uninstall_cleanup_failed=false
     if ! systemctl_available; then
         manage_systemd_uninstall=false
         log INFO "systemctl не найден; systemd-операции удаления пропущены"
@@ -856,12 +919,20 @@ uninstall_all() {
 
     log STEP "Удаляем пользователя и группу..."
     if id "$XRAY_USER" > /dev/null 2>&1; then
-        userdel -r "$XRAY_USER" 2> /dev/null || userdel "$XRAY_USER" 2> /dev/null || true
-        echo -e "  ${GREEN}✅ Удалён пользователь ${XRAY_USER}${NC}"
+        if uninstall_remove_user_account "$XRAY_USER"; then
+            echo -e "  ${GREEN}✅ Удалён пользователь ${XRAY_USER}${NC}"
+        else
+            uninstall_cleanup_failed=true
+            echo -e "  ${YELLOW}⚠️  Не удалось удалить пользователя ${XRAY_USER}${NC}"
+        fi
     fi
     if getent group "$XRAY_GROUP" > /dev/null 2>&1; then
-        groupdel "$XRAY_GROUP" 2> /dev/null || true
-        echo -e "  ${GREEN}✅ Удалена группа ${XRAY_GROUP}${NC}"
+        if uninstall_remove_group_account "$XRAY_GROUP"; then
+            echo -e "  ${GREEN}✅ Удалена группа ${XRAY_GROUP}${NC}"
+        else
+            uninstall_cleanup_failed=true
+            echo -e "  ${YELLOW}⚠️  Не удалось удалить группу ${XRAY_GROUP}${NC}"
+        fi
     fi
     uninstall_remove_dir "$XRAY_HOME"
 
@@ -883,6 +954,11 @@ uninstall_all() {
     echo -e "${BOLD}${GREEN}$(ui_box_line_string "$uninstall_done_title" "$uninstall_done_width")${NC}"
     echo -e "${BOLD}${GREEN}$(ui_box_border_string bottom "$uninstall_done_width")${NC}"
     echo ""
+
+    if [[ "$uninstall_cleanup_failed" == true ]]; then
+        log ERROR "Удаление завершилось с остаточными артефактами пользователей/групп"
+        return 1
+    fi
 }
 
 uninstall_has_managed_artifacts() {

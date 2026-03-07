@@ -2610,6 +2610,72 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "uninstall_remove_user_account retries until user disappears" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    source ./lib.sh
+    source ./service.sh
+
+    id_calls=0
+    userdel_calls=0
+    id() {
+      if [[ "${1:-}" != "xray" ]]; then
+        return 1
+      fi
+      id_calls=$((id_calls + 1))
+      if ((id_calls < 4)); then
+        return 0
+      fi
+      return 1
+    }
+    loginctl() { :; }
+    pkill() { :; }
+    pgrep() { return 1; }
+    userdel() {
+      userdel_calls=$((userdel_calls + 1))
+      return 0
+    }
+
+    uninstall_remove_user_account xray
+    ((userdel_calls >= 1))
+    ((id_calls >= 4))
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "uninstall_remove_group_account retries until group disappears" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    source ./lib.sh
+    source ./service.sh
+
+    group_calls=0
+    groupdel_calls=0
+    getent() {
+      if [[ "${1:-}" != "group" || "${2:-}" != "xray" ]]; then
+        return 1
+      fi
+      group_calls=$((group_calls + 1))
+      if ((group_calls < 3)); then
+        return 0
+      fi
+      return 1
+    }
+    groupdel() {
+      groupdel_calls=$((groupdel_calls + 1))
+      return 0
+    }
+
+    uninstall_remove_group_account xray
+    ((groupdel_calls == 1))
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "rotate_backups safely handles backup directories with spaces" {
     run bash -eo pipefail -c '
     set -euo pipefail

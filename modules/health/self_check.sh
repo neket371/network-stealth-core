@@ -625,7 +625,7 @@ self_check_post_action_verdict() {
         echo "  - ${reason}"
     done
     if [[ "$selected_variant" != "null" ]]; then
-        echo "  - selected variant: $(jq -r '.config_name' <<< "$selected_variant") / $(jq -r '.variant_key' <<< "$selected_variant") / $(jq -r '.ip_family' <<< "$selected_variant") / $(jq -r '(.latency_ms // 0 | tostring) + \"ms\"' <<< "$selected_variant")"
+        echo "  - selected variant: $(jq -r '.config_name' <<< "$selected_variant") / $(jq -r '.variant_key' <<< "$selected_variant") / $(jq -r '.ip_family' <<< "$selected_variant") / $(jq -r '(.latency_ms // 0 | tostring) + "ms"' <<< "$selected_variant")"
     fi
     echo ""
 
