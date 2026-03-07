@@ -12,10 +12,11 @@ CLIENTS_JSON="/etc/xray/private/keys/clients.json"
 STATUS_BEFORE="/tmp/xru-migrate-before.txt"
 STATUS_AFTER="/tmp/xru-migrate-after.txt"
 STATUS_REPAIR="/tmp/xru-migrate-repair.txt"
+LEGACY_BOOTSTRAP="/tmp/xru-legacy-bootstrap.sh"
 
 cleanup() {
     cleanup_installation "$SCRIPT_PATH"
-    rm -f "$STATUS_BEFORE" "$STATUS_AFTER" "$STATUS_REPAIR"
+    rm -f "$STATUS_BEFORE" "$STATUS_AFTER" "$STATUS_REPAIR" "$LEGACY_BOOTSTRAP"
 }
 
 trap cleanup EXIT
@@ -23,18 +24,23 @@ trap cleanup EXIT
 echo "==> pre-clean"
 cleanup
 
-echo "==> install legacy grpc profile"
+echo "==> prepare legacy bootstrap wrapper"
+cp "$ROOT_DIR/xray-reality.sh" "$LEGACY_BOOTSTRAP"
+chmod +x "$LEGACY_BOOTSTRAP"
+
+echo "==> install legacy grpc profile from v5.1.0"
 run_root env \
     NON_INTERACTIVE=true \
     ASSUME_YES=true \
     XRAY_NUM_CONFIGS="$INITIAL_CONFIGS" \
     XRAY_TRANSPORT=grpc \
+    XRAY_REPO_REF=v5.1.0 \
     START_PORT="$START_PORT" \
     SERVER_IP=127.0.0.1 \
     DOMAIN_CHECK=false \
     SKIP_REALITY_CHECK=true \
     ALLOW_INSECURE_SHA256=true \
-    bash "$SCRIPT_PATH" install
+    bash "$LEGACY_BOOTSTRAP" install
 assert_service_active xray
 
 run_root bash "$SCRIPT_PATH" status --verbose > "$STATUS_BEFORE"
