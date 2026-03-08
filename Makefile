@@ -14,12 +14,12 @@ SHELL := /usr/bin/env bash
 endif
 .SHELLFLAGS := -eu -o pipefail -c
 
-SHELL_SOURCES := xray-reality.sh lib.sh install.sh config.sh service.sh health.sh export.sh scripts/release.sh scripts/check-release-consistency.sh scripts/release-policy-gate.sh scripts/check-dead-functions.sh scripts/check-workflow-pinning.sh scripts/check-security-baseline.sh scripts/check-docs-commands.sh scripts/check-shell-complexity.sh scripts/check-shellcheck-advisory.sh modules/lib/*.sh modules/config/*.sh modules/install/*.sh tests/e2e/*.sh
+SHELL_SOURCES := xray-reality.sh lib.sh install.sh config.sh service.sh health.sh export.sh scripts/measure-stealth.sh scripts/release.sh scripts/check-release-consistency.sh scripts/release-policy-gate.sh scripts/check-dead-functions.sh scripts/check-workflow-pinning.sh scripts/check-security-baseline.sh scripts/check-docs-commands.sh scripts/check-shell-complexity.sh scripts/check-shellcheck-advisory.sh scripts/lab/*.sh modules/lib/*.sh modules/config/*.sh modules/install/*.sh tests/e2e/*.sh
 TEST_SOURCES := tests/*.sh
 MARKDOWN_SOURCES := README.md README.ru.md .github/CONTRIBUTING.md .github/CONTRIBUTING.ru.md .github/SECURITY.md .github/SECURITY.ru.md docs/en/*.md docs/ru/*.md
 WORKFLOWS := .github/workflows/ci.yml .github/workflows/nightly-smoke.yml .github/workflows/release.yml .github/workflows/packages.yml .github/workflows/os-matrix-smoke.yml
 
-.PHONY: lint test release-check audit audit-deep ci
+.PHONY: lint test release-check audit audit-deep ci ci-fast ci-full lab-smoke
 
 lint:
 	command -v shellcheck >/dev/null
@@ -59,4 +59,11 @@ audit:
 audit-deep: ci
 	bash scripts/check-shellcheck-advisory.sh
 
-ci: lint test release-check audit
+ci-fast: lint test release-check
+
+ci: ci-fast audit
+
+ci-full: ci audit-deep
+
+lab-smoke:
+	bash scripts/lab/run-container-smoke.sh

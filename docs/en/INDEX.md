@@ -42,7 +42,9 @@ managed installs now target the strongest-direct baseline:
 - managed migration: `sudo xray-reality.sh migrate-stealth --non-interactive --yes`
 - verbose status: `sudo xray-reality.sh status --verbose`
 - local measurement: `sudo bash scripts/measure-stealth.sh run --save`
+- import remote field reports: `sudo bash scripts/measure-stealth.sh import --dir ./remote-canary-reports`
 - replan with fresh field data: `sudo xray-reality.sh update --replan --non-interactive --yes`
+- host-safe busy-server smoke: `make lab-smoke`
 
 ## important files
 

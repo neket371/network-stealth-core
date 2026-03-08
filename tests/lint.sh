@@ -37,6 +37,7 @@ DEFAULT_SHELL_FILES=(
     "$SCRIPT_DIR/service.sh"
     "$SCRIPT_DIR/health.sh"
     "$SCRIPT_DIR/export.sh"
+    "$SCRIPT_DIR/scripts/measure-stealth.sh"
     "$SCRIPT_DIR/scripts/release.sh"
     "$SCRIPT_DIR/scripts/check-release-consistency.sh"
     "$SCRIPT_DIR/scripts/release-policy-gate.sh"
@@ -46,6 +47,7 @@ DEFAULT_SHELL_FILES=(
     "$SCRIPT_DIR/scripts/check-docs-commands.sh"
     "$SCRIPT_DIR/scripts/check-shell-complexity.sh"
     "$SCRIPT_DIR/scripts/check-shellcheck-advisory.sh"
+    "$SCRIPT_DIR"/scripts/lab/*.sh
     "$SCRIPT_DIR"/modules/**/*.sh
     "$SCRIPT_DIR"/tests/e2e/*.sh
     "$SCRIPT_DIR/tests/lint.sh"

@@ -63,7 +63,7 @@ the canonical per-variant client json in `export/raw-xray/`.
 
 ## measurement harness
 
-`scripts/measure-stealth.sh`, the local tool for `run`, `compare`, and `summarize` field measurements.
+`scripts/measure-stealth.sh`, the local tool for `run`, `import`, `compare`, `prune`, and `summarize` field measurements.
 
 ## measurement summary
 

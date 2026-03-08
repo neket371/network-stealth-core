@@ -144,6 +144,14 @@ sudo bash scripts/measure-stealth.sh compare \
   --output /tmp/measure-compare.json
 ```
 
+### импортировать удалённые canary-reports в managed storage
+
+```bash
+sudo bash scripts/measure-stealth.sh import \
+  --dir ./remote-canary-reports \
+  --output /tmp/measure-import.json
+```
+
 ### получить актуальную summary-картину
 
 ```bash
@@ -152,7 +160,33 @@ sudo bash scripts/measure-stealth.sh summarize \
   --output /tmp/measure-summary.json
 ```
 
+### подчистить старые сохранённые reports
+
+```bash
+sudo bash scripts/measure-stealth.sh prune \
+  --keep-last 30 \
+  --output /tmp/measure-prune.json
+```
+
 обычный вызов без subcommand ведёт себя как `run`.
+
+## host-safe lab smoke на занятом сервере
+
+если на хосте уже есть production-сервисы, держи smoke-тесты изолированными:
+
+```bash
+make lab-smoke
+```
+
+или запускай скрипты явно:
+
+```bash
+bash scripts/lab/prepare-host-safe-smoke.sh
+bash scripts/lab/run-container-smoke.sh
+bash scripts/lab/collect-container-artifacts.sh
+```
+
+этот flow ожидает уже существующий `docker` или `podman`, не публикует container ports и складывает логи в host-safe lab directory, а не в дерево репозитория.
 
 ## canary bundle
 

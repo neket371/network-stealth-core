@@ -331,6 +331,8 @@ JSON
     run bash -eo pipefail -c 'bash ./scripts/measure-stealth.sh --help'
     [ "$status" -eq 0 ]
     [[ "$output" == *"usage: scripts/measure-stealth.sh"* ]]
+    [[ "$output" == *"scripts/measure-stealth.sh import [options]"* ]]
+    [[ "$output" == *"scripts/measure-stealth.sh prune [options]"* ]]
     [[ "$output" == *"--variants <list>"* ]]
 }
 
@@ -356,6 +358,77 @@ EOF
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
+}
+
+@test "measurement_import_report_file stores validated report and refreshes summary" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    MEASUREMENTS_DIR="$tmp_dir/measurements"
+    MEASUREMENTS_SUMMARY_FILE="$MEASUREMENTS_DIR/latest-summary.json"
+    report="$tmp_dir/report.json"
+    cat > "$report" <<EOF
+{"generated":"2026-03-08T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":true,"latency_ms":120}]}
+EOF
+    imported=$(measurement_import_report_file "$report")
+    test -f "$imported"
+    test -f "$MEASUREMENTS_SUMMARY_FILE"
+    jq -e ".report_count == 1" "$MEASUREMENTS_SUMMARY_FILE" > /dev/null
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "measurement_prune_reports keeps newest reports" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    MEASUREMENTS_DIR="$tmp_dir/measurements"
+    MEASUREMENTS_SUMMARY_FILE="$MEASUREMENTS_DIR/latest-summary.json"
+    mkdir -p "$MEASUREMENTS_DIR"
+    cat > "$MEASUREMENTS_DIR/20260308T090000Z-home-isp-a-msk-a.json" <<EOF
+{"generated":"2026-03-08T09:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[],"results":[]}
+EOF
+    cat > "$MEASUREMENTS_DIR/20260308T100000Z-home-isp-a-msk-b.json" <<EOF
+{"generated":"2026-03-08T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[],"results":[]}
+EOF
+    cat > "$MEASUREMENTS_DIR/20260308T110000Z-home-isp-a-msk-c.json" <<EOF
+{"generated":"2026-03-08T11:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[],"results":[]}
+EOF
+    out=$(measurement_prune_reports 2 false)
+    jq -e ".removed_count == 1" <<< "$out" > /dev/null
+    test ! -f "$MEASUREMENTS_DIR/20260308T090000Z-home-isp-a-msk-a.json"
+    test -f "$MEASUREMENTS_DIR/20260308T100000Z-home-isp-a-msk-b.json"
+    test -f "$MEASUREMENTS_DIR/20260308T110000Z-home-isp-a-msk-c.json"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "lab smoke scripts expose help" {
+    run bash -eo pipefail -c '
+    bash ./scripts/lab/prepare-host-safe-smoke.sh --help
+    bash ./scripts/lab/run-container-smoke.sh --help
+    bash ./scripts/lab/collect-container-artifacts.sh --help
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"scripts/lab/run-container-smoke.sh"* ]]
+}
+
+@test "lab smoke runs artifact collector through bash" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''result_json="$(bash "$SCRIPT_DIR/collect-container-artifacts.sh" --timestamp "$timestamp")"'\'' \
+      ./scripts/lab/run-container-smoke.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
 }
 
 @test "resolve_mirror_base replaces version placeholders" {
@@ -2711,6 +2784,30 @@ EOF
 @test "make test enforces utf8 locale fallback for bats" {
     run bash -eo pipefail -c '
     grep -Fq '\''LANG="$${LANG:-C.UTF-8}" LC_ALL="$${LC_ALL:-C.UTF-8}" bats tests/bats'\'' ./Makefile
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "makefile exposes ci-fast ci-full and lab-smoke targets" {
+    run bash -eo pipefail -c '
+    grep -q "^ci-fast:" ./Makefile
+    grep -q "^ci-full:" ./Makefile
+    grep -q "^lab-smoke:" ./Makefile
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "lab scripts are wired into lint and self-hosted workflows" {
+    run bash -eo pipefail -c '
+    grep -q '\''scripts/lab/\*.sh'\'' ./Makefile
+    grep -q '\''scripts/lab/\*.sh'\'' ./tests/lint.sh
+    grep -q '\''scripts/lab/\*.sh'\'' ./.github/workflows/ci.yml
+    grep -q '\''make lab-smoke'\'' ./.github/workflows/self-hosted-smoke.yml
+    grep -q '\''make lab-smoke'\'' ./.github/workflows/nightly-smoke.yml
     echo "ok"
   '
     [ "$status" -eq 0 ]

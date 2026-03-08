@@ -2,7 +2,9 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC2034 # consumed by sourced runtime modules
 SCRIPT_DIR="$ROOT_DIR"
+# shellcheck disable=SC2034 # consumed by sourced runtime modules
 MODULE_DIR="$ROOT_DIR"
 DEFAULT_CLIENTS_JSON="/etc/xray/private/keys/clients.json"
 DEFAULT_VARIANTS="recommended,rescue"
@@ -19,7 +21,9 @@ measure_usage() {
 usage:
   usage: scripts/measure-stealth.sh
   scripts/measure-stealth.sh run [options]
+  scripts/measure-stealth.sh import [options]
   scripts/measure-stealth.sh compare [options]
+  scripts/measure-stealth.sh prune [options]
   scripts/measure-stealth.sh summarize [options]
 
 run options:
@@ -35,6 +39,16 @@ compare options:
   --input <file>          add one report file (repeatable)
   --dir <dir>             read all *.json reports from dir
   --output <file>         write aggregated json
+
+import options:
+  --input <file>          import one report file into managed measurements dir (repeatable)
+  --dir <dir>             import all *.json reports from dir
+  --output <file>         write refreshed summary json
+
+prune options:
+  --keep-last <N>         keep only the newest N stored reports
+  --dry-run               show what would be pruned without deleting files
+  --output <file>         write prune result json
 
 summarize options:
   --input <file>          add one report file (repeatable)
@@ -89,14 +103,38 @@ measure_run() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --clients-json) clients_json="${2:-}"; shift 2 ;;
-            --variants) variants="${2:-}"; shift 2 ;;
-            --network-tag) network_tag="${2:-}"; shift 2 ;;
-            --provider) provider="${2:-}"; shift 2 ;;
-            --region) region="${2:-}"; shift 2 ;;
-            --output) output_file="${2:-}"; shift 2 ;;
-            --save) save_report=true; shift ;;
-            --help) measure_usage; exit 0 ;;
+            --clients-json)
+                clients_json="${2:-}"
+                shift 2
+                ;;
+            --variants)
+                variants="${2:-}"
+                shift 2
+                ;;
+            --network-tag)
+                network_tag="${2:-}"
+                shift 2
+                ;;
+            --provider)
+                provider="${2:-}"
+                shift 2
+                ;;
+            --region)
+                region="${2:-}"
+                shift 2
+                ;;
+            --output)
+                output_file="${2:-}"
+                shift 2
+                ;;
+            --save)
+                save_report=true
+                shift
+                ;;
+            --help)
+                measure_usage
+                exit 0
+                ;;
             *)
                 echo "unknown run option: $1" >&2
                 measure_usage >&2
@@ -106,12 +144,13 @@ measure_run() {
     done
 
     measure_require_valid_clients_json "$clients_json"
+    # shellcheck disable=SC2034 # consumed by self_check_run_variant_probe through sourced modules
     SELF_CHECK_ENABLED=true
 
     local report_results='[]'
     local config_summary='[]'
     local requested_variants_json
-    requested_variants_json=$(printf '%s\n' "$variants" | tr ', ' '\n\n' | sed '/^$/d' | jq -R . | jq -s .)
+    requested_variants_json=$(split_list "$variants" | jq -R . | jq -s .)
 
     local config_name
     while IFS= read -r config_name; do
@@ -231,10 +270,22 @@ measure_compare() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --input) input_files+=("${2:-}"); shift 2 ;;
-            --dir) dir="${2:-}"; shift 2 ;;
-            --output) output_file="${2:-}"; shift 2 ;;
-            --help) measure_usage; exit 0 ;;
+            --input)
+                input_files+=("${2:-}")
+                shift 2
+                ;;
+            --dir)
+                dir="${2:-}"
+                shift 2
+                ;;
+            --output)
+                output_file="${2:-}"
+                shift 2
+                ;;
+            --help)
+                measure_usage
+                exit 0
+                ;;
             *)
                 echo "unknown compare option: $1" >&2
                 measure_usage >&2
@@ -258,6 +309,118 @@ measure_compare() {
     printf '%s\n' "$aggregated"
 }
 
+measure_import() {
+    local output_file=""
+    local dir=""
+    local -a input_files=()
+    local -a dir_files=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --input)
+                input_files+=("${2:-}")
+                shift 2
+                ;;
+            --dir)
+                dir="${2:-}"
+                shift 2
+                ;;
+            --output)
+                output_file="${2:-}"
+                shift 2
+                ;;
+            --help)
+                measure_usage
+                exit 0
+                ;;
+            *)
+                echo "unknown import option: $1" >&2
+                measure_usage >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ -n "$dir" && -d "$dir" ]]; then
+        mapfile -t dir_files < <(find "$dir" -maxdepth 1 -type f -name '*.json' | sort)
+        input_files+=("${dir_files[@]}")
+    fi
+    if ((${#input_files[@]} == 0)); then
+        echo "no measurement reports found for import" >&2
+        exit 1
+    fi
+
+    local -a imported=()
+    local file
+    for file in "${input_files[@]}"; do
+        [[ -n "$file" ]] || continue
+        imported+=("$(measurement_import_report_file "$file")")
+    done
+
+    local summary_json
+    summary_json=$(measurement_read_summary_json 2> /dev/null || printf '%s\n' '{}')
+    local result_json
+    result_json=$(jq -n \
+        --argjson imported "$(printf '%s\n' "${imported[@]}" | sed '/^$/d' | jq -R . | jq -s .)" \
+        --argjson summary "$summary_json" '
+            {
+                imported_files: $imported,
+                imported_count: ($imported | length),
+                summary: $summary
+            }')
+
+    if [[ -n "$output_file" ]]; then
+        mkdir -p "$(dirname "$output_file")"
+        printf '%s\n' "$result_json" > "$output_file"
+    fi
+    printf '%s\n' "$result_json"
+}
+
+measure_prune() {
+    local keep_last=""
+    local dry_run=false
+    local output_file=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --keep-last)
+                keep_last="${2:-}"
+                shift 2
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
+            --output)
+                output_file="${2:-}"
+                shift 2
+                ;;
+            --help)
+                measure_usage
+                exit 0
+                ;;
+            *)
+                echo "unknown prune option: $1" >&2
+                measure_usage >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    [[ -n "$keep_last" ]] || {
+        echo "prune requires --keep-last <N>" >&2
+        exit 1
+    }
+
+    local result_json
+    result_json=$(measurement_prune_reports "$keep_last" "$dry_run")
+    if [[ -n "$output_file" ]]; then
+        mkdir -p "$(dirname "$output_file")"
+        printf '%s\n' "$result_json" > "$output_file"
+    fi
+    printf '%s\n' "$result_json"
+}
+
 measure_summarize() {
     local output_file=""
     local dir=""
@@ -265,10 +428,22 @@ measure_summarize() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --input) input_files+=("${2:-}"); shift 2 ;;
-            --dir) dir="${2:-}"; shift 2 ;;
-            --output) output_file="${2:-}"; shift 2 ;;
-            --help) measure_usage; exit 0 ;;
+            --input)
+                input_files+=("${2:-}")
+                shift 2
+                ;;
+            --dir)
+                dir="${2:-}"
+                shift 2
+                ;;
+            --output)
+                output_file="${2:-}"
+                shift 2
+                ;;
+            --help)
+                measure_usage
+                exit 0
+                ;;
             *)
                 echo "unknown summarize option: $1" >&2
                 measure_usage >&2
@@ -318,10 +493,10 @@ measure_summarize() {
 
 subcommand="${1:-run}"
 case "$subcommand" in
-    run|compare|summarize)
+    run | compare | import | prune | summarize)
         shift || true
         ;;
-    --help|-h)
+    --help | -h)
         measure_usage
         exit 0
         ;;
@@ -333,5 +508,7 @@ esac
 case "$subcommand" in
     run) measure_run "$@" ;;
     compare) measure_compare "$@" ;;
+    import) measure_import "$@" ;;
+    prune) measure_prune "$@" ;;
     summarize) measure_summarize "$@" ;;
 esac

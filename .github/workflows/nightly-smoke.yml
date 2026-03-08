@@ -55,11 +55,11 @@ jobs:
           set -euo pipefail
           install_cmd=""
           if command -v apt-get >/dev/null 2>&1; then
-            install_cmd="apt-get update -qq && apt-get install -y expect jq"
+            install_cmd="apt-get update -qq && apt-get install -y bash"
           elif command -v dnf >/dev/null 2>&1; then
-            install_cmd="dnf -y install expect jq"
+            install_cmd="dnf -y install bash"
           elif command -v yum >/dev/null 2>&1; then
-            install_cmd="yum -y install expect jq"
+            install_cmd="yum -y install bash"
           fi
           if [[ -n "$install_cmd" ]]; then
             if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
@@ -71,8 +71,8 @@ jobs:
       - name: Run nightly self-hosted lifecycle
         run: |
           set -euo pipefail
-          chmod +x tests/e2e/nightly_smoke_install_add_update_uninstall.sh
-          tests/e2e/nightly_smoke_install_add_update_uninstall.sh
+          bash tests/lint.sh --fast
+          make lab-smoke
       - name: Complexity trend gate (stage 3)
         run: |
           set -euo pipefail

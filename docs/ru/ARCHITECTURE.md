@@ -107,7 +107,7 @@ raw xray json остаётся canonical artifact, потому что он бе
 
 ### field measurement
 
-- использует `scripts/measure-stealth.sh run|compare|summarize`
+- использует `scripts/measure-stealth.sh run|import|compare|prune|summarize`
 - сохраняет reports в `/var/lib/xray/measurements/`
 - агрегирует latest summary для операторов и promotion logic
 - может рекомендовать `emergency`, когда direct-варианты слишком слабы на реальных сетях

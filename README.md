@@ -130,13 +130,46 @@ sudo bash scripts/measure-stealth.sh compare \
   --dir /var/lib/xray/measurements \
   --output /tmp/measure-compare.json
 
+sudo bash scripts/measure-stealth.sh import \
+  --dir ./remote-canary-reports \
+  --output /tmp/measure-import.json
+
 sudo bash scripts/measure-stealth.sh summarize \
   --dir /var/lib/xray/measurements \
   --output /tmp/measure-summary.json
+
+sudo bash scripts/measure-stealth.sh prune \
+  --keep-last 30 \
+  --output /tmp/measure-prune.json
 ```
 
 for remote rf testing, send the generated canary bundle from `export/canary/` and use the raw xray configs there.
 set `xray.browser.dialer` on the client side when you intentionally test the `emergency` variant.
+
+## host-safe lab smoke
+
+when the host already runs production apis or a live xray node, do not run host-level lifecycle tests directly.
+use the isolated lab smoke instead:
+
+```bash
+make lab-smoke
+```
+
+or run the scripts explicitly:
+
+```bash
+bash scripts/lab/prepare-host-safe-smoke.sh
+bash scripts/lab/run-container-smoke.sh
+bash scripts/lab/collect-container-artifacts.sh
+```
+
+the lab flow:
+
+- uses an existing `docker` or `podman` runtime
+- creates an ubuntu 24.04 container with no published ports
+- runs a compatibility smoke install inside the container only
+- stores logs and artifacts outside the repo tree
+- leaves the host xray, firewall, and published services untouched
 
 ## key flags
 
@@ -202,7 +235,10 @@ primary and ci-validated platform:
 make lint
 make test
 make release-check
+make ci-fast
 make ci
+make ci-full
+make lab-smoke
 ```
 
 windows helpers:

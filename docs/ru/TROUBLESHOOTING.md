@@ -94,7 +94,9 @@ export xray.browser.dialer=127.0.0.1:11050
 
 ```bash
 sudo bash scripts/measure-stealth.sh run --save
+sudo bash scripts/measure-stealth.sh import --dir ./remote-canary-reports
 sudo bash scripts/measure-stealth.sh compare --dir /var/lib/xray/measurements
+sudo bash scripts/measure-stealth.sh prune --keep-last 30
 sudo bash scripts/measure-stealth.sh summarize --dir /var/lib/xray/measurements
 ```
 

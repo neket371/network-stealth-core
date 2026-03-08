@@ -71,10 +71,23 @@ it keeps:
 it reuses the same probe engine as runtime self-check and adds report workflows:
 
 - `run`
+- `import`
 - `compare`
+- `prune`
 - `summarize`
 
 saved reports feed the measurement summary used by `status --verbose`, `diagnose`, `repair`, and `update --replan`.
+
+## how do i smoke-test this on a busy host?
+
+do not run host-level lifecycle tests on a machine that already serves production workloads.
+use the isolated lab flow instead:
+
+```bash
+make lab-smoke
+```
+
+it uses an existing container runtime and keeps the smoke install inside an ubuntu 24.04 container with no published ports.
 
 ## what is the canary bundle for?
 

@@ -23,7 +23,7 @@ before changing behavior, assume these contracts are public in `v7.1.0`:
 - `export/canary/` = field-testing bundle, including `emergency`
 - `export/capabilities.json` = schema v2 capability matrix
 - `/var/lib/xray/self-check.json` and `/var/lib/xray/measurements/latest-summary.json` = operator verdict state
-- `scripts/measure-stealth.sh run|compare|summarize` = local measurement workflow
+- `scripts/measure-stealth.sh run|import|compare|prune|summarize` = local and imported measurement workflow
 
 if your change touches any of these, update code, tests, docs, and release metadata in the same pass.
 
@@ -71,7 +71,10 @@ run before push:
 make lint
 make test
 make release-check
+make ci-fast
 make ci
+make ci-full
+make lab-smoke
 ```
 
 for windows-assisted validation:

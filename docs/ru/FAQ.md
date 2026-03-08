@@ -71,10 +71,23 @@ sudo xray-reality.sh migrate-stealth --non-interactive --yes
 он переиспользует тот же probe-engine, что и runtime self-check, и добавляет workflow для reports:
 
 - `run`
+- `import`
 - `compare`
+- `prune`
 - `summarize`
 
 сохранённые reports питают measurement summary, который используется в `status --verbose`, `diagnose`, `repair` и `update --replan`.
+
+## как прогонять smoke-тест на занятом хосте?
+
+не запускай host-level lifecycle-тесты на машине, где уже крутятся production-нагрузки.
+используй изолированный lab flow:
+
+```bash
+make lab-smoke
+```
+
+он использует существующий container runtime и держит smoke install внутри ubuntu 24.04 контейнера без опубликованных портов.
 
 ## для чего нужен canary bundle?
 

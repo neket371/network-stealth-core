@@ -24,11 +24,11 @@ jobs:
           set -euo pipefail
           install_cmd=""
           if command -v apt-get >/dev/null 2>&1; then
-            install_cmd="apt-get update -qq && apt-get install -y expect jq bats shellcheck"
+            install_cmd="apt-get update -qq && apt-get install -y bats shellcheck"
           elif command -v dnf >/dev/null 2>&1; then
-            install_cmd="dnf -y install expect jq bats shellcheck"
+            install_cmd="dnf -y install bats shellcheck"
           elif command -v yum >/dev/null 2>&1; then
-            install_cmd="yum -y install expect jq bats shellcheck"
+            install_cmd="yum -y install bats shellcheck"
           fi
           if [[ -n "$install_cmd" ]]; then
             if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
@@ -42,5 +42,4 @@ jobs:
           set -euo pipefail
           bash tests/lint.sh --fast
           COMPLEXITY_STAGE=3 bash scripts/check-shell-complexity.sh
-          chmod +x tests/e2e/nightly_smoke_install_add_update_uninstall.sh
-          tests/e2e/nightly_smoke_install_add_update_uninstall.sh
+          make lab-smoke

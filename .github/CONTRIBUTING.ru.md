@@ -23,7 +23,7 @@
 - `export/canary/` = bundle для полевых тестов, включая `emergency`
 - `export/capabilities.json` = capability matrix schema v2
 - `/var/lib/xray/self-check.json` и `/var/lib/xray/measurements/latest-summary.json` = операторский verdict state
-- `scripts/measure-stealth.sh run|compare|summarize` = локальный workflow измерений
+- `scripts/measure-stealth.sh run|import|compare|prune|summarize` = локальный и импортируемый measurement-workflow
 
 если изменение затрагивает что-то из этого, обнови код, тесты, документацию и release metadata в одном проходе.
 
@@ -71,7 +71,10 @@ git fetch upstream
 make lint
 make test
 make release-check
+make ci-fast
 make ci
+make ci-full
+make lab-smoke
 ```
 
 для windows-assisted проверки:

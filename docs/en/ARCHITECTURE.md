@@ -107,7 +107,7 @@ there are two observation loops:
 
 ### field measurement
 
-- uses `scripts/measure-stealth.sh run|compare|summarize`
+- uses `scripts/measure-stealth.sh run|import|compare|prune|summarize`
 - saves reports under `/var/lib/xray/measurements/`
 - aggregates the latest summary to help operators and promotion logic
 - may recommend `emergency` when direct variants are too weak on real networks

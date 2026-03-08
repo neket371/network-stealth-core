@@ -219,3 +219,94 @@ measurement_compare_reports_json() {
     reports_json=$(measurement_reports_json_from_files "${files[@]}")
     measurement_aggregate_reports_json "$reports_json"
 }
+
+measurement_validate_report_json() {
+    local report_file="$1"
+    [[ -f "$report_file" ]] || return 1
+    jq -e '
+        type == "object"
+        and ((.generated // "") | type == "string" and length > 0)
+        and (.configs | type == "array")
+        and (.results | type == "array")
+    ' "$report_file" > /dev/null 2>&1
+}
+
+measurement_import_report_file() {
+    local source_file="$1"
+    [[ -n "$source_file" ]] || {
+        echo "measurement import requires a source file" >&2
+        return 1
+    }
+    [[ -f "$source_file" ]] || {
+        echo "measurement report not found: $source_file" >&2
+        return 1
+    }
+    measurement_validate_report_json "$source_file" || {
+        echo "measurement report has invalid schema: $source_file" >&2
+        return 1
+    }
+
+    local report_json network_tag provider region out_file hash suffix
+    report_json=$(cat "$source_file")
+    network_tag=$(jq -r '.network_tag // "default"' <<< "$report_json" 2> /dev/null || echo "default")
+    provider=$(jq -r '.provider // "unknown"' <<< "$report_json" 2> /dev/null || echo "unknown")
+    region=$(jq -r '.region // "unknown"' <<< "$report_json" 2> /dev/null || echo "unknown")
+    hash=$(printf '%s' "$report_json" | sha256sum | awk '{print $1}')
+    suffix="${hash:0:12}"
+    out_file="$(measurement_reports_dir_path)/$(measurement_report_filename "$network_tag" "$provider" "$region" | sed "s/\\.json$/-${suffix}.json/")"
+
+    measurement_save_report "$report_json" "$out_file" > /dev/null
+    printf '%s\n' "$out_file"
+}
+
+measurement_prune_reports() {
+    local keep_last="${1:-0}"
+    local dry_run="${2:-false}"
+    local reports_dir
+    reports_dir=$(measurement_reports_dir_path)
+    [[ "$keep_last" =~ ^[0-9]+$ ]] || {
+        echo "keep_last must be a non-negative integer" >&2
+        return 1
+    }
+    ((keep_last > 0)) || {
+        echo "keep_last must be greater than zero" >&2
+        return 1
+    }
+
+    local -a files=()
+    mapfile -t files < <(measurement_collect_report_files | sort -r)
+
+    local index=0
+    local removed=0
+    local -a deleted_files=()
+    local file
+    for file in "${files[@]}"; do
+        ((index += 1))
+        if ((index <= keep_last)); then
+            continue
+        fi
+        deleted_files+=("$file")
+        if [[ "$dry_run" != "true" ]]; then
+            rm -f "$file"
+        fi
+        ((removed += 1))
+    done
+
+    if [[ "$dry_run" != "true" ]]; then
+        measurement_refresh_summary
+    fi
+
+    jq -n \
+        --arg reports_dir "$reports_dir" \
+        --argjson keep_last "$keep_last" \
+        --argjson dry_run "$(if [[ "$dry_run" == "true" ]]; then echo true; else echo false; fi)" \
+        --argjson removed "$removed" \
+        --argjson deleted "$(printf '%s\n' "${deleted_files[@]}" | sed '/^$/d' | jq -R . | jq -s .)" \
+        '{
+            reports_dir: $reports_dir,
+            keep_last: $keep_last,
+            dry_run: $dry_run,
+            removed_count: $removed,
+            deleted_files: $deleted
+        }'
+}

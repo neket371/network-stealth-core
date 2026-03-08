@@ -130,13 +130,46 @@ sudo bash scripts/measure-stealth.sh compare \
   --dir /var/lib/xray/measurements \
   --output /tmp/measure-compare.json
 
+sudo bash scripts/measure-stealth.sh import \
+  --dir ./remote-canary-reports \
+  --output /tmp/measure-import.json
+
 sudo bash scripts/measure-stealth.sh summarize \
   --dir /var/lib/xray/measurements \
   --output /tmp/measure-summary.json
+
+sudo bash scripts/measure-stealth.sh prune \
+  --keep-last 30 \
+  --output /tmp/measure-prune.json
 ```
 
 для удалённых тестов на сетях рф используй bundle из `export/canary/` и raw xray-конфиги оттуда.
 если проверяешь `emergency`, на стороне клиента нужно выставить `xray.browser.dialer`.
+
+## host-safe lab smoke
+
+если на хосте уже крутятся рабочие api или живой xray-узел, не запускай lifecycle-тесты прямо по хосту.
+используй изолированный lab smoke:
+
+```bash
+make lab-smoke
+```
+
+или явные скрипты:
+
+```bash
+bash scripts/lab/prepare-host-safe-smoke.sh
+bash scripts/lab/run-container-smoke.sh
+bash scripts/lab/collect-container-artifacts.sh
+```
+
+этот lab flow:
+
+- использует уже существующий `docker` или `podman`
+- поднимает ubuntu 24.04 контейнер без опубликованных портов
+- гоняет compatibility smoke install только внутри контейнера
+- сохраняет логи и артефакты вне дерева репозитория
+- не трогает host xray, firewall и опубликованные сервисы
 
 ## ключевые флаги
 
@@ -202,7 +235,10 @@ sudo bash scripts/measure-stealth.sh summarize \
 make lint
 make test
 make release-check
+make ci-fast
 make ci
+make ci-full
+make lab-smoke
 ```
 
 windows-помощники:

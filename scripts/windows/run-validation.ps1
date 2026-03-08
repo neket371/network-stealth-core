@@ -72,12 +72,12 @@ function Invoke-LocalValidation {
         throw "Unable to detect bash.exe. Set BASH_EXE and retry."
     }
 
-    Write-Step "Local QA: make ci (WIN_BASH=$bashPath)"
+    Write-Step "Local QA: make ci-full (WIN_BASH=$bashPath)"
     Push-Location $RepoRoot
     try {
-        & make "WIN_BASH=$bashPath" ci
+        & make "WIN_BASH=$bashPath" ci-full
         if ($LASTEXITCODE -ne 0) {
-            throw "make ci failed with exit code $LASTEXITCODE"
+            throw "make ci-full failed with exit code $LASTEXITCODE"
         }
     } finally {
         Pop-Location
