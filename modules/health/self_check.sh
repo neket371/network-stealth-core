@@ -153,7 +153,7 @@ self_check_pick_free_port() {
         tries_left=$((tries_left - 1))
     done
 
-    for candidate in $(seq $base $((base + span))); do
+    for ((candidate = base; candidate <= base + span; candidate++)); do
         if ! self_check_port_is_listening "$candidate"; then
             printf '%s\n' "$candidate"
             return 0

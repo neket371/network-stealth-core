@@ -3,11 +3,12 @@
 
 managed_install_needs_migrate_stealth() {
     local current_transport
+    local xray_config="${XRAY_CONFIG:-/etc/xray/config.json}"
     current_transport=$(detect_current_managed_transport)
     if transport_is_legacy "$current_transport"; then
         return 0
     fi
-    if [[ -f "$XRAY_CONFIG" ]] && command -v jq > /dev/null 2>&1; then
+    if [[ -f "$xray_config" ]] && command -v jq > /dev/null 2>&1; then
         if jq -e --arg flow "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}" '
             [ .inbounds[]
               | select(.streamSettings.realitySettings != null)
@@ -15,7 +16,7 @@ managed_install_needs_migrate_stealth() {
               | ((.settings.decryption // "none") != "none")
                 and ((.settings.clients[0].flow // "") == $flow)
             ] | all
-        ' "$XRAY_CONFIG" > /dev/null 2>&1; then
+        ' "$xray_config" > /dev/null 2>&1; then
             return 1
         fi
     fi

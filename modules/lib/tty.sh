@@ -111,6 +111,7 @@ tty_print_box() {
     local title="${3:-}"
     local min_width="${4:-60}"
     local max_width="${5:-90}"
+    local bold="${BOLD:-}"
 
     [[ "$tty_fd" =~ ^[0-9]+$ ]] || return 1
 
@@ -120,9 +121,9 @@ tty_print_box() {
     line=$(ui_box_line_string "$title" "$width")
     bottom=$(ui_box_border_string bottom "$width")
 
-    tty_printf "$tty_fd" '%b%s%b\n' "${BOLD}${color}" "$top" "$NC"
-    tty_printf "$tty_fd" '%b%s%b\n' "${BOLD}${color}" "$line" "$NC"
-    tty_printf "$tty_fd" '%b%s%b\n' "${BOLD}${color}" "$bottom" "$NC"
+    tty_printf "$tty_fd" '%b%s%b\n' "${bold}${color}" "$top" "$NC"
+    tty_printf "$tty_fd" '%b%s%b\n' "${bold}${color}" "$line" "$NC"
+    tty_printf "$tty_fd" '%b%s%b\n' "${bold}${color}" "$bottom" "$NC"
 }
 
 canonicalize_confirmation_token() {

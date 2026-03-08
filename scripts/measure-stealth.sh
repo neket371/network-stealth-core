@@ -187,6 +187,7 @@ measure_run() {
                 case "$family" in
                     ipv4) raw_file=$(jq -r '.raw_v4 // empty' <<< "$job_json") ;;
                     ipv6) raw_file=$(jq -r '.raw_v6 // empty' <<< "$job_json") ;;
+                    *) continue ;;
                 esac
                 [[ -n "$raw_file" ]] || continue
 
@@ -511,4 +512,8 @@ case "$subcommand" in
     import) measure_import "$@" ;;
     prune) measure_prune "$@" ;;
     summarize) measure_summarize "$@" ;;
+    *)
+        measure_usage >&2
+        exit 1
+        ;;
 esac
