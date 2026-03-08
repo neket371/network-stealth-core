@@ -943,9 +943,7 @@ show_install_result() {
     local client_file="${XRAY_KEYS}/clients.txt"
     local client_links_file="${XRAY_KEYS}/clients-links.txt"
     if [[ -f "$client_links_file" ]]; then
-        if [[ -t 1 ]]; then
-            echo -e "${BOLD}🔗 Быстрый импорт VLESS:${NC}"
-            cat "$client_links_file"
+        if print_install_links_summary "$client_links_file"; then
             echo ""
         else
             echo -e "  ${DIM}🔗 VLESS-ссылки сохранены: ${client_links_file}${NC}"
@@ -978,6 +976,33 @@ show_install_result() {
     echo -e "  Удалить:   ${YELLOW}xray-reality.sh uninstall${NC}"
     echo ""
 
+}
+
+print_install_links_summary() {
+    local client_links_file="$1"
+    [[ -f "$client_links_file" ]] || return 1
+
+    if [[ -t 1 ]]; then
+        echo -e "${BOLD}🔗 Быстрый импорт VLESS:${NC}"
+        cat "$client_links_file"
+        return 0
+    fi
+
+    local tty_fd=""
+    if ! open_interactive_tty_fd tty_fd; then
+        return 1
+    fi
+
+    tty_printf "$tty_fd" '%b%s%b\n' "$BOLD" "🔗 Быстрый импорт VLESS:" "$NC" || {
+        exec {tty_fd}>&-
+        return 1
+    }
+    if ! cat "$client_links_file" >&"$tty_fd"; then
+        exec {tty_fd}>&-
+        return 1
+    fi
+    exec {tty_fd}>&-
+    return 0
 }
 
 move_runtime_array_index_to_front() {
