@@ -1090,6 +1090,9 @@ status_flow() {
     if [[ -d "$XRAY_KEYS" ]]; then
         echo -e "${BOLD}Клиентские конфиги:${NC}"
         echo -e "  ${XRAY_KEYS}/clients.txt"
+        if [[ -f "${XRAY_KEYS}/clients-links.txt" ]]; then
+            echo -e "  ${XRAY_KEYS}/clients-links.txt"
+        fi
         if [[ -d "${XRAY_KEYS}/export" ]]; then
             echo -e "  ${XRAY_KEYS}/export/ (raw xray, capability matrix, client templates)"
         fi

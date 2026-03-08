@@ -27,6 +27,7 @@ sudo xray-reality.sh install --non-interactive --yes
 - strongest-direct стек собирается без вопросов про transport
 - пишется `policy.json`
 - генерируются клиентские артефакты schema v3
+- в интерактивном терминале после install сразу печатаются быстрые `vless`-ссылки из `clients-links.txt`
 - запускается post-action self-check для `recommended`, затем `rescue`, если нужно
 - экспортируются raw xray configs, capability matrix и canary bundle
 
@@ -74,7 +75,7 @@ sudo xray-reality.sh repair --non-interactive --yes
 
 `repair` теперь также:
 
-- пересобирает `clients.txt`, `clients.json`, raw xray exports, capability matrix и canary bundle
+- пересобирает `clients.txt`, `clients-links.txt`, `clients.json`, raw xray exports, capability matrix и canary bundle
 - обновляет `policy.json`
 - может повысить более сильный spare-config, если недавние verdict’ы показывают, что текущий primary слабый
 
@@ -186,7 +187,7 @@ bash scripts/lab/run-container-smoke.sh
 bash scripts/lab/collect-container-artifacts.sh
 ```
 
-этот flow ожидает уже существующий `docker` или `podman`, не публикует container ports и складывает логи в host-safe lab directory, а не в дерево репозитория.
+этот flow ожидает уже существующий `docker` или `podman`, не публикует container ports, форсирует `c.utf-8` внутри smoke-контейнера и складывает логи в host-safe lab directory, а не в дерево репозитория.
 
 ## canary bundle
 
@@ -211,6 +212,8 @@ export xray.browser.dialer=127.0.0.1:11050
 | `/etc/xray-reality/policy.json` | managed policy |
 | `/etc/xray-reality/config.env` | generated env snapshot |
 | `/etc/xray/config.json` | live xray config |
+| `/etc/xray/private/keys/clients.txt` | человекочитаемое summary по конфигам |
+| `/etc/xray/private/keys/clients-links.txt` | быстрые vless-ссылки для копирования |
 | `/etc/xray/private/keys/clients.json` | клиентский инвентарь schema v3 |
 | `/etc/xray/private/keys/export/capabilities.json` | карта поддержки export-target |
 | `/var/lib/xray/self-check.json` | последний self-check verdict |

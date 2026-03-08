@@ -27,6 +27,7 @@ what this should do:
 - build the strongest-direct stack without transport questions
 - write `policy.json`
 - generate schema v3 client artifacts
+- print quick `vless` links from `clients-links.txt` when install runs in an interactive terminal
 - run post-action self-check with `recommended`, then `rescue` if needed
 - export raw xray configs, capability matrix, and canary bundle
 
@@ -74,7 +75,7 @@ sudo xray-reality.sh repair --non-interactive --yes
 
 `repair` now also:
 
-- rebuilds `clients.txt`, `clients.json`, raw xray exports, capability matrix, and canary bundle
+- rebuilds `clients.txt`, `clients-links.txt`, `clients.json`, raw xray exports, capability matrix, and canary bundle
 - refreshes `policy.json`
 - may promote a better spare config when recent verdicts show the current primary is weak
 
@@ -186,7 +187,7 @@ bash scripts/lab/run-container-smoke.sh
 bash scripts/lab/collect-container-artifacts.sh
 ```
 
-this flow expects an existing `docker` or `podman` runtime, publishes no container ports, and keeps logs under the host-safe lab directory instead of touching the repo tree.
+this flow expects an existing `docker` or `podman` runtime, publishes no container ports, forces `c.utf-8` inside the smoke container, and keeps logs under the host-safe lab directory instead of touching the repo tree.
 
 ## canary bundle
 
@@ -211,6 +212,8 @@ export xray.browser.dialer=127.0.0.1:11050
 | `/etc/xray-reality/policy.json` | managed policy |
 | `/etc/xray-reality/config.env` | generated env snapshot |
 | `/etc/xray/config.json` | live xray config |
+| `/etc/xray/private/keys/clients.txt` | human-readable config summary |
+| `/etc/xray/private/keys/clients-links.txt` | quick-copy vless links |
 | `/etc/xray/private/keys/clients.json` | schema v3 client inventory |
 | `/etc/xray/private/keys/export/capabilities.json` | export support map |
 | `/var/lib/xray/self-check.json` | last self-check verdict |

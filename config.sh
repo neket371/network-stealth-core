@@ -1020,6 +1020,7 @@ build_xray_client_variant_json() {
 render_clients_txt_from_json() {
     local json_file="$1"
     local client_file="$2"
+    local links_file="${XRAY_KEYS}/clients-links.txt"
     local rule58
     rule58="$(ui_rule_string 58)"
     box60_init
@@ -1076,6 +1077,7 @@ Security: Reality + xhttp + VLESS encryption + ${XRAY_DIRECT_FLOW:-xtls-rprx-vis
 DPI Bypass: strongest direct stack + emergency browser-assisted fallback
 Spider Mode: $([[ "${spider_mode}" == "true" ]] && echo "Enabled" || echo "Disabled")
 Install UX: $([[ "${ADVANCED_MODE:-false}" == "true" ]] && echo "advanced" || echo "minimal")
+Quick import links: ${links_file}
 
 ${rule58}
 
@@ -1150,6 +1152,8 @@ EOF
             box60_line "VLESS enc: ${encryption_value}"
             echo "$BOX60_BOT"
             echo ""
+            echo "quick vless links: ${links_file}"
+            echo ""
         } >> "$tmp_client"
 
         local variant_count
@@ -1188,14 +1192,12 @@ EOF
                     echo "requires: browser dialer via env ${BROWSER_DIALER_ENV_NAME:-xray.browser.dialer}"
                 fi
                 if [[ -n "$vless_v4" && "$vless_v4" != "null" ]]; then
-                    echo "vless link (ipv4):"
-                    echo "${vless_v4}"
+                    echo "vless link (ipv4): see ${links_file}"
                 else
                     echo "vless link (ipv4): n/a"
                 fi
                 if [[ -n "$vless_v6" && "$vless_v6" != "null" ]]; then
-                    echo "vless link (ipv6):"
-                    echo "${vless_v6}"
+                    echo "vless link (ipv6): see ${links_file}"
                 fi
                 if [[ -n "$raw_v4" && "$raw_v4" != "null" ]]; then
                     echo "raw xray (ipv4): ${raw_v4}"
@@ -1266,6 +1268,142 @@ EOF
     chown "root:${XRAY_GROUP}" "$client_file" 2> /dev/null || true
 }
 
+render_clients_links_txt_from_json() {
+    local json_file="$1"
+    local links_file="$2"
+    local rule58
+    rule58="$(ui_rule_string 58)"
+
+    if ! jq -e 'type == "object" and (.configs | type == "array")' "$json_file" > /dev/null 2>&1; then
+        log ERROR "Некорректный JSON-источник для clients-links.txt: ${json_file}"
+        return 1
+    fi
+
+    local server_ipv4 server_ipv6 generated
+    server_ipv4=$(jq -r '.server_ipv4 // empty' "$json_file" 2> /dev/null || true)
+    server_ipv6=$(jq -r '.server_ipv6 // empty' "$json_file" 2> /dev/null || true)
+    generated=$(jq -r '.generated // empty' "$json_file" 2> /dev/null || true)
+
+    [[ -n "$server_ipv4" ]] || server_ipv4="${SERVER_IP:-unknown}"
+    [[ -n "$server_ipv6" ]] || server_ipv6="N/A"
+    generated=$(printf '%s' "$generated" | tr -s '[:space:]' ' ')
+    generated=$(trim_ws "$generated")
+    [[ -n "$generated" ]] || generated="$(format_generated_timestamp)"
+
+    backup_file "$links_file"
+    local tmp_links
+    tmp_links=$(mktemp "${links_file}.tmp.XXXXXX")
+
+    local header_title="Network Stealth Core ${SCRIPT_VERSION} - QUICK VLESS LINKS"
+    local header_width
+    header_width=$(ui_box_width_for_lines 60 90 "$header_title")
+
+    {
+        printf '%s\n' "$(ui_box_border_string top "$header_width")"
+        printf '%s\n' "$(ui_box_line_string "$header_title" "$header_width")"
+        printf '%s\n' "$(ui_box_border_string bottom "$header_width")"
+        echo ""
+        echo "server: ${server_ipv4}"
+        echo "server ipv6: ${server_ipv6}"
+        echo "generated: ${generated}"
+        echo ""
+        echo "этот файл нужен для быстрого копирования vless-ссылок после установки."
+        echo "подробное описание профилей смотри в ${XRAY_KEYS}/clients.txt"
+        echo "emergency-профиль даётся только как raw xray json."
+        echo ""
+        echo "${rule58}"
+        echo ""
+    } > "$tmp_links"
+
+    local config_count
+    config_count=$(jq -r '.configs | length' "$json_file" 2> /dev/null || echo 0)
+
+    local i
+    for ((i = 0; i < config_count; i++)); do
+        local domain port_v4 port_v6
+        domain=$(jq -r ".configs[$i].domain // \"unknown\"" "$json_file" 2> /dev/null || echo "unknown")
+        port_v4=$(jq -r ".configs[$i].port_ipv4 // \"N/A\"" "$json_file" 2> /dev/null || echo "N/A")
+        port_v6=$(jq -r ".configs[$i].port_ipv6 // empty | tostring" "$json_file" 2> /dev/null || true)
+        [[ -n "$port_v6" && "$port_v6" != "null" ]] || port_v6="N/A"
+
+        local priority=""
+        if [[ $i -eq 0 ]]; then
+            priority=" * primary"
+        elif [[ $i -eq 1 ]]; then
+            priority=" ~ spare"
+        fi
+
+        {
+            echo "Config $((i + 1)): ${domain}${priority}"
+            echo "Port IPv4: ${port_v4}"
+            echo "Port IPv6: ${port_v6}"
+            echo ""
+        } >> "$tmp_links"
+
+        local variant_count
+        variant_count=$(jq -r ".configs[$i].variants | length" "$json_file" 2> /dev/null || echo 0)
+        if [[ ! "$variant_count" =~ ^[0-9]+$ ]] || ((variant_count < 1)); then
+            variant_count=1
+        fi
+
+        local j
+        for ((j = 0; j < variant_count; j++)); do
+            local variant_key variant_mode variant_category vless_v4 vless_v6 raw_v4 raw_v6 requires_browser_dialer
+            variant_key=$(jq -r ".configs[$i].variants[$j].key // .configs[$i].recommended_variant // \"recommended\"" "$json_file" 2> /dev/null || echo "recommended")
+            variant_mode=$(jq -r ".configs[$i].variants[$j].mode // empty" "$json_file" 2> /dev/null || true)
+            variant_category=$(jq -r ".configs[$i].variants[$j].category // empty" "$json_file" 2> /dev/null || true)
+            vless_v4=$(jq -r ".configs[$i].variants[$j].vless_v4 // empty" "$json_file" 2> /dev/null || true)
+            vless_v6=$(jq -r ".configs[$i].variants[$j].vless_v6 // empty" "$json_file" 2> /dev/null || true)
+            raw_v4=$(jq -r ".configs[$i].variants[$j].xray_client_file_v4 // empty" "$json_file" 2> /dev/null || true)
+            raw_v6=$(jq -r ".configs[$i].variants[$j].xray_client_file_v6 // empty" "$json_file" 2> /dev/null || true)
+            requires_browser_dialer=$(jq -r ".configs[$i].variants[$j].requires.browser_dialer // false" "$json_file" 2> /dev/null || echo "false")
+
+            {
+                printf 'variant: %s' "$(client_variant_title "$variant_key")"
+                if [[ -n "$variant_category" && "$variant_category" != "null" ]]; then
+                    printf ' | %s' "$variant_category"
+                fi
+                if [[ -n "$variant_mode" && "$variant_mode" != "null" ]]; then
+                    printf ' | mode=%s' "$variant_mode"
+                fi
+                printf '\n'
+
+                if [[ "$requires_browser_dialer" == "true" ]]; then
+                    echo "raw xray only (browser dialer required)"
+                else
+                    if [[ -n "$vless_v4" && "$vless_v4" != "null" ]]; then
+                        echo "vless ipv4:"
+                        printf '%s\n' "$vless_v4"
+                    else
+                        echo "vless ipv4: n/a"
+                    fi
+                    if [[ -n "$vless_v6" && "$vless_v6" != "null" ]]; then
+                        echo "vless ipv6:"
+                        printf '%s\n' "$vless_v6"
+                    fi
+                fi
+
+                if [[ -n "$raw_v4" && "$raw_v4" != "null" ]]; then
+                    echo "raw xray ipv4: ${raw_v4}"
+                fi
+                if [[ -n "$raw_v6" && "$raw_v6" != "null" ]]; then
+                    echo "raw xray ipv6: ${raw_v6}"
+                fi
+                echo ""
+            } >> "$tmp_links"
+        done
+
+        {
+            echo "${rule58}"
+            echo ""
+        } >> "$tmp_links"
+    done
+
+    mv "$tmp_links" "$links_file"
+    chmod 640 "$links_file"
+    chown "root:${XRAY_GROUP}" "$links_file" 2> /dev/null || true
+}
+
 secure_clients_json_permissions() {
     local json_file="$1"
     [[ -f "$json_file" ]] || return 0
@@ -1285,6 +1423,7 @@ save_client_configs() {
 
     local keys_file="${XRAY_KEYS}/keys.txt"
     local client_file="${XRAY_KEYS}/clients.txt"
+    local client_links_file="${XRAY_KEYS}/clients-links.txt"
     local json_file="${XRAY_KEYS}/clients.json"
     local rule58
     rule58="$(ui_rule_string 58)"
@@ -1571,6 +1710,7 @@ EOF
     printf '%s\n' "$json_output" | atomic_write "$json_file" 0640
     secure_clients_json_permissions "$json_file"
     render_clients_txt_from_json "$json_file" "$client_file"
+    render_clients_links_txt_from_json "$json_file" "${XRAY_KEYS}/clients-links.txt"
 
     if [[ "$QR_ENABLED" == "true" ]] || { [[ "$QR_ENABLED" == "auto" ]] && command -v qrencode > /dev/null 2>&1; }; then
         if command -v qrencode > /dev/null 2>&1; then
@@ -1744,6 +1884,7 @@ JQ
 collect_fallback_public_keys_from_artifacts() {
     local keys_file="${XRAY_KEYS}/keys.txt"
     local client_file="${XRAY_KEYS}/clients.txt"
+    local client_links_file="${XRAY_KEYS}/clients-links.txt"
     local json_file="${XRAY_KEYS}/clients.json"
     local required_count="${1:-0}"
 
@@ -1777,6 +1918,21 @@ collect_fallback_public_keys_from_artifacts() {
             seen="${seen}${pbk} "
             from_clients+=("$pbk")
         done < "$client_file"
+    fi
+
+    if [[ -f "$client_links_file" ]]; then
+        local line params pbk seen_links=" "
+        while IFS= read -r line; do
+            [[ "$line" == vless://* ]] || continue
+            [[ "$line" == *"@["* ]] && continue
+            params="${line#*\?}"
+            params="${params%%#*}"
+            pbk=$(get_query_param "$params" "pbk" || true)
+            [[ -n "$pbk" ]] || continue
+            [[ " $seen_links " == *" $pbk "* ]] && continue
+            seen_links="${seen_links}${pbk} "
+            from_clients+=("$pbk")
+        done < "$client_links_file"
     fi
 
     local -a best=("${from_keys[@]}")
@@ -1845,6 +2001,7 @@ client_artifacts_missing() {
     local -a files=(
         "${XRAY_KEYS}/keys.txt"
         "${XRAY_KEYS}/clients.txt"
+        "${XRAY_KEYS}/clients-links.txt"
         "${XRAY_KEYS}/clients.json"
     )
     local missing=false
@@ -1869,6 +2026,7 @@ client_artifacts_inconsistent() {
 
     local keys_file="${XRAY_KEYS}/keys.txt"
     local client_file="${XRAY_KEYS}/clients.txt"
+    local client_links_file="${XRAY_KEYS}/clients-links.txt"
     local json_file="${XRAY_KEYS}/clients.json"
 
     local inconsistent=false
@@ -1886,6 +2044,14 @@ client_artifacts_inconsistent() {
         count=$(awk '/Config [0-9]+:/ {c++} END {print c+0}' "$client_file")
         if ((count != expected_count)); then
             log WARN "clients.txt рассинхронизирован: ${count}/${expected_count} секций"
+            inconsistent=true
+        fi
+    fi
+
+    if [[ -f "$client_links_file" ]]; then
+        count=$(awk '/^Config [0-9]+:/ {c++} END {print c+0}' "$client_links_file")
+        if ((count != expected_count)); then
+            log WARN "clients-links.txt рассинхронизирован: ${count}/${expected_count} секций"
             inconsistent=true
         fi
     fi

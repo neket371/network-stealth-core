@@ -105,6 +105,8 @@ managed install держит синхронными такие файлы:
 
 - `/etc/xray-reality/policy.json` — source of truth для strongest-direct policy
 - `data/domains/catalog.json` — canonical metadata доменов для planner
+- `/etc/xray/private/keys/clients.txt` — человекочитаемое summary по конфигам и variant’ам
+- `/etc/xray/private/keys/clients-links.txt` — быстрые vless-ссылки для копирования после установки
 - `/etc/xray/private/keys/clients.json` — клиентский инвентарь schema v3
 - `/etc/xray/private/keys/export/raw-xray/` — canonical per-variant xray client json
 - `/etc/xray/private/keys/export/canary/` — bundle для полевых тестов `recommended`, `rescue` и `emergency`

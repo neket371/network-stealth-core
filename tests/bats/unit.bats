@@ -217,6 +217,7 @@
     export_capabilities_json "$tmp_dir/export" "$tmp_dir/export/capabilities.json"
     jq -e '\''.schema_version == 2'\'' "$tmp_dir/export/capabilities.json" > /dev/null
     jq -e '\''.transport == "xhttp"'\'' "$tmp_dir/export/capabilities.json" > /dev/null
+    jq -e '\''any(.formats[]; .name == "clients-links.txt" and .status == "native")'\'' "$tmp_dir/export/capabilities.json" > /dev/null
     jq -e '\''any(.formats[]; .name == "raw-xray" and .status == "native")'\'' "$tmp_dir/export/capabilities.json" > /dev/null
     jq -e '\''any(.formats[]; .name == "canary-bundle" and .status == "native")'\'' "$tmp_dir/export/capabilities.json" > /dev/null
     jq -e '\''any(.formats[]; .name == "sing-box" and .status == "unsupported")'\'' "$tmp_dir/export/capabilities.json" > /dev/null
@@ -408,6 +409,8 @@ EOF
     run bash -eo pipefail -c '
     grep -Fq '\''result_json="$(bash "$SCRIPT_DIR/collect-container-artifacts.sh" --timestamp "$timestamp")"'\'' \
       ./scripts/lab/run-container-smoke.sh
+    grep -Fq '\''export LANG=C.UTF-8'\'' ./scripts/lab/run-container-smoke.sh
+    grep -Fq '\''export LC_ALL=C.UTF-8'\'' ./scripts/lab/run-container-smoke.sh
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -1981,10 +1984,23 @@ EOF
     [ "$output" = "ok" ]
 }
 
-@test "install result no longer auto-dumps clients file to tty" {
+@test "install result prints compact quick links instead of dumping clients.txt" {
     run bash -eo pipefail -c '
-    grep -Fq "Клиентские конфиги автоматически не печатаются в терминал, чтобы не ломать layout." ./install.sh
-    ! grep -Fq "print_secret_file_to_tty \"\$client_file\" \"Клиентские ссылки\"" ./install.sh
+    grep -Fq "local client_links_file=\"\${XRAY_KEYS}/clients-links.txt\"" ./install.sh
+    grep -Fq "cat \"\$client_links_file\"" ./install.sh
+    grep -Fq "Быстрые VLESS-ссылки: \${client_links_file}" ./install.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "clients summary points operators to clients-links.txt" {
+    run bash -eo pipefail -c '
+    grep -Fq "Quick import links: \${links_file}" ./config.sh
+    grep -Fq "quick vless links: \${links_file}" ./config.sh
+    grep -Fq "vless link (ipv4): see \${links_file}" ./config.sh
+    grep -Fq "render_clients_links_txt_from_json" ./config.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -2044,7 +2060,7 @@ EOF
     trap "rm -rf \"$tmp\"" EXIT
     XRAY_KEYS="$tmp"
     mkdir -p "$XRAY_KEYS"
-    touch "$XRAY_KEYS/keys.txt" "$XRAY_KEYS/clients.txt" "$XRAY_KEYS/clients.json"
+    touch "$XRAY_KEYS/keys.txt" "$XRAY_KEYS/clients.txt" "$XRAY_KEYS/clients-links.txt" "$XRAY_KEYS/clients.json"
     if client_artifacts_missing; then
       echo "missing"
     else
@@ -2066,6 +2082,12 @@ EOF
 Private Key: p1
 EOF
     cat > "$XRAY_KEYS/clients.txt" <<EOF
+Config 1:
+variant: recommended
+vless link (ipv4): see /tmp/clients-links.txt
+EOF
+    cat > "$XRAY_KEYS/clients-links.txt" <<EOF
+Config 1:
 vless://u1@1.1.1.1:444?pbk=pk1#cfg1
 EOF
     cat > "$XRAY_KEYS/clients.json" <<EOF
@@ -2095,9 +2117,15 @@ EOF
     cat > "$XRAY_KEYS/clients.txt" <<EOF
 Config 1:
 variant: recommended
-vless://u1@1.1.1.1:444?pbk=pk1#cfg1
+vless link (ipv4): see /tmp/clients-links.txt
 Config 2:
 variant: recommended
+vless link (ipv4): see /tmp/clients-links.txt
+EOF
+    cat > "$XRAY_KEYS/clients-links.txt" <<EOF
+Config 1:
+vless://u1@1.1.1.1:444?pbk=pk1#cfg1
+Config 2:
 vless://u2@1.1.1.1:445?pbk=pk2#cfg2
 EOF
     cat > "$XRAY_KEYS/clients.json" <<EOF

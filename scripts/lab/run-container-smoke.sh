@@ -93,6 +93,9 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq bash ca-certificates curl jq iproute2 logrotate openssl procps unzip uuid-runtime python3 >/dev/null
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+export LC_CTYPE=C.UTF-8
 export NON_INTERACTIVE=true
 export ASSUME_YES=true
 export ALLOW_NO_SYSTEMD=true

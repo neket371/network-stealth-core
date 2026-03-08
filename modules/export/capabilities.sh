@@ -24,6 +24,7 @@ export_capabilities_json() {
         --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
         --arg contract_version "${STEALTH_CONTRACT_VERSION:-7.1.0}" \
         --arg clients_txt "${XRAY_KEYS}/clients.txt" \
+        --arg clients_links "${XRAY_KEYS}/clients-links.txt" \
         --arg clients_json "${XRAY_KEYS}/clients.json" \
         --arg raw_xray_dir "${export_dir}/raw-xray" \
         --arg raw_xray_index "${export_dir}/raw-xray-index.json" \
@@ -43,7 +44,15 @@ export_capabilities_json() {
                     artifact: $clients_txt,
                     xray_min_version: $min_version,
                     requires: [],
-                    reason: "human-readable server-managed client inventory"
+                    reason: "human-readable server-managed client summary"
+                },
+                {
+                    name: "clients-links.txt",
+                    status: "native",
+                    artifact: $clients_links,
+                    xray_min_version: $min_version,
+                    requires: ["xhttp"],
+                    reason: "quick-copy vless links for recommended and rescue variants plus raw xray references"
                 },
                 {
                     name: "clients.json",

@@ -941,14 +941,26 @@ show_install_result() {
     echo ""
 
     local client_file="${XRAY_KEYS}/clients.txt"
-    if [[ -f "$client_file" ]]; then
-        echo -e "  ${DIM}💡 Клиентские конфиги автоматически не печатаются в терминал, чтобы не ломать layout.${NC}"
-        echo -e "  ${DIM}   Откройте файл вручную: ${client_file}${NC}"
+    local client_links_file="${XRAY_KEYS}/clients-links.txt"
+    if [[ -f "$client_links_file" ]]; then
+        if [[ -t 1 ]]; then
+            echo -e "${BOLD}🔗 Быстрый импорт VLESS:${NC}"
+            cat "$client_links_file"
+            echo ""
+        else
+            echo -e "  ${DIM}🔗 VLESS-ссылки сохранены: ${client_links_file}${NC}"
+            echo ""
+        fi
+    elif [[ -f "$client_file" ]]; then
+        echo -e "  ${DIM}💡 Клиентские конфиги сохранены: ${client_file}${NC}"
         echo ""
     fi
 
     echo -e "${BOLD}📁 Файлы:${NC}"
     echo -e "  Клиентские конфиги: ${XRAY_KEYS}/clients.txt"
+    if [[ -f "$client_links_file" ]]; then
+        echo -e "  Быстрые VLESS-ссылки: ${client_links_file}"
+    fi
     echo -e "  Клиентские конфиги (JSON): ${XRAY_KEYS}/clients.json"
     if [[ -d "${XRAY_KEYS}/qr" ]]; then
         echo -e "  QR-коды: ${XRAY_KEYS}/qr/"

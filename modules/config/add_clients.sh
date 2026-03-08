@@ -471,6 +471,9 @@ print_add_clients_result() {
 
     log INFO "Клиентские артефакты полностью пересобраны"
     echo -e "📁 Обновлено: ${client_file}"
+    if [[ -f "${XRAY_KEYS}/clients-links.txt" ]]; then
+        echo -e "📁 Быстрые VLESS-ссылки: ${XRAY_KEYS}/clients-links.txt"
+    fi
     echo -e "📁 raw xray: ${XRAY_KEYS}/export/raw-xray/"
     echo ""
 }
