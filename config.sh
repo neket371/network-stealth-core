@@ -1958,8 +1958,10 @@ client_artifacts_inconsistent() {
         fi
     fi
 
+    local section_pattern='^(Config|конфиг) [0-9]+:'
+
     if [[ -f "$client_file" ]]; then
-        count=$(awk '/Config [0-9]+:/ {c++} END {print c+0}' "$client_file")
+        count=$(awk -v pattern="$section_pattern" '$0 ~ pattern {c++} END {print c+0}' "$client_file")
         if ((count != expected_count)); then
             log WARN "clients.txt рассинхронизирован: ${count}/${expected_count} секций"
             inconsistent=true
@@ -1967,7 +1969,7 @@ client_artifacts_inconsistent() {
     fi
 
     if [[ -f "$client_links_file" ]]; then
-        count=$(awk '/^Config [0-9]+:/ {c++} END {print c+0}' "$client_links_file")
+        count=$(awk -v pattern="$section_pattern" '$0 ~ pattern {c++} END {print c+0}' "$client_links_file")
         if ((count != expected_count)); then
             log WARN "clients-links.txt рассинхронизирован: ${count}/${expected_count} секций"
             inconsistent=true

@@ -2136,6 +2136,44 @@ EOF
     [ "$output" = "consistent" ]
 }
 
+@test "client_artifacts_inconsistent accepts localized section headings" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp=$(mktemp -d)
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_KEYS="$tmp"
+    cat > "$XRAY_KEYS/keys.txt" <<EOF
+Private Key: p1
+Private Key: p2
+EOF
+    cat > "$XRAY_KEYS/clients.txt" <<EOF
+конфиг 1:
+- вариант: основная (recommended)
+конфиг 2:
+- вариант: основная (recommended)
+EOF
+    cat > "$XRAY_KEYS/clients-links.txt" <<EOF
+конфиг 1:
+основная ссылка:
+vless://u1@1.1.1.1:444?pbk=pk1#cfg1
+конфиг 2:
+основная ссылка:
+vless://u2@1.1.1.1:445?pbk=pk2#cfg2
+EOF
+    cat > "$XRAY_KEYS/clients.json" <<EOF
+{"schema_version":3,"transport":"xhttp","configs":[{"name":"Config 1","recommended_variant":"recommended","variants":[{"key":"recommended"}]},{"name":"Config 2","recommended_variant":"recommended","variants":[{"key":"recommended"}]}]}
+EOF
+    if client_artifacts_inconsistent 2; then
+      echo "inconsistent"
+    else
+      echo "consistent"
+    fi
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "consistent" ]
+}
+
 @test "add_clients_flow always rebuilds artifacts after finalize" {
     run bash -eo pipefail -c '
     grep -q '\''rebuild_client_artifacts_from_config || {'\'' ./modules/config/add_clients.sh
