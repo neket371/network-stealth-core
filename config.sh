@@ -1114,7 +1114,7 @@ render_clients_txt_from_json() {
         esac
 
         {
-            print_client_config_box "конфиг $((i + 1)): ${domain}${priority}" \
+            print_client_config_box "config $((i + 1)): ${domain}${priority}" \
                 "порт ipv4: ${port_v4}" \
                 "порт ipv6: ${port_v6}" \
                 "sni: ${sni}" \
@@ -1257,7 +1257,7 @@ render_clients_links_txt_from_json() {
         fi
 
         {
-            echo "конфиг $((i + 1)): ${domain}${priority}"
+            echo "config $((i + 1)): ${domain}${priority}"
             echo "порт ipv4: ${port_v4}"
             echo "порт ipv6: ${port_v6}"
             echo ""
@@ -1958,7 +1958,7 @@ client_artifacts_inconsistent() {
         fi
     fi
 
-    local section_pattern='^(Config|конфиг) [0-9]+:'
+    local section_pattern='^([Cc]onfig|конфиг) [0-9]+:'
 
     if [[ -f "$client_file" ]]; then
         count=$(awk -v pattern="$section_pattern" '$0 ~ pattern {c++} END {print c+0}' "$client_file")
