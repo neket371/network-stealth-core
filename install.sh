@@ -1014,30 +1014,30 @@ build_install_quick_start_file() {
     [[ -n "$recommended_link" || -n "$rescue_link" || -n "$emergency_raw" ]] || return 1
 
     {
-        echo "для обычного старта ничего выбирать не надо:"
-        echo "- сначала импортируй основную ссылку"
-        echo "- если не заработала, попробуй запасную"
+        echo "что делать сейчас:"
+        echo "1. импортируй основную ссылку"
+        echo "2. если сеть её режет — попробуй запасную"
         echo ""
-        echo "Config 1: ${config_label}"
+        echo "основной конфиг: ${config_label}"
         echo ""
         if [[ -n "$recommended_link" ]]; then
-            echo "основная ссылка (recommended):"
+            echo "основная ссылка:"
             printf '%s\n' "$recommended_link"
             echo ""
         fi
         if [[ -n "$rescue_link" ]]; then
-            echo "запасная ссылка (rescue):"
+            echo "запасная ссылка:"
             printf '%s\n' "$rescue_link"
             echo ""
         fi
         if [[ -n "$emergency_raw" ]]; then
-            echo "аварийный режим (emergency):"
+            echo "аварийный режим:"
             echo "raw xray json: ${emergency_raw}"
-            echo "используй его только если обычные ссылки не проходят и клиент умеет browser dialer"
+            echo "нужен только если основная и запасная не помогли"
             echo ""
         fi
-        echo "остальные конфиги и ссылки: ${XRAY_KEYS}/clients-links.txt"
-        echo "подробное описание: ${XRAY_KEYS}/clients.txt"
+        echo "все ссылки: ${XRAY_KEYS}/clients-links.txt"
+        echo "подробная сводка: ${XRAY_KEYS}/clients.txt"
     } > "$output_file"
 }
 

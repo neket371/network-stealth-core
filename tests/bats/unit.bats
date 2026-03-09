@@ -1986,26 +1986,31 @@ EOF
 }
 
 @test "install result prints russian quick start instead of dumping full links file" {
-    run bash -eo pipefail -c "grep -Fq 'build_install_quick_start_file()' ./install.sh; grep -Fq 'header_text=' ./install.sh; grep -Fq 'остальные конфиги и ссылки: \${XRAY_KEYS}/clients-links.txt' ./install.sh; echo ok"
+    run bash -eo pipefail -c "grep -Fq 'build_install_quick_start_file()' ./install.sh; grep -Fq 'header_text=' ./install.sh; grep -Fq 'все ссылки: \${XRAY_KEYS}/clients-links.txt' ./install.sh; echo ok"
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
 
 @test "clients summary points operators to russian links guidance" {
-    run bash -eo pipefail -c "grep -Fq 'быстрые ссылки: \${links_file}' ./config.sh; grep -Fq 'быстрая vless-ссылка: см. \${links_file}' ./config.sh; grep -Fq 'как пользоваться:' ./config.sh; grep -Fq 'render_clients_links_txt_from_json' ./config.sh; echo ok"
+    run bash -eo pipefail -c "grep -Fq 'быстрые ссылки: \${links_file}' ./config.sh; grep -Fq 'ссылка: см. \${links_file}' ./config.sh; grep -Fq 'как подключаться:' ./config.sh; grep -Fq 'render_clients_links_txt_from_json' ./config.sh; echo ok"
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
 
-@test "config box60 helpers keep border and content width identical" {
+@test "print_client_config_box keeps border and content width identical" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
-    box60_init
-    line=$(box60_line "Config 12: yandex.cloud -> yandex.cloud:443 (chrome, grpc, SNIs: 3)")
-    [ "${#BOX60_TOP}" -eq "${#line}" ]
-    [ "${#BOX60_BOT}" -eq "${#line}" ]
-    [ "${#BOX60_SEP}" -eq "${#line}" ]
+    box=$(print_client_config_box "конфиг 12: yandex.cloud" "порт ipv4: 443" "транспорт: xhttp")
+    top=$(printf "%s\n" "$box" | sed -n "1p")
+    title=$(printf "%s\n" "$box" | sed -n "2p")
+    sep=$(printf "%s\n" "$box" | sed -n "3p")
+    body=$(printf "%s\n" "$box" | sed -n "4p")
+    bottom=$(printf "%s\n" "$box" | tail -n 1)
+    [ "${#top}" -eq "${#title}" ]
+    [ "${#sep}" -eq "${#title}" ]
+    [ "${#body}" -eq "${#title}" ]
+    [ "${#bottom}" -eq "${#title}" ]
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -2180,11 +2185,11 @@ EOF
 }
 JSON
     render_clients_links_txt_from_json "$json_file" "$links_file"
-    grep -Fq "как использовать этот файл:" "$links_file"
-    grep -Fq "основная (recommended) | mode=auto" "$links_file"
-    grep -Fq "запасная (rescue) | mode=packet-up" "$links_file"
-    grep -Fq "аварийная (emergency) | mode=stream-up" "$links_file"
-    grep -Fq "raw xray only: нужен browser dialer" "$links_file"
+    grep -Fq "что здесь делать:" "$links_file"
+    grep -Fq "основная ссылка:" "$links_file"
+    grep -Fq "запасная ссылка:" "$links_file"
+    grep -Fq "аварийный raw xray:" "$links_file"
+    grep -Fq "только raw xray json + browser dialer" "$links_file"
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -2217,10 +2222,10 @@ JSON
 }
 JSON
     build_install_quick_start_file "$json_file" "$out_file"
-    grep -Fq "для обычного старта ничего выбирать не надо:" "$out_file"
-    grep -Fq "основная ссылка (recommended):" "$out_file"
-    grep -Fq "запасная ссылка (rescue):" "$out_file"
-    grep -Fq "аварийный режим (emergency):" "$out_file"
+    grep -Fq "что делать сейчас:" "$out_file"
+    grep -Fq "основная ссылка:" "$out_file"
+    grep -Fq "запасная ссылка:" "$out_file"
+    grep -Fq "аварийный режим:" "$out_file"
     echo ok
   '
     [ "$status" -eq 0 ]

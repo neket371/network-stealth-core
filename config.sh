@@ -796,24 +796,6 @@ save_environment() {
     log OK "Окружение сохранено в $XRAY_ENV"
 }
 
-BOX60_TOP=""
-BOX60_SEP=""
-BOX60_BOT=""
-BOX60_WIDTH=60
-
-box60_init() {
-    ui_init_glyphs
-    BOX60_TOP="$(ui_box_border_string top "$BOX60_WIDTH")"
-    BOX60_SEP="$(ui_box_line_string "$(ui_repeat_char "$UI_BOX_H" "$BOX60_WIDTH")" "$BOX60_WIDTH")"
-    BOX60_BOT="$(ui_box_border_string bottom "$BOX60_WIDTH")"
-}
-
-box60_line() {
-    local text="$1"
-    box60_init
-    printf '%s\n' "$(ui_box_line_string "$text" "$BOX60_WIDTH")"
-}
-
 client_variant_catalog() {
     local transport="${1:-${TRANSPORT:-xhttp}}"
     case "${transport,,}" in
@@ -851,11 +833,33 @@ client_variant_category() {
 client_variant_note() {
     local key="${1:-standard}"
     case "$key" in
-        recommended) printf '%s' "это основной и рекомендуемый вариант" ;;
-        rescue) printf '%s' "используй его, если основная ссылка не работает или сеть режет трафик" ;;
-        emergency) printf '%s' "используй только как последний вариант: нужен browser dialer и raw xray json" ;;
+        recommended) printf '%s' "обычный старт: это основной вариант" ;;
+        rescue) printf '%s' "включай, если основная ссылка не проходит" ;;
+        emergency) printf '%s' "только если обычный и запасной варианты не помогли" ;;
         *) printf '%s' "legacy-совместимый профиль" ;;
     esac
+}
+
+print_client_config_box() {
+    local title="$1"
+    shift || true
+    local width
+    width=$(ui_box_width_for_lines 36 72 "$title" "$@")
+    local top sep bottom
+    top=$(ui_box_border_string top "$width")
+    sep=$(ui_box_line_string "$(ui_repeat_char "$UI_BOX_H" "$width")" "$width")
+    bottom=$(ui_box_border_string bottom "$width")
+
+    echo "$top"
+    printf '%s\n' "$(ui_box_line_string "$title" "$width")"
+    echo "$sep"
+
+    local line
+    for line in "$@"; do
+        printf '%s\n' "$(ui_box_line_string "$line" "$width")"
+    done
+
+    echo "$bottom"
 }
 
 client_variant_requires_browser_dialer() {
@@ -1023,7 +1027,6 @@ render_clients_txt_from_json() {
     local links_file="${XRAY_KEYS}/clients-links.txt"
     local rule58
     rule58="$(ui_rule_string 58)"
-    box60_init
 
     if ! jq -e 'type == "object" and (.configs | type == "array")' "$json_file" > /dev/null 2>&1; then
         log ERROR "Некорректный JSON-источник для clients.txt: ${json_file}"
@@ -1063,14 +1066,14 @@ render_clients_txt_from_json() {
         echo "сервер ipv6: ${server_ipv6}"
         echo "создано: ${generated}"
         echo "транспорт: ${transport_summary}"
-        echo "стек: reality + xhttp + vless encryption + ${XRAY_DIRECT_FLOW:-xtls-rprx-vision}"
+        echo "серверный стек: reality + xhttp + vless encryption + ${XRAY_DIRECT_FLOW:-xtls-rprx-vision}"
         echo "spider mode: $([[ "${spider_mode}" == "true" ]] && echo "включён" || echo "выключен")"
         echo "быстрые ссылки: ${links_file}"
         echo ""
-        echo "как пользоваться:"
-        echo "1. сначала пробуй 'основная (recommended)' из ${links_file}"
-        echo "2. если не работает — переходи на 'запасная (rescue)'"
-        echo "3. 'аварийная (emergency)' нужна редко и работает только через raw xray json + browser dialer"
+        echo "как подключаться:"
+        echo "1. сначала открой ${links_file} и импортируй основную ссылку"
+        echo "2. если основная не идёт — пробуй запасную"
+        echo "3. аварийная нужна редко: только raw xray json + browser dialer"
         echo ""
         echo "${rule58}"
         echo ""
@@ -1111,20 +1114,17 @@ render_clients_txt_from_json() {
         esac
 
         {
-            echo "$BOX60_TOP"
-            box60_line "Config $((i + 1)): ${domain}${priority}"
-            echo "$BOX60_SEP"
-            box60_line "порт ipv4: ${port_v4}"
-            box60_line "порт ipv6: ${port_v6}"
-            box60_line "sni: ${sni}"
-            box60_line "провайдер: ${provider_family}"
-            box60_line "отпечаток: ${fp}"
-            box60_line "транспорт: ${transport_display}"
-            box60_line "${transport_extra_label}: ${endpoint}"
-            box60_line "flow: ${flow_value}"
-            box60_line "vless encryption: ${encryption_value}"
-            echo "$BOX60_BOT"
-            echo "быстрые ссылки: ${links_file}"
+            print_client_config_box "конфиг $((i + 1)): ${domain}${priority}" \
+                "порт ipv4: ${port_v4}" \
+                "порт ipv6: ${port_v6}" \
+                "sni: ${sni}" \
+                "провайдер: ${provider_family}" \
+                "отпечаток: ${fp}" \
+                "транспорт: ${transport_display}" \
+                "${transport_extra_label}: ${endpoint}" \
+                "flow: ${flow_value}" \
+                "vless encryption: ${encryption_value}"
+            echo "ссылки: ${links_file}"
             echo ""
             echo "варианты:"
         } >> "$tmp_client"
@@ -1137,31 +1137,26 @@ render_clients_txt_from_json() {
 
         local j
         for ((j = 0; j < variant_count; j++)); do
-            local variant_key variant_note variant_mode raw_v4 raw_v6 import_hint variant_category requires_browser_dialer
+            local variant_key variant_note variant_mode raw_v4 raw_v6 requires_browser_dialer
             variant_key=$(jq -r ".configs[$i].variants[$j].key // .configs[$i].recommended_variant // \"recommended\"" "$json_file" 2> /dev/null || echo "recommended")
             variant_note=$(jq -r ".configs[$i].variants[$j].note // empty" "$json_file" 2> /dev/null || true)
             variant_mode=$(jq -r ".configs[$i].variants[$j].mode // empty" "$json_file" 2> /dev/null || true)
             raw_v4=$(jq -r ".configs[$i].variants[$j].xray_client_file_v4 // empty" "$json_file" 2> /dev/null || true)
             raw_v6=$(jq -r ".configs[$i].variants[$j].xray_client_file_v6 // empty" "$json_file" 2> /dev/null || true)
-            import_hint=$(jq -r ".configs[$i].variants[$j].import_hint // empty" "$json_file" 2> /dev/null || true)
-            variant_category=$(jq -r ".configs[$i].variants[$j].category // empty" "$json_file" 2> /dev/null || true)
             requires_browser_dialer=$(jq -r ".configs[$i].variants[$j].requires.browser_dialer // false" "$json_file" 2> /dev/null || echo "false")
             [[ -n "$variant_note" && "$variant_note" != "null" ]] || variant_note=$(client_variant_note "$variant_key")
-            [[ -n "$import_hint" && "$import_hint" != "null" ]] || import_hint=$(client_variant_import_hint "$variant_key")
-            [[ -n "$variant_category" && "$variant_category" != "null" ]] || variant_category=$(client_variant_category "$variant_key")
 
             {
                 echo "- вариант: $(client_variant_title "$variant_key")"
-                echo "  тип: ${variant_category}"
                 if [[ -n "$variant_mode" && "$variant_mode" != "null" ]]; then
                     echo "  режим: ${variant_mode}"
                 fi
-                echo "  когда использовать: ${variant_note}"
-                echo "  подсказка: ${import_hint}"
+                echo "  когда: ${variant_note}"
                 if [[ "$requires_browser_dialer" == "true" ]]; then
+                    echo "  импорт: только raw xray json"
                     echo "  browser dialer: нужен"
                 else
-                    echo "  быстрая vless-ссылка: см. ${links_file}"
+                    echo "  ссылка: см. ${links_file}"
                 fi
                 if [[ -n "$raw_v4" && "$raw_v4" != "null" ]]; then
                     echo "  raw xray ipv4: ${raw_v4}"
@@ -1234,10 +1229,10 @@ render_clients_links_txt_from_json() {
         echo "сервер ipv6: ${server_ipv6}"
         echo "создано: ${generated}"
         echo ""
-        echo "как использовать этот файл:"
-        echo "- сначала импортируй 'основная (recommended)'"
-        echo "- если не работает, импортируй 'запасная (rescue)'"
-        echo "- 'аварийная (emergency)' даётся только как raw xray json"
+        echo "что здесь делать:"
+        echo "1. сначала импортируй основную ссылку"
+        echo "2. если не идёт — импортируй запасную"
+        echo "3. аварийная даётся только как raw xray json"
         echo ""
         echo "${rule58}"
         echo ""
@@ -1262,7 +1257,7 @@ render_clients_links_txt_from_json() {
         fi
 
         {
-            echo "Config $((i + 1)): ${domain}${priority}"
+            echo "конфиг $((i + 1)): ${domain}${priority}"
             echo "порт ipv4: ${port_v4}"
             echo "порт ipv6: ${port_v6}"
             echo ""
@@ -1276,9 +1271,8 @@ render_clients_links_txt_from_json() {
 
         local j
         for ((j = 0; j < variant_count; j++)); do
-            local variant_key variant_mode vless_v4 vless_v6 raw_v4 raw_v6 requires_browser_dialer
+            local variant_key vless_v4 vless_v6 raw_v4 raw_v6 requires_browser_dialer
             variant_key=$(jq -r ".configs[$i].variants[$j].key // .configs[$i].recommended_variant // \"recommended\"" "$json_file" 2> /dev/null || echo "recommended")
-            variant_mode=$(jq -r ".configs[$i].variants[$j].mode // empty" "$json_file" 2> /dev/null || true)
             vless_v4=$(jq -r ".configs[$i].variants[$j].vless_v4 // empty" "$json_file" 2> /dev/null || true)
             vless_v6=$(jq -r ".configs[$i].variants[$j].vless_v6 // empty" "$json_file" 2> /dev/null || true)
             raw_v4=$(jq -r ".configs[$i].variants[$j].xray_client_file_v4 // empty" "$json_file" 2> /dev/null || true)
@@ -1286,33 +1280,31 @@ render_clients_links_txt_from_json() {
             requires_browser_dialer=$(jq -r ".configs[$i].variants[$j].requires.browser_dialer // false" "$json_file" 2> /dev/null || echo "false")
 
             {
-                printf '%s' "$(client_variant_title "$variant_key")"
-                if [[ -n "$variant_mode" && "$variant_mode" != "null" ]]; then
-                    printf ' | mode=%s' "$variant_mode"
-                fi
-                printf '\n'
+                case "$variant_key" in
+                    recommended) echo "основная ссылка:" ;;
+                    rescue) echo "запасная ссылка:" ;;
+                    emergency) echo "аварийный raw xray:" ;;
+                    *) echo "$(client_variant_title "$variant_key"):" ;;
+                esac
 
                 if [[ "$requires_browser_dialer" == "true" ]]; then
-                    echo "raw xray only: нужен browser dialer"
-                else
-                    if [[ -n "$vless_v4" && "$vless_v4" != "null" ]]; then
-                        echo "vless ipv4:"
-                        printf '%s\n' "$vless_v4"
-                    else
-                        echo "vless ipv4: n/a"
-                    fi
-                    if [[ -n "$vless_v6" && "$vless_v6" != "null" ]]; then
-                        echo "vless ipv6:"
-                        printf '%s\n' "$vless_v6"
-                    fi
-                fi
-
-                if [[ "$requires_browser_dialer" == "true" ]]; then
+                    echo "только raw xray json + browser dialer"
                     if [[ -n "$raw_v4" && "$raw_v4" != "null" ]]; then
-                        echo "raw xray ipv4: ${raw_v4}"
+                        echo "ipv4: ${raw_v4}"
                     fi
                     if [[ -n "$raw_v6" && "$raw_v6" != "null" ]]; then
-                        echo "raw xray ipv6: ${raw_v6}"
+                        echo "ipv6: ${raw_v6}"
+                    fi
+                else
+                    if [[ -n "$vless_v4" && "$vless_v4" != "null" ]]; then
+                        echo "ipv4:"
+                        printf '%s\n' "$vless_v4"
+                    else
+                        echo "ipv4: n/a"
+                    fi
+                    if [[ -n "$vless_v6" && "$vless_v6" != "null" ]]; then
+                        echo "ipv6:"
+                        printf '%s\n' "$vless_v6"
                     fi
                 fi
                 echo ""
