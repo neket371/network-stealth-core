@@ -1773,6 +1773,8 @@ EOF
     source ./lib.sh
     [[ "$(extract_confirmation_token_tail "Вы уверены? Введите yes для подтверждения или no для отмены: yes")" == "yes" ]]
     [[ "$(extract_confirmation_token_tail "Подтвердите (yes/no): no")" == "no" ]]
+    [[ "$(extract_confirmation_token_tail "Вы уверены? Введите yes для подтверждения или no для отмены yes")" == "yes" ]]
+    [[ "$(extract_confirmation_token_tail "Подтвердите (yes/no) no")" == "no" ]]
     [[ -z "$(extract_confirmation_token_tail "Вы уверены? Введите yes для подтверждения или no для отмены:")" ]]
     [[ -z "$(extract_confirmation_token_tail "random text yes maybe")" ]]
     echo "ok"
@@ -1901,6 +1903,31 @@ EOF
     tmp=$(mktemp)
     trap "rm -f \"$tmp\"" EXIT
     printf "Вы уверены? Введите yes для подтверждения или no для отмены: yes\n" > "$tmp"
+    exec 9<"$tmp"
+    if prompt_yes_no_from_tty 9 "Вы уверены? Введите yes для подтверждения или no для отмены: " "Введите yes или no (без кавычек)"; then
+      rc=0
+    else
+      rc=$?
+    fi
+    echo "rc=$rc retry=$retry_count"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "rc=0 retry=0" ]
+}
+
+@test "prompt_yes_no_from_tty accepts echoed prompt prefix without delimiter" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    retry_count=0
+    tty_printf() {
+      if [[ "${3:-}" == "Введите yes или no (без кавычек)" ]]; then
+        retry_count=$((retry_count + 1))
+      fi
+      :
+    }
+    tmp=$(mktemp)
+    trap "rm -f \"$tmp\"" EXIT
+    printf "Вы уверены? Введите yes для подтверждения или no для отмены yes\n" > "$tmp"
     exec 9<"$tmp"
     if prompt_yes_no_from_tty 9 "Вы уверены? Введите yes для подтверждения или no для отмены: " "Введите yes или no (без кавычек)"; then
       rc=0

@@ -198,14 +198,39 @@ extract_confirmation_token_tail() {
     [[ -n "$value" ]] || return 0
 
     tail=$(printf '%s' "$value" | sed -E 's/^.*[]:>][[:space:]]*//')
-    if [[ -z "$tail" || "$tail" == "$value" ]]; then
-        return 0
+    if [[ -n "$tail" && "$tail" != "$value" ]]; then
+        token=$(normalize_yes_no_token "$tail")
+        if is_yes_input "$token" || is_no_input "$token"; then
+            printf '%s' "$token"
+            return 0
+        fi
     fi
 
-    token=$(normalize_yes_no_token "$tail")
-    if is_yes_input "$token" || is_no_input "$token"; then
-        printf '%s' "$token"
+    if looks_like_confirmation_prompt_echo "$value"; then
+        tail=$(printf '%s' "$value" | sed -E 's/^.*[[:space:]]+//')
+        token=$(normalize_yes_no_token "$tail")
+        if is_yes_input "$token" || is_no_input "$token"; then
+            printf '%s' "$token"
+        fi
     fi
+}
+
+looks_like_confirmation_prompt_echo() {
+    local value lowered
+    value=$(normalize_tty_input "${1:-}")
+    [[ -n "$value" ]] || return 1
+
+    lowered="${value,,}"
+    [[ "$lowered" == *"yes"* && "$lowered" == *"no"* ]] || return 1
+
+    case "$lowered" in
+        *"вы уверены"* | *"подтверд"* | *"(yes/no)"* | *"для подтверждения"* | *"для отмены"*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 }
 
 is_yes_input() {
