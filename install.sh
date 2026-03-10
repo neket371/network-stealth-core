@@ -1309,6 +1309,11 @@ update_flow() {
             rebuild_client_artifacts_from_loaded_state || exit 1
             save_environment || log WARN "Не удалось обновить окружение после update"
             save_policy_file || log WARN "Не удалось обновить policy.json после update"
+            if ! verify_ports_listening_after_start; then
+                log ERROR "Проверка listening-портов после update не пройдена."
+                exit 1
+            fi
+            test_reality_connectivity || true
         fi
     fi
     ensure_self_check_artifacts_ready

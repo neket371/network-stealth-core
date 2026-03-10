@@ -19,7 +19,7 @@ TEST_SOURCES := tests/*.sh
 MARKDOWN_SOURCES := README.md README.ru.md .github/CONTRIBUTING.md .github/CONTRIBUTING.ru.md .github/SECURITY.md .github/SECURITY.ru.md docs/en/*.md docs/ru/*.md
 WORKFLOWS := .github/workflows/ci.yml .github/workflows/nightly-smoke.yml .github/workflows/release.yml .github/workflows/packages.yml .github/workflows/os-matrix-smoke.yml
 
-.PHONY: lint test release-check audit audit-deep ci ci-fast ci-full lab-smoke
+.PHONY: lint test release-check audit audit-deep ci ci-fast ci-full lab-smoke vm-lab-prepare vm-lab-smoke
 
 lint:
 	command -v shellcheck >/dev/null
@@ -67,3 +67,9 @@ ci-full: ci audit-deep
 
 lab-smoke:
 	bash scripts/lab/run-container-smoke.sh
+
+vm-lab-prepare:
+	bash scripts/lab/prepare-vm-smoke.sh
+
+vm-lab-smoke:
+	bash scripts/lab/run-vm-lifecycle-smoke.sh

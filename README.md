@@ -173,6 +173,33 @@ the lab flow:
 - stores logs and artifacts outside the repo tree
 - leaves the host xray, firewall, and published services untouched
 
+## full lifecycle vm-lab on the same host
+
+for a real `systemd` lifecycle test without touching the busy host namespace, use the kvm-backed vm lab:
+
+```bash
+make vm-lab-prepare
+make vm-lab-smoke
+```
+
+or run the scripts explicitly:
+
+```bash
+bash scripts/lab/prepare-vm-smoke.sh
+bash scripts/lab/run-vm-lifecycle-smoke.sh
+bash scripts/lab/enter-vm-smoke.sh
+```
+
+the vm-lab flow:
+
+- requires `kvm`, `qemu-system-x86_64`, `qemu-img`, `cloud-localds`, and `ssh`
+- boots an ubuntu 24.04 cloud vm with `systemd`
+- forwards ssh only to host loopback
+- copies the current repo into the guest and runs the full lifecycle smoke there
+- uses a deterministic custom domain shortlist by default to avoid random domain flake during smoke
+- uses one latest stable xray version for both `install` and `update` by default so the busy-host smoke stays deterministic
+- keeps host services, firewall, and the live xray node untouched
+
 ## key flags
 
 ```bash
@@ -241,6 +268,7 @@ make ci-fast
 make ci
 make ci-full
 make lab-smoke
+make vm-lab-smoke
 ```
 
 windows helpers:

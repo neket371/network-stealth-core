@@ -173,6 +173,33 @@ bash scripts/lab/collect-container-artifacts.sh
 - сохраняет логи и артефакты вне дерева репозитория
 - не трогает host xray, firewall и опубликованные сервисы
 
+## полноценный vm-lab на том же хосте
+
+если нужен уже настоящий `systemd` lifecycle-тест без захода в namespace занятого хоста, используй kvm-backed vm lab:
+
+```bash
+make vm-lab-prepare
+make vm-lab-smoke
+```
+
+или явные скрипты:
+
+```bash
+bash scripts/lab/prepare-vm-smoke.sh
+bash scripts/lab/run-vm-lifecycle-smoke.sh
+bash scripts/lab/enter-vm-smoke.sh
+```
+
+этот vm-lab flow:
+
+- требует `kvm`, `qemu-system-x86_64`, `qemu-img`, `cloud-localds` и `ssh`
+- поднимает ubuntu 24.04 cloud vm с настоящим `systemd`
+- пробрасывает ssh только на loopback хоста
+- копирует текущий репозиторий в гостя и гоняет внутри полный lifecycle smoke
+- по умолчанию использует детерминированный short-list доменов, чтобы убрать random domain flake
+- по умолчанию использует одну latest stable версию xray и для `install`, и для `update`, чтобы smoke на занятом хосте был детерминированным
+- не трогает host services, firewall и живой xray-узел
+
 ## ключевые флаги
 
 ```bash
@@ -241,6 +268,7 @@ make ci-fast
 make ci
 make ci-full
 make lab-smoke
+make vm-lab-smoke
 ```
 
 windows-помощники:

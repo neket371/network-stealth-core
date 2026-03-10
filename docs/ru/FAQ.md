@@ -89,6 +89,17 @@ make lab-smoke
 
 он использует существующий container runtime и держит smoke install внутри ubuntu 24.04 контейнера без опубликованных портов.
 
+## как прогнать полный `systemd` lifecycle на занятом сервере?
+
+используй не контейнерный smoke, а vm-lab:
+
+```bash
+make vm-lab-prepare
+make vm-lab-smoke
+```
+
+он поднимает изолированную ubuntu 24.04 vm под kvm, пробрасывает ssh только на loopback хоста и гоняет полный lifecycle smoke внутри гостя.
+
 ## для чего нужен canary bundle?
 
 это переносимая поверхность полевых тестов в `export/canary/`.

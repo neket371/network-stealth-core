@@ -72,7 +72,11 @@ jobs:
         run: |
           set -euo pipefail
           bash tests/lint.sh --fast
-          make lab-smoke
+          if [[ -c /dev/kvm ]]; then
+            LAB_VM_AUTO_INSTALL_DEPS=true make vm-lab-smoke
+          else
+            make lab-smoke
+          fi
       - name: Complexity trend gate (stage 3)
         run: |
           set -euo pipefail

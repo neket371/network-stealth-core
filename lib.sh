@@ -1754,6 +1754,54 @@ load_config_file() {
     done < "$file"
 }
 
+load_runtime_identity_defaults() {
+    local file="${1:-$XRAY_ENV}"
+    [[ -n "$file" && -f "$file" ]] || return 0
+
+    local line key value
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ "$line" == *"="* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key//[[:space:]]/}"
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+        if [[ ${#value} -ge 2 ]]; then
+            local first_char="${value:0:1}"
+            local last_char="${value: -1}"
+            if [[ ("$first_char" == '"' && "$last_char" == '"') || ("$first_char" == "'" && "$last_char" == "'") ]]; then
+                value="${value:1:${#value}-2}"
+            fi
+        fi
+
+        case "$key" in
+            SERVER_IP)
+                [[ -n "${SERVER_IP:-}" || -z "$value" ]] || SERVER_IP="$value"
+                ;;
+            SERVER_IP6)
+                [[ -n "${SERVER_IP6:-}" || -z "$value" ]] || SERVER_IP6="$value"
+                ;;
+            DOMAIN_PROFILE | XRAY_DOMAIN_PROFILE)
+                [[ -n "${DOMAIN_PROFILE:-}" || -z "$value" ]] || DOMAIN_PROFILE="$value"
+                ;;
+            DOMAIN_TIER | XRAY_DOMAIN_TIER)
+                [[ -n "${DOMAIN_TIER:-}" || -z "$value" ]] || DOMAIN_TIER="$value"
+                ;;
+            SPIDER_MODE | XRAY_SPIDER_MODE)
+                [[ -n "${SPIDER_MODE:-}" || -z "$value" ]] || SPIDER_MODE="$value"
+                ;;
+            START_PORT | XRAY_START_PORT)
+                [[ -n "${START_PORT:-}" || -z "$value" ]] || START_PORT="$value"
+                ;;
+            NUM_CONFIGS | XRAY_NUM_CONFIGS)
+                [[ -n "${NUM_CONFIGS:-}" || -z "$value" ]] || NUM_CONFIGS="$value"
+                ;;
+            *) ;;
+        esac
+    done < "$file"
+}
+
 normalize_numeric_range_or_default() {
     local var_name="$1"
     local min="$2"
@@ -2575,6 +2623,9 @@ main() {
     load_config_file "$XRAY_CONFIG_FILE"
     if [[ -f "$XRAY_POLICY" ]]; then
         load_policy_file "$XRAY_POLICY"
+    fi
+    if [[ "$ACTION" != "install" && -f "$XRAY_ENV" ]]; then
+        load_runtime_identity_defaults "$XRAY_ENV"
     fi
     apply_runtime_overrides
 

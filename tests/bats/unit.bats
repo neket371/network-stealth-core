@@ -172,7 +172,6 @@
     [[ "$output" == *"ok"* ]]
 }
 
-
 @test "setup_logging avoids mktemp -u race pattern" {
     run bash -eo pipefail -c '
     ! grep -q "mktemp -u .*xray-log" ./lib.sh
@@ -400,9 +399,14 @@ EOF
     bash ./scripts/lab/prepare-host-safe-smoke.sh --help
     bash ./scripts/lab/run-container-smoke.sh --help
     bash ./scripts/lab/collect-container-artifacts.sh --help
+    bash ./scripts/lab/prepare-vm-smoke.sh --help
+    bash ./scripts/lab/run-vm-lifecycle-smoke.sh --help
+    bash ./scripts/lab/collect-vm-artifacts.sh --help
+    bash ./scripts/lab/enter-vm-smoke.sh --help
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"scripts/lab/run-container-smoke.sh"* ]]
+    [[ "$output" == *"scripts/lab/run-vm-lifecycle-smoke.sh"* ]]
 }
 
 @test "lab smoke runs artifact collector through bash" {
@@ -411,6 +415,35 @@ EOF
       ./scripts/lab/run-container-smoke.sh
     grep -Fq '\''export LANG=C.UTF-8'\'' ./scripts/lab/run-container-smoke.sh
     grep -Fq '\''export LC_ALL=C.UTF-8'\'' ./scripts/lab/run-container-smoke.sh
+    grep -Fq '\''result_json="$(bash "$SCRIPT_DIR/collect-vm-artifacts.sh" --timestamp "$timestamp" --guest-ip "$(lab_vm_guest_ipv4)" --smoke-status "$smoke_status")"'\'' \
+      ./scripts/lab/run-vm-lifecycle-smoke.sh
+    grep -Fq '\''bash scripts/lab/guest-vm-lifecycle.sh'\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "update flow verifies listeners before final self-check" {
+    run bash -eo pipefail -c '
+    awk '\''/update_flow\(\)/, /^repair_flow\(\)/ {print}'\'' ./install.sh | grep -Fq "verify_ports_listening_after_start"
+    awk '\''/update_flow\(\)/, /^repair_flow\(\)/ {print}'\'' ./install.sh | grep -Fq "test_reality_connectivity || true"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "vm lab guest defaults pin a deterministic custom domain shortlist" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''XRAY_CUSTOM_DOMAINS="${XRAY_CUSTOM_DOMAINS:-vk.com,yoomoney.ru,cdek.ru}"'\'' ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq '\''XRAY_CUSTOM_DOMAINS='\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
+    grep -Fq '\''UPDATE_VERSION="$INSTALL_VERSION"'\'' ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq '\''resolved_version="$(resolve_latest_stable_xray_version || true)"'\'' ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq '\''INSTALL_VERSION='\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
+    grep -Fq '\''UPDATE_VERSION='\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
+    grep -Fq '\''keep_failure_state="${E2E_KEEP_FAILURE_STATE:-}"'\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
+    grep -Fq '\''E2E_KEEP_FAILURE_STATE='\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -2747,6 +2780,47 @@ EOF
     [[ "$output" == *"ok"* ]]
 }
 
+@test "load_runtime_identity_defaults backfills managed runtime identity without overriding explicit values" {
+    run bash -eo pipefail -c "
+    source ./lib.sh
+
+    cfg=\$(mktemp)
+    trap 'rm -f \"\$cfg\"' EXIT
+    cat > \"\$cfg\" <<'EOF'
+SERVER_IP=10.0.2.15
+SERVER_IP6=2001:db8::15
+DOMAIN_TIER=tier_ru
+XRAY_DOMAIN_PROFILE=ru-auto
+START_PORT=24440
+NUM_CONFIGS=2
+SPIDER_MODE=true
+EOF
+
+    SERVER_IP=''
+    SERVER_IP6=''
+    DOMAIN_TIER=''
+    DOMAIN_PROFILE=''
+    START_PORT=''
+    NUM_CONFIGS=''
+    SPIDER_MODE=''
+    load_runtime_identity_defaults \"\$cfg\"
+    [[ \"\$SERVER_IP\" == '10.0.2.15' ]]
+    [[ \"\$SERVER_IP6\" == '2001:db8::15' ]]
+    [[ \"\$DOMAIN_TIER\" == 'tier_ru' ]]
+    [[ \"\$DOMAIN_PROFILE\" == 'ru-auto' ]]
+    [[ \"\$START_PORT\" == '24440' ]]
+    [[ \"\$NUM_CONFIGS\" == '2' ]]
+    [[ \"\$SPIDER_MODE\" == 'true' ]]
+
+    SERVER_IP='198.51.100.20'
+    load_runtime_identity_defaults \"\$cfg\"
+    [[ \"\$SERVER_IP\" == '198.51.100.20' ]]
+    echo ok
+  "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "build_vless_query_params URL-encodes special characters" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -3082,11 +3156,13 @@ EOF
     [ "$output" = "ok" ]
 }
 
-@test "makefile exposes ci-fast ci-full and lab-smoke targets" {
+@test "makefile exposes ci-fast ci-full and lab targets" {
     run bash -eo pipefail -c '
     grep -q "^ci-fast:" ./Makefile
     grep -q "^ci-full:" ./Makefile
     grep -q "^lab-smoke:" ./Makefile
+    grep -q "^vm-lab-prepare:" ./Makefile
+    grep -q "^vm-lab-smoke:" ./Makefile
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3098,7 +3174,9 @@ EOF
     grep -q '\''scripts/lab/\*.sh'\'' ./Makefile
     grep -q '\''scripts/lab/\*.sh'\'' ./tests/lint.sh
     grep -q '\''scripts/lab/\*.sh'\'' ./.github/workflows/ci.yml
+    grep -q '\''make vm-lab-smoke'\'' ./.github/workflows/self-hosted-smoke.yml
     grep -q '\''make lab-smoke'\'' ./.github/workflows/self-hosted-smoke.yml
+    grep -q '\''make vm-lab-smoke'\'' ./.github/workflows/nightly-smoke.yml
     grep -q '\''make lab-smoke'\'' ./.github/workflows/nightly-smoke.yml
     echo "ok"
   '

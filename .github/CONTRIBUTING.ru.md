@@ -75,6 +75,7 @@ make ci-fast
 make ci
 make ci-full
 make lab-smoke
+make vm-lab-smoke
 ```
 
 для windows-assisted проверки:

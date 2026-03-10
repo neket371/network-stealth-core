@@ -89,6 +89,17 @@ make lab-smoke
 
 it uses an existing container runtime and keeps the smoke install inside an ubuntu 24.04 container with no published ports.
 
+## how do i run a full `systemd` lifecycle test on a busy host?
+
+use the vm lab instead of the container smoke:
+
+```bash
+make vm-lab-prepare
+make vm-lab-smoke
+```
+
+it boots an isolated ubuntu 24.04 vm under kvm, forwards ssh only to host loopback, and runs the full lifecycle smoke inside the guest.
+
 ## what is the canary bundle for?
 
 it is the portable field-testing surface under `export/canary/`.

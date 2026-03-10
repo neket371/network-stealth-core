@@ -38,6 +38,30 @@ lab_artifacts_dir() {
     printf '%s/artifacts\n' "$(lab_host_root)"
 }
 
+lab_vm_root_dir() {
+    printf '%s/vm\n' "$(lab_host_root)"
+}
+
+lab_vm_images_dir() {
+    printf '%s/images\n' "$(lab_vm_root_dir)"
+}
+
+lab_vm_state_dir() {
+    printf '%s/state\n' "$(lab_vm_root_dir)"
+}
+
+lab_vm_logs_dir() {
+    printf '%s/logs\n' "$(lab_vm_root_dir)"
+}
+
+lab_vm_artifacts_dir() {
+    printf '%s/artifacts\n' "$(lab_vm_root_dir)"
+}
+
+lab_vm_workspace_dir() {
+    printf '%s/workspace\n' "$(lab_vm_root_dir)"
+}
+
 lab_container_name() {
     printf '%s\n' "${LAB_CONTAINER_NAME:-nsc-lab-2404}"
 }
@@ -46,8 +70,86 @@ lab_container_image() {
     printf '%s\n' "${LAB_IMAGE:-ubuntu:24.04}"
 }
 
+lab_vm_name() {
+    printf '%s\n' "${LAB_VM_NAME:-nsc-vm-2404}"
+}
+
+lab_vm_guest_user() {
+    printf '%s\n' "${LAB_VM_GUEST_USER:-nscvm}"
+}
+
+lab_vm_ssh_port() {
+    printf '%s\n' "${LAB_VM_SSH_PORT:-10022}"
+}
+
+lab_vm_memory_mb() {
+    printf '%s\n' "${LAB_VM_MEMORY_MB:-2048}"
+}
+
+lab_vm_cpus() {
+    printf '%s\n' "${LAB_VM_CPUS:-2}"
+}
+
+lab_vm_disk_size() {
+    printf '%s\n' "${LAB_VM_DISK_SIZE:-24G}"
+}
+
+lab_vm_guest_ipv4() {
+    printf '%s\n' "${LAB_VM_GUEST_IPV4:-10.0.2.15}"
+}
+
+lab_vm_base_image_url() {
+    printf '%s\n' "${LAB_VM_BASE_IMAGE_URL:-https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img}"
+}
+
+lab_vm_base_image_path() {
+    printf '%s/noble-server-cloudimg-amd64.img\n' "$(lab_vm_images_dir)"
+}
+
+lab_vm_overlay_path() {
+    printf '%s/%s-overlay.qcow2\n' "$(lab_vm_state_dir)" "$(lab_vm_name)"
+}
+
+lab_vm_seed_iso_path() {
+    printf '%s/%s-seed.iso\n' "$(lab_vm_state_dir)" "$(lab_vm_name)"
+}
+
+lab_vm_user_data_path() {
+    printf '%s/%s-user-data.yaml\n' "$(lab_vm_state_dir)" "$(lab_vm_name)"
+}
+
+lab_vm_meta_data_path() {
+    printf '%s/%s-meta-data.yaml\n' "$(lab_vm_state_dir)" "$(lab_vm_name)"
+}
+
+lab_vm_pid_file() {
+    printf '%s/%s.pid\n' "$(lab_vm_state_dir)" "$(lab_vm_name)"
+}
+
+lab_vm_serial_log() {
+    printf '%s/%s-console.log\n' "$(lab_vm_logs_dir)" "$(lab_vm_name)"
+}
+
+lab_vm_host_key_file() {
+    printf '%s/known_hosts\n' "$(lab_vm_workspace_dir)"
+}
+
+lab_vm_ssh_key_path() {
+    printf '%s/lab-vm.id_ed25519\n' "$(lab_vm_workspace_dir)"
+}
+
 lab_prepare_dirs() {
     mkdir -p "$(lab_workspace_dir)" "$(lab_logs_dir)" "$(lab_artifacts_dir)"
+}
+
+lab_prepare_vm_dirs() {
+    mkdir -p \
+        "$(lab_vm_root_dir)" \
+        "$(lab_vm_images_dir)" \
+        "$(lab_vm_state_dir)" \
+        "$(lab_vm_logs_dir)" \
+        "$(lab_vm_artifacts_dir)" \
+        "$(lab_vm_workspace_dir)"
 }
 
 lab_detect_runtime() {
@@ -122,6 +224,37 @@ LAB_ARTIFACTS_DIR=$(lab_artifacts_dir)
 LAB_CONTAINER_NAME=$(lab_container_name)
 LAB_IMAGE=$(lab_container_image)
 LAB_RUNTIME=${LAB_RUNTIME_BIN}
+LAB_REPO_ROOT=${LAB_ROOT_DIR}
+EOF
+}
+
+lab_write_vm_env_file() {
+    local env_file="$1"
+    cat > "$env_file" << EOF
+LAB_HOST_ROOT=$(lab_host_root)
+LAB_VM_ROOT_DIR=$(lab_vm_root_dir)
+LAB_VM_IMAGES_DIR=$(lab_vm_images_dir)
+LAB_VM_STATE_DIR=$(lab_vm_state_dir)
+LAB_VM_LOGS_DIR=$(lab_vm_logs_dir)
+LAB_VM_ARTIFACTS_DIR=$(lab_vm_artifacts_dir)
+LAB_VM_WORKSPACE_DIR=$(lab_vm_workspace_dir)
+LAB_VM_NAME=$(lab_vm_name)
+LAB_VM_GUEST_USER=$(lab_vm_guest_user)
+LAB_VM_SSH_PORT=$(lab_vm_ssh_port)
+LAB_VM_MEMORY_MB=$(lab_vm_memory_mb)
+LAB_VM_CPUS=$(lab_vm_cpus)
+LAB_VM_DISK_SIZE=$(lab_vm_disk_size)
+LAB_VM_GUEST_IPV4=$(lab_vm_guest_ipv4)
+LAB_VM_BASE_IMAGE_URL=$(lab_vm_base_image_url)
+LAB_VM_BASE_IMAGE_PATH=$(lab_vm_base_image_path)
+LAB_VM_OVERLAY_PATH=$(lab_vm_overlay_path)
+LAB_VM_SEED_ISO_PATH=$(lab_vm_seed_iso_path)
+LAB_VM_USER_DATA_PATH=$(lab_vm_user_data_path)
+LAB_VM_META_DATA_PATH=$(lab_vm_meta_data_path)
+LAB_VM_PID_FILE=$(lab_vm_pid_file)
+LAB_VM_SERIAL_LOG=$(lab_vm_serial_log)
+LAB_VM_HOST_KEY_FILE=$(lab_vm_host_key_file)
+LAB_VM_SSH_KEY_PATH=$(lab_vm_ssh_key_path)
 LAB_REPO_ROOT=${LAB_ROOT_DIR}
 EOF
 }

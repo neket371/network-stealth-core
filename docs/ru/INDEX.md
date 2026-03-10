@@ -45,6 +45,7 @@ managed install теперь целится в strongest-direct baseline:
 - импорт удалённых field-reports: `sudo bash scripts/measure-stealth.sh import --dir ./remote-canary-reports`
 - replan после новых field data: `sudo xray-reality.sh update --replan --non-interactive --yes`
 - host-safe smoke на занятом сервере: `make lab-smoke`
+- полный systemd-smoke на занятом сервере: `make vm-lab-smoke`
 
 ## важные файлы
 

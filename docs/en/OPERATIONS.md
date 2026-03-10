@@ -189,6 +189,45 @@ bash scripts/lab/collect-container-artifacts.sh
 
 this flow expects an existing `docker` or `podman` runtime, publishes no container ports, forces `c.utf-8` inside the smoke container, and keeps logs under the host-safe lab directory instead of touching the repo tree.
 
+## full vm-lab lifecycle on a busy server
+
+when you need the real `systemd` lifecycle without touching the busy host namespace, use the kvm vm-lab:
+
+```bash
+make vm-lab-prepare
+make vm-lab-smoke
+```
+
+or run the scripts directly:
+
+```bash
+bash scripts/lab/prepare-vm-smoke.sh
+bash scripts/lab/run-vm-lifecycle-smoke.sh
+bash scripts/lab/enter-vm-smoke.sh
+```
+
+this flow:
+
+- requires `kvm`, `qemu-system-x86_64`, `qemu-img`, `cloud-localds`, and `ssh`
+- downloads the ubuntu 24.04 cloud image once under the lab directory
+- boots an isolated guest with `systemd`
+- forwards only guest ssh to host loopback
+- copies the current repo into the guest
+- runs the full nightly lifecycle smoke there, including `install`, `add-clients`, `repair`, `update`, `rollback`, `status`, and `uninstall`
+- collects guest logs back into the vm-lab log directory
+
+default guest-side smoke values:
+
+- `start_port=24440`
+- `initial_configs=1`
+- `add_configs=1`
+- `e2e_server_ip=10.0.2.15`
+- `e2e_domain_check=false`
+- `e2e_skip_reality_check=false`
+- `xray_custom_domains=vk.com,yoomoney.ru,cdek.ru`
+- `install_version=latest stable`
+- `update_version=install_version`
+
 ## canary bundle
 
 managed exports now include:

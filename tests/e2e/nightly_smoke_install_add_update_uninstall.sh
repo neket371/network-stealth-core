@@ -11,6 +11,11 @@ INITIAL_CONFIGS="${INITIAL_CONFIGS:-2}"
 ADD_CONFIGS="${ADD_CONFIGS:-1}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 UPDATE_VERSION="${UPDATE_VERSION:-}"
+E2E_SERVER_IP="${E2E_SERVER_IP:-127.0.0.1}"
+E2E_DOMAIN_CHECK="${E2E_DOMAIN_CHECK:-false}"
+E2E_SKIP_REALITY_CHECK="${E2E_SKIP_REALITY_CHECK:-true}"
+E2E_ALLOW_INSECURE_SHA256="${E2E_ALLOW_INSECURE_SHA256:-true}"
+E2E_KEEP_FAILURE_STATE="${E2E_KEEP_FAILURE_STATE:-false}"
 XRAY_BIN="${XRAY_BIN:-/usr/local/bin/xray}"
 XRAY_CONFIG="${XRAY_CONFIG:-/etc/xray/config.json}"
 XRAY_KEYS_DIR="${XRAY_KEYS_DIR:-/etc/xray/private/keys}"
@@ -76,15 +81,25 @@ xray_version() {
     printf '%s\n' "$version"
 }
 
-cleanup() {
+cleanup_state() {
     cleanup_installation "$SCRIPT_PATH"
     rm -f "$STATUS_FILE"
 }
 
-trap cleanup EXIT
+cleanup_on_exit() {
+    local exit_code=$?
+    if ((exit_code != 0)) && [[ "$E2E_KEEP_FAILURE_STATE" == "true" ]]; then
+        echo "==> keeping failed lifecycle state for inspection"
+        rm -f "$STATUS_FILE"
+        return 0
+    fi
+    cleanup_state
+}
+
+trap cleanup_on_exit EXIT
 
 echo "==> pre-clean"
-cleanup
+cleanup_state
 
 echo "==> verify vm systemd runtime"
 if ! require_vm_systemd; then
@@ -108,10 +123,10 @@ install_env=(
     ASSUME_YES=true
     XRAY_NUM_CONFIGS="$INITIAL_CONFIGS"
     START_PORT="$START_PORT"
-    SERVER_IP=127.0.0.1
-    DOMAIN_CHECK=false
-    SKIP_REALITY_CHECK=true
-    ALLOW_INSECURE_SHA256=true
+    SERVER_IP="$E2E_SERVER_IP"
+    DOMAIN_CHECK="$E2E_DOMAIN_CHECK"
+    SKIP_REALITY_CHECK="$E2E_SKIP_REALITY_CHECK"
+    ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256"
 )
 if [[ -n "$INSTALL_VERSION" ]]; then
     install_env+=(XRAY_VERSION="$INSTALL_VERSION")
@@ -124,8 +139,17 @@ echo "==> add-clients"
 run_root env \
     NON_INTERACTIVE=true \
     ASSUME_YES=true \
-    ALLOW_INSECURE_SHA256=true \
+    ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256" \
     bash "$SCRIPT_PATH" add-clients "$ADD_CONFIGS"
+
+assert_service_active xray
+
+echo "==> repair"
+run_root env \
+    NON_INTERACTIVE=true \
+    ASSUME_YES=true \
+    ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256" \
+    bash "$SCRIPT_PATH" repair
 
 assert_service_active xray
 
@@ -147,7 +171,7 @@ echo "==> update"
 update_env=(
     NON_INTERACTIVE=true
     ASSUME_YES=true
-    ALLOW_INSECURE_SHA256=true
+    ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256"
 )
 if [[ -n "$UPDATE_VERSION" ]]; then
     update_env+=(
