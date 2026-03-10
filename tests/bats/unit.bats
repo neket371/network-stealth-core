@@ -487,6 +487,20 @@ EOF
     [[ "$output" == *"run-vm-lifecycle-smoke.sh"* ]]
 }
 
+@test "install contract gate allows fresh install without managed contract" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    tmp=$(mktemp -d)
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_CONFIG="$tmp/config.json"
+    XRAY_ENV="$tmp/config.env"
+    TRANSPORT="xhttp"
+    require_xhttp_transport_contract_for_action install
+    echo allowed
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "allowed" ]
+}
 
 @test "install contract gate blocks legacy managed transport before install flow" {
     run bash -eo pipefail -c '

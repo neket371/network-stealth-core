@@ -8,9 +8,35 @@ contract_gate_transport_is_legacy() {
     esac
 }
 
+managed_install_contract_present() {
+    local xray_config="${XRAY_CONFIG:-/etc/xray/config.json}"
+    local xray_env="${XRAY_ENV:-/etc/xray-reality/config.env}"
+
+    if [[ -f "$xray_env" ]]; then
+        return 0
+    fi
+
+    if [[ -f "$xray_config" ]] && command -v jq > /dev/null 2>&1; then
+        if jq -e '
+            [ .inbounds[]?
+              | select(.streamSettings.realitySettings != null)
+            ] | length > 0
+        ' "$xray_config" > /dev/null 2>&1; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 managed_install_needs_migrate_stealth() {
     local current_transport
     local xray_config="${XRAY_CONFIG:-/etc/xray/config.json}"
+
+    if ! managed_install_contract_present; then
+        return 1
+    fi
+
     current_transport=$(detect_current_managed_transport)
     if contract_gate_transport_is_legacy "$current_transport"; then
         return 0
