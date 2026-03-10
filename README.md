@@ -148,66 +148,13 @@ sudo bash scripts/measure-stealth.sh prune \
 for remote rf testing, send the generated canary bundle from `export/canary/` and use the raw xray configs there.
 set `xray.browser.dialer` on the client side when you intentionally test the `emergency` variant.
 
-## host-safe lab smoke
+## maintainer-only validation docs
 
-when the host already runs production apis or a live xray node, do not run host-level lifecycle tests directly.
-use the isolated lab smoke instead:
+normal user-facing install and operations stop here.
+if you maintain the repo and need isolated smoke or busy-host lifecycle validation, use:
 
-```bash
-make lab-smoke
-```
-
-or run the scripts explicitly:
-
-```bash
-bash scripts/lab/prepare-host-safe-smoke.sh
-bash scripts/lab/run-container-smoke.sh
-bash scripts/lab/collect-container-artifacts.sh
-```
-
-the lab flow:
-
-- uses an existing `docker` or `podman` runtime
-- creates an ubuntu 24.04 container with no published ports
-- runs a compatibility smoke install inside the container only
-- stores logs and artifacts outside the repo tree
-- leaves the host xray, firewall, and published services untouched
-
-## full lifecycle vm-lab on the same host
-
-for a real `systemd` lifecycle test without touching the busy host namespace, use the kvm-backed vm lab:
-
-```bash
-make vm-lab-prepare
-make vm-lab-smoke
-```
-
-or run the scripts explicitly:
-
-```bash
-bash scripts/lab/prepare-vm-smoke.sh
-bash scripts/lab/run-vm-lifecycle-smoke.sh
-bash scripts/lab/enter-vm-smoke.sh
-```
-
-the vm-lab flow:
-
-- requires `kvm`, `qemu-system-x86_64`, `qemu-img`, `cloud-localds`, and `ssh`
-- boots an ubuntu 24.04 cloud vm with `systemd`
-- forwards ssh only to host loopback
-- copies the current repo into the guest and runs the full lifecycle smoke there
-- uses a deterministic custom domain shortlist by default to avoid random domain flake during smoke
-- uses one latest stable xray version for both `install` and `update` by default so the busy-host smoke stays deterministic
-- keeps host services, firewall, and the live xray node untouched
-
-for manual guest-side work, use the helper commands:
-
-```bash
-nsc-vm-install-latest --num-configs 3
-nsc-vm-install-repo --advanced
-```
-
-do not run raw `curl ... xray-reality.sh` installs directly inside the guest: in the nat-backed vm-lab that path can auto-detect the host public ip instead of the guest ip and fail the final self-check.
+- [docs/en/MAINTAINER-LAB.md](docs/en/MAINTAINER-LAB.md)
+- [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)
 
 ## key flags
 
@@ -241,6 +188,7 @@ notes:
 | `docs/en/ARCHITECTURE.md` | runtime model, state split, and module boundaries |
 | `docs/en/OPERATIONS.md` | install, migration, repair, measurement, and incident runbook |
 | `docs/en/FAQ.md` | practical questions |
+| `docs/en/MAINTAINER-LAB.md` | maintainer-only isolated smoke and vm-lab flows |
 | `docs/en/TROUBLESHOOTING.md` | symptom-driven troubleshooting |
 | `docs/en/COMMUNITY.md` | collaboration and support guidance |
 | `docs/en/ROADMAP.md` | post-v7.1.0 direction |
@@ -277,9 +225,12 @@ make release-check
 make ci-fast
 make ci
 make ci-full
-make lab-smoke
-make vm-lab-smoke
 ```
+
+for maintainer-only smoke targets on busy hosts, see:
+
+- [docs/en/MAINTAINER-LAB.md](docs/en/MAINTAINER-LAB.md)
+- [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)
 
 windows helpers:
 

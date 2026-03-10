@@ -3188,6 +3188,31 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "docs command checker covers maintainer lab docs" {
+    run bash -eo pipefail -c '
+    test -f ./docs/en/MAINTAINER-LAB.md
+    test -f ./docs/ru/MAINTAINER-LAB.md
+    grep -q '\''docs/en/MAINTAINER-LAB.md'\'' ./scripts/check-docs-commands.sh
+    grep -q '\''docs/ru/MAINTAINER-LAB.md'\'' ./scripts/check-docs-commands.sh
+    grep -Fq "[MAINTAINER-LAB.md](MAINTAINER-LAB.md)" ./docs/en/INDEX.md
+    grep -Fq "[MAINTAINER-LAB.md](MAINTAINER-LAB.md)" ./docs/ru/INDEX.md
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "user-facing docs do not embed vm helper commands" {
+    run bash -eo pipefail -c '
+    ! grep -R -n -E "nsc-vm-install-(latest|repo)" \
+      ./README.md ./README.ru.md ./docs/en/OPERATIONS.md ./docs/ru/OPERATIONS.md \
+      ./docs/en/FAQ.md ./docs/ru/FAQ.md
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "make test enforces utf8 locale fallback for bats" {
     run bash -eo pipefail -c '
     grep -Fq '\''LANG="$${LANG:-C.UTF-8}" LC_ALL="$${LC_ALL:-C.UTF-8}" bats tests/bats'\'' ./Makefile

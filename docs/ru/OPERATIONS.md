@@ -171,71 +171,13 @@ sudo bash scripts/measure-stealth.sh prune \
 
 обычный вызов без subcommand ведёт себя как `run`.
 
-## host-safe lab smoke на занятом сервере
+## smoke для сопровождающих и busy-host validation
 
-если на хосте уже есть production-сервисы, держи smoke-тесты изолированными:
+на этом обычная боевая эксплуатация заканчивается.
+если ты сопровождаешь репозиторий и тебе нужна изолированная smoke-проверка или busy-host lifecycle validation, смотри:
 
-```bash
-make lab-smoke
-```
-
-или запускай скрипты явно:
-
-```bash
-bash scripts/lab/prepare-host-safe-smoke.sh
-bash scripts/lab/run-container-smoke.sh
-bash scripts/lab/collect-container-artifacts.sh
-```
-
-этот flow ожидает уже существующий `docker` или `podman`, не публикует container ports, форсирует `c.utf-8` внутри smoke-контейнера и складывает логи в host-safe lab directory, а не в дерево репозитория.
-
-## полный vm-lab lifecycle на занятом сервере
-
-если нужен настоящий `systemd` lifecycle без захода в namespace занятого хоста, используй kvm vm-lab:
-
-```bash
-make vm-lab-prepare
-make vm-lab-smoke
-```
-
-или запускай скрипты напрямую:
-
-```bash
-bash scripts/lab/prepare-vm-smoke.sh
-bash scripts/lab/run-vm-lifecycle-smoke.sh
-bash scripts/lab/enter-vm-smoke.sh
-```
-
-этот flow:
-
-- требует `kvm`, `qemu-system-x86_64`, `qemu-img`, `cloud-localds` и `ssh`
-- один раз скачивает ubuntu 24.04 cloud image в lab-директорию
-- поднимает изолированного гостя с настоящим `systemd`
-- пробрасывает на loopback хоста только гостевой ssh
-- копирует в гостя текущий репозиторий
-- гоняет там полный nightly lifecycle smoke: `install`, `add-clients`, `repair`, `update`, `rollback`, `status`, `uninstall`
-- возвращает guest-логи обратно в vm-lab log directory
-
-для ручного тестирования внутри гостя используй:
-
-```bash
-nsc-vm-install-latest --num-configs 3
-nsc-vm-install-repo --advanced
-```
-
-raw `curl ... xray-reality.sh` внутри vm-lab не используй: nat-backed гость может автоопределить public ip хоста и завалить финальный self-check.
-
-дефолтные guest-side значения:
-
-- `start_port=24440`
-- `initial_configs=1`
-- `add_configs=1`
-- `e2e_server_ip=10.0.2.15`
-- `e2e_domain_check=false`
-- `e2e_skip_reality_check=false`
-- `xray_custom_domains=vk.com,yoomoney.ru,cdek.ru`
-- `install_version=latest stable`
-- `update_version=install_version`
+- [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
+- [.github/CONTRIBUTING.ru.md](../../.github/CONTRIBUTING.ru.md)
 
 ## canary bundle
 

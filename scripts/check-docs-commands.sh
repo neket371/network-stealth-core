@@ -7,6 +7,8 @@ cd "$ROOT_DIR"
 DOC_FILES=(
     README.md
     README.ru.md
+    docs/en/MAINTAINER-LAB.md
+    docs/ru/MAINTAINER-LAB.md
     docs/en/OPERATIONS.md
     docs/ru/OPERATIONS.md
     docs/en/TROUBLESHOOTING.md

@@ -80,27 +80,17 @@ saved reports feed the measurement summary used by `status --verbose`, `diagnose
 
 ## how do i smoke-test this on a busy host?
 
-do not run host-level lifecycle tests on a machine that already serves production workloads.
-use the isolated lab flow instead:
+use the dedicated maintainer-only lab docs:
 
-```bash
-make lab-smoke
-```
-
-it uses an existing container runtime and keeps the smoke install inside an ubuntu 24.04 container with no published ports.
+- [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
+- [.github/CONTRIBUTING.md](../../.github/CONTRIBUTING.md)
 
 ## how do i run a full `systemd` lifecycle test on a busy host?
 
-use the vm lab instead of the container smoke:
+use the dedicated maintainer-only lab docs:
 
-```bash
-make vm-lab-prepare
-make vm-lab-smoke
-```
-
-it boots an isolated ubuntu 24.04 vm under kvm, forwards ssh only to host loopback, and runs the full lifecycle smoke inside the guest.
-
-for manual guest-side work, use `nsc-vm-install-latest` or `nsc-vm-install-repo` instead of a raw `curl` install: the helpers pin `server_ip` to the guest ipv4 automatically.
+- [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
+- [.github/CONTRIBUTING.md](../../.github/CONTRIBUTING.md)
 
 ## what is the canary bundle for?
 

@@ -84,6 +84,10 @@ for windows-assisted validation:
 pwsh ./scripts/windows/run-validation.ps1 -SkipRemote
 ```
 
+maintainer-only smoke and busy-host lifecycle docs live here:
+
+- `docs/en/MAINTAINER-LAB.md`
+
 ## coding standards
 
 1. keep scripts safe under `set -euo pipefail`

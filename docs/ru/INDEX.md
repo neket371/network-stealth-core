@@ -30,6 +30,7 @@ managed install теперь целится в strongest-direct baseline:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | strongest-direct контракт, state files и модульная структура |
 | [OPERATIONS.md](OPERATIONS.md) | runbook для install и day-2 операций |
 | [FAQ.md](FAQ.md) | продуктовый и операторский faq |
+| [MAINTAINER-LAB.md](MAINTAINER-LAB.md) | только для сопровождающих: изолированные smoke и vm-lab flow |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | анализ сбоев и точные next-step команды |
 | [COMMUNITY.md](COMMUNITY.md) | как просить помощь и контрибьютить |
 | [ROADMAP.md](ROADMAP.md) | направление после v7.1.0 |
@@ -44,8 +45,7 @@ managed install теперь целится в strongest-direct baseline:
 - локальное measurement: `sudo bash scripts/measure-stealth.sh run --save`
 - импорт удалённых field-reports: `sudo bash scripts/measure-stealth.sh import --dir ./remote-canary-reports`
 - replan после новых field data: `sudo xray-reality.sh update --replan --non-interactive --yes`
-- host-safe smoke на занятом сервере: `make lab-smoke`
-- полный systemd-smoke на занятом сервере: `make vm-lab-smoke`
+- smoke-документация для сопровождающих: [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
 
 ## важные файлы
 

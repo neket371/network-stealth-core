@@ -84,6 +84,10 @@ make vm-lab-smoke
 pwsh ./scripts/windows/run-validation.ps1 -SkipRemote
 ```
 
+документация по smoke-проверкам для сопровождающих и busy-host lifecycle лежит здесь:
+
+- `docs/ru/MAINTAINER-LAB.md`
+
 ## coding standards
 
 1. держи скрипты безопасными под `set -euo pipefail`

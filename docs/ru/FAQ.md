@@ -80,27 +80,17 @@ sudo xray-reality.sh migrate-stealth --non-interactive --yes
 
 ## как прогонять smoke-тест на занятом хосте?
 
-не запускай host-level lifecycle-тесты на машине, где уже крутятся production-нагрузки.
-используй изолированный lab flow:
+смотри отдельную документацию для сопровождающих:
 
-```bash
-make lab-smoke
-```
-
-он использует существующий container runtime и держит smoke install внутри ubuntu 24.04 контейнера без опубликованных портов.
+- [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
+- [.github/CONTRIBUTING.ru.md](../../.github/CONTRIBUTING.ru.md)
 
 ## как прогнать полный `systemd` lifecycle на занятом сервере?
 
-используй не контейнерный smoke, а vm-lab:
+смотри отдельную документацию для сопровождающих:
 
-```bash
-make vm-lab-prepare
-make vm-lab-smoke
-```
-
-он поднимает изолированную ubuntu 24.04 vm под kvm, пробрасывает ssh только на loopback хоста и гоняет полный lifecycle smoke внутри гостя.
-
-для ручной работы уже внутри гостя используй `nsc-vm-install-latest` или `nsc-vm-install-repo`, а не raw `curl` install: helper’ы автоматически фиксируют `server_ip` на guest ipv4.
+- [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
+- [.github/CONTRIBUTING.ru.md](../../.github/CONTRIBUTING.ru.md)
 
 ## для чего нужен canary bundle?
 
