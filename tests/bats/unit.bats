@@ -464,6 +464,29 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "lab common accepts lowercase lab_host_root alias" {
+    run bash -eo pipefail -c '
+    unset LAB_HOST_ROOT
+    lab_host_root=/tmp/nsc-lab-alias
+    source ./scripts/lab/common.sh
+    [ "$(lab_host_root)" = "/tmp/nsc-lab-alias" ]
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "enter vm smoke fails early with clear message when vm-lab state is missing" {
+    run bash -eo pipefail -c '
+    tmp_root="$(mktemp -d)"
+    LAB_HOST_ROOT="$tmp_root" bash ./scripts/lab/enter-vm-smoke.sh 2>&1
+  '
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"vm-lab ssh key not found"* ]]
+    [[ "$output" == *"prepare-vm-smoke.sh"* ]]
+    [[ "$output" == *"run-vm-lifecycle-smoke.sh"* ]]
+}
+
 @test "resolve_mirror_base replaces version placeholders" {
     local pattern
     for pattern in "https://x/{{version}}" "https://x/{version}" "https://x/\$version"; do

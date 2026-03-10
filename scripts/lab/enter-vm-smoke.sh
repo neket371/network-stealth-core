@@ -9,6 +9,9 @@ usage() {
     cat << 'EOF'
 usage:
   bash scripts/lab/enter-vm-smoke.sh [ssh-args...]
+
+environment:
+  LAB_HOST_ROOT   vm-lab host root
 EOF
 }
 
@@ -30,6 +33,31 @@ ssh_key="$(lab_vm_ssh_key_path)"
 host_key_file="$(lab_vm_host_key_file)"
 ssh_port="$(lab_vm_ssh_port)"
 guest_user="$(lab_vm_guest_user)"
+vm_root="$(lab_vm_root_dir)"
+pid_file="$(lab_vm_pid_file)"
+host_root="$(lab_host_root)"
+prepare_cmd="LAB_HOST_ROOT=${host_root} bash scripts/lab/prepare-vm-smoke.sh"
+run_cmd="LAB_HOST_ROOT=${host_root} LAB_VM_KEEP_RUNNING=true bash scripts/lab/run-vm-lifecycle-smoke.sh"
+
+if [[ ! -f "$ssh_key" ]]; then
+    cat >&2 << EOF
+vm-lab ssh key not found: ${ssh_key}
+это обычно значит, что vm-lab ещё не подготовлен под текущим host root.
+сначала выполни:
+  ${prepare_cmd}
+  ${run_cmd}
+EOF
+    exit 1
+fi
+
+if [[ ! -f "$pid_file" ]]; then
+    cat >&2 << EOF
+vm-lab не запущен под ${vm_root}
+сначала выполни:
+  ${run_cmd}
+EOF
+    exit 1
+fi
 
 if [[ -t 1 ]]; then
     cat << 'EOF'

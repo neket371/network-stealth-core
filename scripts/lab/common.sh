@@ -9,6 +9,11 @@ lab_default_host_root() {
         return 0
     fi
 
+    if [[ -n "${lab_host_root:-}" ]]; then
+        printf '%s\n' "$lab_host_root"
+        return 0
+    fi
+
     if [[ -n "${TMPDIR:-}" && -d "${TMPDIR:-}" && -w "${TMPDIR:-}" ]]; then
         printf '%s/network-stealth-core-lab\n' "$TMPDIR"
         return 0
