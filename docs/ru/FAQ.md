@@ -100,6 +100,8 @@ make vm-lab-smoke
 
 он поднимает изолированную ubuntu 24.04 vm под kvm, пробрасывает ssh только на loopback хоста и гоняет полный lifecycle smoke внутри гостя.
 
+для ручной работы уже внутри гостя используй `nsc-vm-install-latest` или `nsc-vm-install-repo`, а не raw `curl` install: helper’ы автоматически фиксируют `server_ip` на guest ipv4.
+
 ## для чего нужен canary bundle?
 
 это переносимая поверхность полевых тестов в `export/canary/`.

@@ -34,7 +34,7 @@ expect {
         puts stderr "unexpected advanced profile prompt during minimal install"
         exit 1
     }
-    -re {(Сколько VPN-ключей создать\?|Количество VPN-ключей) \(1-[0-9]+\):} {
+    -re {(Сколько VPN-ключей создать\?|Количество VPN-ключей|Количество конфигов) \(1-[0-9]+\):} {
         puts stderr "unexpected manual count prompt during minimal install"
         exit 1
     }

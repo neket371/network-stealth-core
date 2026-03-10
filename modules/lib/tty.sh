@@ -215,6 +215,36 @@ extract_confirmation_token_tail() {
     fi
 }
 
+extract_confirmation_token_from_prompt_echo_followup() {
+    local value token
+    value=$(normalize_tty_input "${1:-}")
+    [[ -n "$value" ]] || return 1
+
+    looks_like_confirmation_prompt_echo "$value" || return 1
+    token=$(extract_confirmation_token_tail "$value")
+    [[ -z "$token" ]]
+}
+
+resolve_confirmation_token() {
+    local value token
+    value=$(normalize_tty_input "${1:-}")
+    [[ -n "$value" ]] || return 1
+
+    token=$(normalize_yes_no_token "$value")
+    if is_yes_input "$token" || is_no_input "$token"; then
+        printf '%s' "$token"
+        return 0
+    fi
+
+    token=$(extract_confirmation_token_tail "$value")
+    if is_yes_input "$token" || is_no_input "$token"; then
+        printf '%s' "$token"
+        return 0
+    fi
+
+    return 1
+}
+
 looks_like_confirmation_prompt_echo() {
     local value lowered
     value=$(normalize_tty_input "${1:-}")
@@ -256,7 +286,7 @@ prompt_yes_no_from_tty() {
     local prompt_text="${2:-}"
     local retry_text="${3:-Введите yes или no}"
     local tty_write_fd="${4:-$tty_fd}"
-    local answer normalized token
+    local answer normalized token allow_followup_read
 
     [[ "$tty_fd" =~ ^[0-9]+$ ]] || return 2
     [[ "$tty_write_fd" =~ ^[0-9]+$ ]] || return 2
@@ -268,24 +298,31 @@ prompt_yes_no_from_tty() {
         if ! read -r -u "$tty_fd" answer; then
             return 2
         fi
-        normalized=$(normalize_tty_input "$answer")
-        if [[ -z "$normalized" ]]; then
-            return 1
-        fi
-        token=$(normalize_yes_no_token "$normalized")
-        if is_yes_input "$token"; then
-            return 0
-        fi
-        if is_no_input "$token"; then
-            return 1
-        fi
-        token=$(extract_confirmation_token_tail "$normalized")
-        if is_yes_input "$token"; then
-            return 0
-        fi
-        if is_no_input "$token"; then
-            return 1
-        fi
+        allow_followup_read=true
+        while true; do
+            normalized=$(normalize_tty_input "$answer")
+            if [[ -z "$normalized" ]]; then
+                return 1
+            fi
+
+            token=$(resolve_confirmation_token "$normalized" || true)
+            if is_yes_input "$token"; then
+                return 0
+            fi
+            if is_no_input "$token"; then
+                return 1
+            fi
+
+            if [[ "$allow_followup_read" == "true" ]] && extract_confirmation_token_from_prompt_echo_followup "$normalized"; then
+                allow_followup_read=false
+                if ! read -r -u "$tty_fd" answer; then
+                    return 2
+                fi
+                continue
+            fi
+
+            break
+        done
         if ! tty_printf "$tty_write_fd" '%s\n' "$retry_text"; then
             return 2
         fi

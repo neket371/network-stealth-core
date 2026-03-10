@@ -216,6 +216,15 @@ bash scripts/lab/enter-vm-smoke.sh
 - гоняет там полный nightly lifecycle smoke: `install`, `add-clients`, `repair`, `update`, `rollback`, `status`, `uninstall`
 - возвращает guest-логи обратно в vm-lab log directory
 
+для ручного тестирования внутри гостя используй:
+
+```bash
+nsc-vm-install-latest --num-configs 3
+nsc-vm-install-repo --advanced
+```
+
+raw `curl ... xray-reality.sh` внутри vm-lab не используй: nat-backed гость может автоопределить public ip хоста и завалить финальный self-check.
+
 дефолтные guest-side значения:
 
 - `start_port=24440`

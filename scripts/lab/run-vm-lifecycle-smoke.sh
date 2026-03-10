@@ -292,4 +292,8 @@ ssh: ${guest_user}@127.0.0.1:${ssh_port}
 logs: $(lab_vm_logs_dir)
 artifacts: $(lab_vm_artifacts_dir)
 summary: ${result_json}
+guest tips:
+  bash scripts/lab/enter-vm-smoke.sh
+  nsc-vm-install-latest --num-configs 3
+  nsc-vm-install-repo --advanced
 EOF

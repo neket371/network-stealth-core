@@ -200,6 +200,15 @@ bash scripts/lab/enter-vm-smoke.sh
 - по умолчанию использует одну latest stable версию xray и для `install`, и для `update`, чтобы smoke на занятом хосте был детерминированным
 - не трогает host services, firewall и живой xray-узел
 
+для ручной работы внутри гостя используй helper-команды:
+
+```bash
+nsc-vm-install-latest --num-configs 3
+nsc-vm-install-repo --advanced
+```
+
+raw `curl ... xray-reality.sh` прямо внутри гостя не используй: в nat-backed vm-lab такой install может автоопределить public ip хоста вместо guest ip и завалить финальный self-check.
+
 ## ключевые флаги
 
 ```bash
@@ -220,6 +229,7 @@ bash scripts/lab/enter-vm-smoke.sh
 заметки:
 
 - `--transport` в v7 зафиксирован на `xhttp` и оставлен только как compatibility no-op для поддерживаемого значения
+- обычный strongest-default `install` сам выбирает число конфигов; для ручного числа используй `--num-configs n` или `install --advanced`
 - legacy-алиасы `global-ms10` и `global-ms10-auto` всё ещё мапятся на `global-50` и `global-50-auto`
 - `XRAY_DATA_DIR` в wrapper-режиме не является свободным trusted source; `XRAY_ALLOW_CUSTOM_DATA_DIR=true` используй только для trusted non-world-writable директорий
 

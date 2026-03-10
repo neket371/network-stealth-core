@@ -450,6 +450,20 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "vm lab guest flow installs manual helper commands and hints" {
+    run bash -eo pipefail -c '
+    grep -Fq "install_guest_manual_helpers() {" ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq "/usr/local/bin/nsc-vm-install-latest" ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq "/usr/local/bin/nsc-vm-install-repo" ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq "/usr/local/bin/nsc-vm-guest-ip" ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq "raw curl install внутри этого гостя" ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq "используй nsc-vm-install-latest [--num-configs n|--advanced]" ./scripts/lab/enter-vm-smoke.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "resolve_mirror_base replaces version placeholders" {
     local pattern
     for pattern in "https://x/{{version}}" "https://x/{version}" "https://x/\$version"; do
@@ -1630,9 +1644,11 @@ EOF
     grep -Fq "read -r -u \"\$tty_read_fd\" input" ./install.sh
     grep -Fq "prompt_yes_no_from_tty() {" ./modules/lib/tty.sh
     grep -Fq "extract_confirmation_token_tail() {" ./modules/lib/tty.sh
+    grep -Fq "extract_confirmation_token_from_prompt_echo_followup() {" ./modules/lib/tty.sh
+    grep -Fq "resolve_confirmation_token() {" ./modules/lib/tty.sh
     grep -Fq "prompt_yes_no_from_tty \"\$tty_read_fd\" \"Подтвердите (yes/no): \" \"Введите yes или no (без кавычек)\" \"\$tty_write_fd\"" ./install.sh
-    grep -Fq "printf \"Количество VPN-ключей (1-%s): \" \"\$max_configs\" >&\"\$tty_write_fd\"" ./install.sh
-    grep -Fq "printf \"Количество VPN-ключей добавить (1-%s): \" \"\$max_add\" >&\"\$tty_write_fd\"" ./modules/config/add_clients.sh
+    grep -Fq "printf \"Количество конфигов (1-%s): \" \"\$max_configs\" >&\"\$tty_write_fd\"" ./install.sh
+    grep -Fq "printf \"Количество конфигов добавить (1-%s): \" \"\$max_add\" >&\"\$tty_write_fd\"" ./modules/config/add_clients.sh
     grep -Fq "tty_print_box \"\$tty_write_fd\" \"\$RED\" \"\$uninstall_title\" 60 90" ./service.sh
     grep -Fq "Вы уверены? Введите yes для подтверждения или no для отмены:" ./service.sh
     grep -Fq "prompt_yes_no_from_tty \\" ./service.sh
@@ -1645,8 +1661,8 @@ EOF
     grep -Fq "transport-aware self-check: проверяем exported client variants..." ./modules/health/self_check.sh
     ! grep -Fq "read -r -p \"Профиль [1/2/3/4]: \" input < /dev/tty" ./install.sh
     ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Подтвердите (yes/no): \" answer" ./install.sh
-    ! grep -Fq "read -r -p \"Сколько VPN-ключей создать? (1-\${max_configs}): \" input < /dev/tty" ./install.sh
-    ! grep -Fq "read -r -p \"Сколько VPN-ключей добавить? (1-\${max_add}): \" input < /dev/tty" ./modules/config/add_clients.sh
+    ! grep -Fq "read -r -p \"Сколько конфигов создать? (1-\${max_configs}): \" input < /dev/tty" ./install.sh
+    ! grep -Fq "read -r -p \"Сколько конфигов добавить? (1-\${max_add}): \" input < /dev/tty" ./modules/config/add_clients.sh
     ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Вы уверены? Введите yes для подтверждения или no для отмены: \" confirm" ./service.sh
     ! grep -Fq "read -r -u \"\$tty_fd\" confirm" ./service.sh
     ! grep -Fq "read -r -u \"\$tty_fd\" -p \"  Укажите путь вручную для \${description}: \" custom_path" ./lib.sh
@@ -1973,6 +1989,31 @@ EOF
     [ "$output" = "rc=0 retry=0" ]
 }
 
+@test "prompt_yes_no_from_tty tolerates leaked prompt echo before yes" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    retry_count=0
+    tty_printf() {
+      if [[ "${3:-}" == "Введите yes или no (без кавычек)" ]]; then
+        retry_count=$((retry_count + 1))
+      fi
+      :
+    }
+    tmp=$(mktemp)
+    trap "rm -f \"$tmp\"" EXIT
+    printf "Подтвердите (yes/no):\nyes\n" > "$tmp"
+    exec 9<"$tmp"
+    if prompt_yes_no_from_tty 9 "Подтвердите (yes/no): " "Введите yes или no (без кавычек)"; then
+      rc=0
+    else
+      rc=$?
+    fi
+    echo "rc=$rc retry=$retry_count"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "rc=0 retry=0" ]
+}
+
 @test "prompt_yes_no_from_tty retries invalid then accepts yes" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -2020,7 +2061,7 @@ EOF
     echo "rc=$rc retry=$retry_count"
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "rc=2 retry=1" ]
+    [ "$output" = "rc=2 retry=0" ]
 }
 
 @test "ui_box_width_for_lines respects min and max bounds" {

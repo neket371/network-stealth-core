@@ -200,6 +200,15 @@ the vm-lab flow:
 - uses one latest stable xray version for both `install` and `update` by default so the busy-host smoke stays deterministic
 - keeps host services, firewall, and the live xray node untouched
 
+for manual guest-side work, use the helper commands:
+
+```bash
+nsc-vm-install-latest --num-configs 3
+nsc-vm-install-repo --advanced
+```
+
+do not run raw `curl ... xray-reality.sh` installs directly inside the guest: in the nat-backed vm-lab that path can auto-detect the host public ip instead of the guest ip and fail the final self-check.
+
 ## key flags
 
 ```bash
@@ -220,6 +229,7 @@ the vm-lab flow:
 notes:
 
 - `--transport` is fixed to `xhttp` in v7 and exists only as a compatibility no-op for the supported value
+- the normal strongest-default `install` path auto-picks the config count; use `--num-configs n` or `install --advanced` if you want to choose it manually
 - legacy aliases `global-ms10` and `global-ms10-auto` still map to `global-50` and `global-50-auto`
 - `XRAY_DATA_DIR` is not a free-form trusted code source in wrapper mode; use `XRAY_ALLOW_CUSTOM_DATA_DIR=true` only for trusted non-world-writable directories
 

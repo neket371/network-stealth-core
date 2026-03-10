@@ -216,6 +216,15 @@ this flow:
 - runs the full nightly lifecycle smoke there, including `install`, `add-clients`, `repair`, `update`, `rollback`, `status`, and `uninstall`
 - collects guest logs back into the vm-lab log directory
 
+for manual guest-side testing, use:
+
+```bash
+nsc-vm-install-latest --num-configs 3
+nsc-vm-install-repo --advanced
+```
+
+do not use raw `curl ... xray-reality.sh` inside the vm-lab guest: a nat-backed guest can auto-detect the host public ip and fail the final self-check.
+
 default guest-side smoke values:
 
 - `start_port=24440`

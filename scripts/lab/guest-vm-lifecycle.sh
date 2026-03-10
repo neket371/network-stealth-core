@@ -46,6 +46,108 @@ resolve_latest_stable_xray_version() {
     printf '%s\n' "$latest_tag"
 }
 
+install_guest_manual_helpers() {
+    cat > "${HOME}/vm-lab-quickstart.txt" << 'EOF'
+vm-lab: быстрый старт
+=====================
+
+используй внутри гостя:
+
+  nsc-vm-guest-ip
+  nsc-vm-install-latest --num-configs 3
+  nsc-vm-install-latest --advanced
+  nsc-vm-install-repo --num-configs 3
+  nsc-vm-install-repo --advanced
+
+зачем:
+- raw curl install внутри этого гостя может автоопределить public ip хоста
+  и завалить финальный self-check
+- helper-обёртки автоматически фиксируют SERVER_IP на guest ipv4
+EOF
+
+    sudo tee /usr/local/bin/nsc-vm-guest-ip > /dev/null << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+guest_ip="$(ip -4 route get 1.1.1.1 2> /dev/null | awk '{for (i = 1; i <= NF; i++) if ($i == "src") { print $(i + 1); exit }}')"
+if [[ -z "$guest_ip" ]]; then
+    guest_ip="$(ip -4 -o addr show scope global 2> /dev/null | awk '{split($4, a, "/"); print a[1]; exit}')"
+fi
+[[ -n "$guest_ip" ]] || {
+    echo "failed to detect guest ipv4" >&2
+    exit 1
+}
+printf '%s\n' "$guest_ip"
+EOF
+    sudo chmod 0755 /usr/local/bin/nsc-vm-guest-ip
+
+    sudo tee /usr/local/bin/nsc-vm-install-latest > /dev/null << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+guest_ip="${SERVER_IP:-}"
+if [[ -z "$guest_ip" ]]; then
+    guest_ip="$(nsc-vm-guest-ip)"
+fi
+
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/xray-reality.sh -o /tmp/xray-reality.sh
+
+if [[ "$(id -u)" -eq 0 ]]; then
+    exec env SERVER_IP="$guest_ip" bash /tmp/xray-reality.sh install "$@"
+fi
+
+exec sudo env SERVER_IP="$guest_ip" bash /tmp/xray-reality.sh install "$@"
+EOF
+    sudo chmod 0755 /usr/local/bin/nsc-vm-install-latest
+
+    sudo tee /usr/local/bin/nsc-vm-install-repo > /dev/null << 'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_dir="${NSC_VM_REPO_DIR:-$HOME/repo}"
+script_path="${repo_dir%/}/xray-reality.sh"
+[[ -f "$script_path" ]] || {
+    echo "repo install script not found: $script_path" >&2
+    exit 1
+}
+
+guest_ip="${SERVER_IP:-}"
+if [[ -z "$guest_ip" ]]; then
+    guest_ip="$(nsc-vm-guest-ip)"
+fi
+
+if [[ "$(id -u)" -eq 0 ]]; then
+    exec env SERVER_IP="$guest_ip" bash "$script_path" install "$@"
+fi
+
+exec sudo env SERVER_IP="$guest_ip" bash "$script_path" install "$@"
+EOF
+    sudo chmod 0755 /usr/local/bin/nsc-vm-install-repo
+
+    sudo tee /etc/profile.d/90-nsc-vm-lab.sh > /dev/null << 'EOF'
+#!/usr/bin/env bash
+
+case "$-" in
+    *i*) ;;
+    *) return 0 ;;
+esac
+
+if [[ -n "${NSC_VM_LAB_BANNER_SHOWN:-}" ]]; then
+    return 0
+fi
+export NSC_VM_LAB_BANNER_SHOWN=1
+
+cat << 'MSG'
+vm-lab:
+  используй nsc-vm-install-latest [--num-configs n|--advanced]
+  или nsc-vm-install-repo [--num-configs n|--advanced]
+  raw curl install внутри гостя может автоопределить public ip хоста
+  и завалить финальный self-check.
+MSG
+EOF
+    sudo chmod 0644 /etc/profile.d/90-nsc-vm-lab.sh
+}
+
 main() {
     install_guest_dependencies
 
@@ -55,6 +157,8 @@ main() {
         echo "failed to detect guest ipv4" >&2
         exit 1
     }
+
+    install_guest_manual_helpers
 
     local resolved_version=""
     if [[ -z "${INSTALL_VERSION:-}" || -z "${UPDATE_VERSION:-}" ]]; then

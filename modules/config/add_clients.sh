@@ -104,7 +104,7 @@ resolve_add_clients_count() {
         printf '\n' >&"$tty_write_fd"
         local input
         while true; do
-            if ! printf "Количество VPN-ключей добавить (1-%s): " "$max_add" >&"$tty_write_fd"; then
+            if ! printf "Количество конфигов добавить (1-%s): " "$max_add" >&"$tty_write_fd"; then
                 exec {tty_read_fd}<&-
                 exec {tty_write_fd}>&-
                 log ERROR "Не удалось вывести запрос количества новых конфигураций в /dev/tty"

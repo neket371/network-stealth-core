@@ -810,7 +810,7 @@ ask_num_configs() {
     if [[ -n "${XRAY_NUM_CONFIGS:-}" ]]; then
         if [[ "$XRAY_NUM_CONFIGS" =~ ^[0-9]+$ ]] && ((XRAY_NUM_CONFIGS >= 1 && XRAY_NUM_CONFIGS <= max_configs)); then
             NUM_CONFIGS="$XRAY_NUM_CONFIGS"
-            log INFO "Используем переданный NUM_CONFIGS=${NUM_CONFIGS}"
+            log INFO "Используем переданное количество конфигов: ${NUM_CONFIGS}"
             return 0
         fi
         log ERROR "Некорректное значение --num-configs: ${XRAY_NUM_CONFIGS} (допустимо 1-${max_configs})"
@@ -819,7 +819,7 @@ ask_num_configs() {
 
     if [[ "${AUTO_PROFILE_MODE:-false}" == "true" ]] || [[ "${ADVANCED_MODE:-false}" != "true" ]] || [[ "$NON_INTERACTIVE" == "true" ]]; then
         NUM_CONFIGS=$(auto_profile_default_num_configs "$DOMAIN_TIER")
-        log INFO "Количество ключей выбрано автоматически (${NUM_CONFIGS})"
+        log INFO "Количество конфигов выбрано автоматически (${NUM_CONFIGS}); для ручного выбора используйте --num-configs <n> или install --advanced"
         return 0
     fi
 
@@ -837,7 +837,7 @@ ask_num_configs() {
     printf '\n' >&"$tty_write_fd"
     local input
     while true; do
-        if ! printf "Количество VPN-ключей (1-%s): " "$max_configs" >&"$tty_write_fd"; then
+        if ! printf "Количество конфигов (1-%s): " "$max_configs" >&"$tty_write_fd"; then
             exec {tty_read_fd}<&-
             exec {tty_write_fd}>&-
             log ERROR "Не удалось вывести запрос NUM_CONFIGS в /dev/tty"
@@ -854,7 +854,7 @@ ask_num_configs() {
             exec {tty_read_fd}<&-
             exec {tty_write_fd}>&-
             NUM_CONFIGS="$input"
-            log OK "Количество ключей: ${NUM_CONFIGS}"
+            log OK "Количество конфигов: ${NUM_CONFIGS}"
             echo ""
             return 0
         fi

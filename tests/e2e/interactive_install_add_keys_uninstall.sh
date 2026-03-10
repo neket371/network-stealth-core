@@ -34,7 +34,7 @@ expect {
         set saw_profile 1
         exp_continue
     }
-    -re {(Сколько VPN-ключей создать\?|Количество VPN-ключей) \(1-10\):} {
+    -re {(Сколько VPN-ключей создать\?|Количество VPN-ключей|Количество конфигов) \(1-10\):} {
         send -- "$env(INITIAL_CONFIGS)\r"
         set saw_count 1
         exp_continue
@@ -77,7 +77,7 @@ set saw_prompt 0
 spawn bash -lc "source \"$env(ROOT_DIR)/tests/e2e/lib.sh\"; run_root bash \"$env(SCRIPT_PATH)\" add-keys"
 
 expect {
-    -re {(Сколько VPN-ключей добавить\?|Количество VPN-ключей( добавить)?) \(1-[0-9]+\):} {
+    -re {(Сколько VPN-ключей добавить\?|Количество VPN-ключей( добавить)?|Количество конфигов добавить) \(1-[0-9]+\):} {
         send -- "$env(ADD_CONFIGS)\r"
         set saw_prompt 1
         exp_continue

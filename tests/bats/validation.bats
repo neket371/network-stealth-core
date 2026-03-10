@@ -232,6 +232,7 @@
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"3"* ]]
+    [[ "$output" == *"переданное количество конфигов"* ]]
 }
 
 @test "ask_num_configs auto-selects default on minimal path" {
@@ -247,6 +248,9 @@
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"5"* ]]
+    [[ "$output" == *"Количество конфигов выбрано автоматически (5)"* ]]
+    [[ "$output" == *"--num-configs <n>"* ]]
+    [[ "$output" == *"install --advanced"* ]]
 }
 
 @test "ask_num_configs skips when reusing config" {
