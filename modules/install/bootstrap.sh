@@ -246,7 +246,18 @@ setup_logrotate() {
 
     backup_file /etc/logrotate.d/xray
     atomic_write /etc/logrotate.d/xray 0644 << EOF
-${safe_logs_dir%/}/*.log ${safe_health_log} ${safe_install_log} ${safe_update_log} ${safe_diag_log} ${safe_repair_log} {
+${safe_logs_dir%/}/access.log ${safe_logs_dir%/}/error.log {
+    daily
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 xray xray
+}
+
+${safe_health_log} ${safe_install_log} ${safe_update_log} ${safe_diag_log} ${safe_repair_log} {
     daily
     rotate 14
     missingok

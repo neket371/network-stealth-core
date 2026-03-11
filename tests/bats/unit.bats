@@ -1069,7 +1069,9 @@ EOF
     run bash -eo pipefail -c '
     grep -q '\''safe_logs_dir='\'' ./modules/install/bootstrap.sh
     grep -q '\''safe_health_log='\'' ./modules/install/bootstrap.sh
-    grep -Fq '\''${safe_logs_dir%/}/*.log ${safe_health_log}'\'' ./modules/install/bootstrap.sh
+    grep -Fq '\''${safe_logs_dir%/}/access.log ${safe_logs_dir%/}/error.log {'\'' ./modules/install/bootstrap.sh
+    grep -Fq '\''create 0640 xray xray'\'' ./modules/install/bootstrap.sh
+    grep -Fq '\''${safe_health_log} ${safe_install_log} ${safe_update_log} ${safe_diag_log} ${safe_repair_log} {'\'' ./modules/install/bootstrap.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -2657,10 +2659,9 @@ JSON
 
 @test "create_users precreates writable xray log files" {
     run bash -eo pipefail -c '
-    grep -Fq "chmod 750 \"\$XRAY_LOGS\"" ./install.sh
+    grep -Fq "declare -F ensure_xray_runtime_logs_ready" ./install.sh
+    grep -Fq "ensure_xray_runtime_logs_ready" ./install.sh
     grep -Fq "touch \"\$XRAY_LOGS/access.log\" \"\$XRAY_LOGS/error.log\"" ./install.sh
-    grep -Fq "chown \"\${XRAY_USER}:\${XRAY_GROUP}\" \"\$XRAY_LOGS/access.log\" \"\$XRAY_LOGS/error.log\"" ./install.sh
-    grep -Fq "chmod 640 \"\$XRAY_LOGS/access.log\" \"\$XRAY_LOGS/error.log\"" ./install.sh
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -3125,6 +3126,18 @@ EOF
     grep -Fq -- '\''-type f -o -type l'\'' ./modules/service/runtime.sh
     grep -q '\''Отключён конфликтный systemd drop-in'\'' ./modules/service/runtime.sh
     echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "create_systemd_service hardens writable log paths for xray" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''ensure_xray_runtime_logs_ready || {'\'' ./modules/service/runtime.sh
+    grep -Fq '\''ReadWritePaths=${_sd_logs} ${_sd_logs}/access.log ${_sd_logs}/error.log'\'' ./modules/service/runtime.sh
+    grep -Fq "LogsDirectory=xray" ./modules/service/runtime.sh
+    grep -Fq "LogsDirectoryMode=0750" ./modules/service/runtime.sh
+    echo ok
   '
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]

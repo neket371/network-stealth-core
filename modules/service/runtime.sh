@@ -68,6 +68,23 @@ is_nonfatal_systemctl_error() {
     esac
 }
 
+ensure_xray_runtime_logs_ready() {
+    local logs_dir="${XRAY_LOGS%/}"
+    [[ -n "$logs_dir" ]] || logs_dir="/var/log/xray"
+
+    install -d -m 0750 -o "$XRAY_USER" -g "$XRAY_GROUP" "$logs_dir"
+
+    local log_file
+    for log_file in "$logs_dir/access.log" "$logs_dir/error.log"; do
+        if [[ ! -e "$log_file" ]]; then
+            install -m 0640 -o "$XRAY_USER" -g "$XRAY_GROUP" /dev/null "$log_file"
+            continue
+        fi
+        chown "${XRAY_USER}:${XRAY_GROUP}" "$log_file"
+        chmod 640 "$log_file"
+    done
+}
+
 systemctl_uninstall_bounded() {
     local action="$1"
     local unit="${2:-}"
@@ -200,6 +217,16 @@ create_systemd_service() {
 
     cleanup_conflicting_xray_service_dropins || return 1
 
+    ensure_xray_runtime_logs_ready || {
+        log ERROR "Не удалось подготовить runtime-логи Xray"
+        return 1
+    }
+
+    local logs_directory_lines=""
+    if [[ "$_sd_logs" == "/var/log/xray" ]]; then
+        logs_directory_lines=$'LogsDirectory=xray\nLogsDirectoryMode=0750\n'
+    fi
+
     backup_file /etc/systemd/system/xray.service
     atomic_write /etc/systemd/system/xray.service 0644 << EOF
 [Unit]
@@ -231,8 +258,8 @@ LockPersonality=true
 SystemCallFilter=@system-service @network-io
 SystemCallFilter=~@privileged @mount @swap @reboot @raw-io @cpu-emulation @debug @obsolete
 PrivateTmp=true
-ReadWritePaths=${_sd_logs}
-ExecStart=${_sd_bin} run -config ${_sd_config}
+ReadWritePaths=${_sd_logs} ${_sd_logs}/access.log ${_sd_logs}/error.log
+${logs_directory_lines}ExecStart=${_sd_bin} run -config ${_sd_config}
 Restart=on-failure
 RestartSec=5s
 LimitNOFILE=1000000
@@ -364,6 +391,11 @@ start_services() {
         log WARN "systemd не запущен; запуск сервисов пропущен"
         return 0
     fi
+
+    ensure_xray_runtime_logs_ready || {
+        log ERROR "Не удалось подготовить runtime-логи Xray перед запуском"
+        return 1
+    }
 
     local restart_err=""
     if ! systemctl_restart_xray_bounded restart_err; then
