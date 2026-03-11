@@ -32,7 +32,7 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | `xray-reality.sh` | bootstrap wrapper and trusted loader | env bootstrap refs, repo url, pinning, local script dir | cloned/synced runtime tree, sourced module dir | works; trust boundary is explicit and pinned |
 | `lib.sh` | central orchestrator | cli args, env, runtime files, policy/state paths | action dispatch, logging, validation, cleanup, runtime defaults | works; still too large and contract-heavy |
 | `install.sh` | mutating lifecycle entrypoint | install/update/repair/migrate/uninstall args, current managed state | xray install/update, config creation, rollback, quick-start output | works; early gate and rollback behavior are good |
-| `config.sh` | config and artifact builder | planner outputs, ports, keys, domains, transport settings | `config.json`, `clients.json`, `clients.txt`, links, raw exports | works; active transport naming is now xhttp-neutral |
+| `config.sh` | config and runtime apply builder | planner outputs, ports, keys, domains, transport settings | `config.json`, environment snapshot, validated runtime apply helpers | works; artifact-heavy logic was extracted into a focused module |
 | `service.sh` | service/runtime ops | existing managed install and systemd state | `status`, `logs`, `check-update`, uninstall cleanup and systemd handling | works; status output and cleanup are strong |
 | `health.sh` | health/diagnostics entry | runtime state, domain health data, timers | health script/timer content, diagnose helpers | works; heavy lifting now mostly delegated to modules |
 | `export.sh` | export entry helpers | generated clients/artifacts | export files and capability notes | works; most logic now lives in export module |
@@ -59,6 +59,7 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | file | role | current verdict |
 |---|---|---|
 | `modules/config/add_clients.sh` | `add-clients` flow, append + artifact rebuild | works; rebuild-from-config behavior is correct |
+| `modules/config/client_artifacts.sh` | client artifact rendering, json normalization, rebuild, and self-check readiness | works; meaningfully narrows `config.sh` |
 | `modules/config/domain_planner.sh` | domain selection, provider diversity, path/service payload generation | works; xhttp path generation is no longer tied to grpc-named seed files, but planner still spans multiple data inputs |
 | `modules/config/shared_helpers.sh` | transport/tier labels and compatibility helpers | works; active helpers are transport-neutral, legacy labels remain scoped to grpc/http2 branches |
 | `modules/export/capabilities.sh` | capability matrix and compatibility notes generation | works; export honesty is good |
@@ -85,13 +86,13 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | `release.yml` | tagged release pipeline | not re-run in this audit pass; last known release path stable |
 | `nightly-smoke.yml` | deeper smoke schedule | covered by current repo logic, not re-fired manually in this pass |
 | `os-matrix-smoke.yml` | supported os smoke path | contract still documented and tested |
-| `self-hosted-smoke.yml` | isolated self-hosted smoke path | works, but is not inside `make lint` actionlint list |
+| `self-hosted-smoke.yml` | isolated self-hosted smoke path | works; workflow lint coverage is aligned with local qa |
 
 ## test surface
 
 | suite | role | current verdict |
 |---|---|---|
-| `tests/bats/*.bats` | unit/integration/validation/health/runtime contract suites | strong coverage: current `bats` total is 418 passing tests inside `make ci-full` |
+| `tests/bats/*.bats` | unit/integration/validation/health/runtime contract suites | strong coverage: current `bats` total is 422 passing tests inside `make ci-full` |
 | `tests/e2e/*.sh` | install/add/update/rollback/migrate contract scenarios | strong coverage for product paths and regressions |
 | `tests/lint.sh` | broader standalone lint harness | passes and currently covers all workflows, including self-hosted |
 

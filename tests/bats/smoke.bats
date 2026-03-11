@@ -11,6 +11,7 @@
     [ -f "service.sh" ]
     [ -f "health.sh" ]
     [ -f "modules/lib/validation.sh" ]
+    [ -f "modules/config/client_artifacts.sh" ]
     [ -f "modules/config/domain_planner.sh" ]
     [ -f "modules/install/bootstrap.sh" ]
 }
@@ -23,6 +24,6 @@
 
 @test "bash syntax is valid" {
     run bash -n xray-reality.sh lib.sh install.sh config.sh service.sh health.sh export.sh \
-        modules/lib/validation.sh modules/config/domain_planner.sh modules/install/bootstrap.sh
+        modules/lib/validation.sh modules/config/client_artifacts.sh modules/config/domain_planner.sh modules/install/bootstrap.sh
     [ "$status" -eq 0 ]
 }

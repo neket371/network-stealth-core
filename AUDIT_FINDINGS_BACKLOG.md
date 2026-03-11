@@ -17,6 +17,7 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
   - `service.sh`
 - problem:
   - core orchestration files are still large and blend multiple responsibilities.
+  - `config.sh` was already reduced by extracting client artifact logic, but `lib.sh`, `install.sh`, and `service.sh` remain oversized.
 - recommended fix direction:
   - keep moving behavior into modules by subsystem, not by arbitrary helper dumping.
   - prefer smaller action-focused files with explicit contracts.

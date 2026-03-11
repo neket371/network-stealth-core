@@ -1138,9 +1138,9 @@ EOF
 
 @test "derive_public_key_from_private_key uses strict x25519 -i flow" {
     run bash -eo pipefail -c '
-    grep -q '\''x25519 -i "\$private_key"'\'' ./config.sh
-    ! grep -q '\''x25519 "\$private_key"'\'' ./config.sh
-    grep -q '\''xray x25519 -i failed while deriving public key'\'' ./config.sh
+    grep -q '\''x25519 -i "\$private_key"'\'' ./modules/config/client_artifacts.sh
+    ! grep -q '\''x25519 "\$private_key"'\'' ./modules/config/client_artifacts.sh
+    grep -q '\''xray x25519 -i failed while deriving public key'\'' ./modules/config/client_artifacts.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1799,9 +1799,9 @@ EOF
 
 @test "clients header box writes one line per segment" {
     run bash -eo pipefail -c '
-    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_border_string top \"\$header_width\")\"" ./config.sh
-    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_line_string \"\$header_title\" \"\$header_width\")\"" ./config.sh
-    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_border_string bottom \"\$header_width\")\"" ./config.sh
+    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_border_string top \"\$header_width\")\"" ./modules/config/client_artifacts.sh
+    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_line_string \"\$header_title\" \"\$header_width\")\"" ./modules/config/client_artifacts.sh
+    grep -Fq "printf '\''%s\\n'\'' \"\$(ui_box_border_string bottom \"\$header_width\")\"" ./modules/config/client_artifacts.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1822,9 +1822,9 @@ EOF
 
 @test "clients summary keeps concise management commands" {
     run bash -eo pipefail -c '
-    grep -Fq -- "- обновить: xray-reality.sh update" ./config.sh
-    grep -Fq -- "- удалить: xray-reality.sh uninstall" ./config.sh
-    ! grep -Fq "Для обновления Xray до новой версии выполните: sudo xray-reality.sh update" ./config.sh
+    grep -Fq -- "- обновить: xray-reality.sh update" ./modules/config/client_artifacts.sh
+    grep -Fq -- "- удалить: xray-reality.sh uninstall" ./modules/config/client_artifacts.sh
+    ! grep -Fq "Для обновления Xray до новой версии выполните: sudo xray-reality.sh update" ./modules/config/client_artifacts.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1833,9 +1833,9 @@ EOF
 
 @test "config uses formatted generated timestamp helper" {
     run bash -eo pipefail -c '
-    grep -Fq "[[ -n \"\$generated\" ]] || generated=\"\$(format_generated_timestamp)\"" ./config.sh
-    grep -Fq "Generated: \$(format_generated_timestamp)" ./config.sh
-    grep -Fq -- "--arg generated \"\$(format_generated_timestamp)\"" ./config.sh
+    grep -Fq "[[ -n \"\$generated\" ]] || generated=\"\$(format_generated_timestamp)\"" ./modules/config/client_artifacts.sh
+    grep -Fq "Generated: \$(format_generated_timestamp)" ./modules/config/client_artifacts.sh
+    grep -Fq -- "--arg generated \"\$(format_generated_timestamp)\"" ./modules/config/client_artifacts.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -2234,7 +2234,7 @@ EOF
 }
 
 @test "clients summary points operators to russian links guidance" {
-    run bash -eo pipefail -c "grep -Fq 'быстрые ссылки: \${links_file}' ./config.sh; grep -Fq 'ссылка: см. \${links_file}' ./config.sh; grep -Fq 'как подключаться:' ./config.sh; grep -Fq 'render_clients_links_txt_from_json' ./config.sh; echo ok"
+    run bash -eo pipefail -c "grep -Fq 'быстрые ссылки: \${links_file}' ./modules/config/client_artifacts.sh; grep -Fq 'ссылка: см. \${links_file}' ./modules/config/client_artifacts.sh; grep -Fq 'как подключаться:' ./modules/config/client_artifacts.sh; grep -Fq 'render_clients_links_txt_from_json' ./modules/config/client_artifacts.sh; echo ok"
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
@@ -2427,7 +2427,7 @@ EOF
 
 @test "save_client_configs renders clients.txt from clients.json source" {
     run bash -eo pipefail -c '
-    grep -q '\''render_clients_txt_from_json "\$json_file" "\$client_file"'\'' ./config.sh
+    grep -q '\''render_clients_txt_from_json "\$json_file" "\$client_file"'\'' ./modules/config/client_artifacts.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -2470,6 +2470,18 @@ JSON
     grep -Fq "запасная ссылка:" "$links_file"
     grep -Fq "аварийный raw xray:" "$links_file"
     grep -Fq "только raw xray json + browser dialer" "$links_file"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "config sources dedicated client artifacts module" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''CONFIG_CLIENT_ARTIFACTS_MODULE="$SCRIPT_DIR/modules/config/client_artifacts.sh"'\'' ./config.sh
+    grep -Fq '\''source "$CONFIG_CLIENT_ARTIFACTS_MODULE"'\'' ./config.sh
+    grep -q '\''save_client_configs() {'\'' ./modules/config/client_artifacts.sh
+    grep -q '\''rebuild_client_artifacts_from_config() {'\'' ./modules/config/client_artifacts.sh
     echo ok
   '
     [ "$status" -eq 0 ]

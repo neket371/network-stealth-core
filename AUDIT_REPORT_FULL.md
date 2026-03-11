@@ -31,7 +31,7 @@ companion docs for this pass:
 ### local verification
 
 - `make ci-full` — **pass**
-  - bats: **418/418** pass
+  - bats: **422/422** pass
   - release consistency: pass (`7.1.0`)
   - dead-function check: pass
   - shell complexity check: pass
@@ -127,7 +127,8 @@ status: **good with contract debt**
 - generated strongest-direct configs pass runtime checks
 - exports and raw-xray artifacts are coherent
 - capabilities/compatibility notes are honest
-- however, xhttp-era generation still routes through some grpc-named concepts and data files
+- client artifact rendering/rebuild logic is now split out of `config.sh` into a focused module
+- however, planner data still spans catalog + tier + side-map inputs
 
 ### service/firewall/monitoring
 
@@ -167,16 +168,15 @@ status: **good**
 - severity: **p3**
 - type: maintainability
 - files:
-  - `lib.sh` — 2720 lines
-  - `config.sh` — 2069 lines
-  - `install.sh` — 1553 lines
-  - `service.sh` — 1321 lines
+  - `lib.sh` — 2513 lines
+  - `install.sh` — 1406 lines
+  - `service.sh` — 1189 lines
 - impact:
   - slows review and safe refactoring
   - increases blast radius of small changes
   - keeps important contracts spread across very large files plus modules
 - verdict:
-  - not a correctness bug today, but still the biggest code-shape problem left
+  - not a correctness bug today, but still the biggest code-shape problem left after reducing `config.sh`
 
 ## closed in this audit refresh
 
@@ -192,6 +192,6 @@ current product verdict:
 - safety/rollback behavior: **good**
 - test and smoke coverage: **strong**
 - dead code situation: **no confirmed active dead runtime code found**
-- biggest remaining debt: **multi-source planner inputs and large orchestration files**
+- biggest remaining debt: **multi-source planner inputs and still-large orchestration files**
 
 there is no p0/p1 finding from this pass.

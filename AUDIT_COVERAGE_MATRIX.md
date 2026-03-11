@@ -30,7 +30,7 @@ review depth meanings:
 | `AUDIT_FINDINGS_BACKLOG.md` | 80 | doc | prioritized audit backlog | contract consistency | reviewed | — |
 | `AUDIT_REPORT_FULL.md` | 242 | doc | full audit narrative and findings | contract consistency | reviewed | — |
 | `AUDIT_RUNTIME_MAP.md` | 145 | doc | per-script runtime responsibility map | contract consistency | reviewed | — |
-| `config.sh` | 2069 | runtime entrypoint | config builder and client artifact generator | manual semantic | reviewed | f-003: file remains large |
+| `config.sh` | 730 | runtime entrypoint | config builder and config/runtime apply helpers | manual semantic | reviewed | client artifact logic moved into focused module; f-003 remains open elsewhere |
 | `data/domains/catalog.json` | 4618 | data contract | canonical domain metadata catalog | manual semantic | reviewed | planner still combines catalog with side maps and tier files |
 | `Dockerfile` | 50 | build/tooling | container packaging and smoke runtime image | manual semantic | reviewed | runtime bundle now ships neutral transport endpoint seed file |
 | `docs/en/ARCHITECTURE.md` | 152 | doc | english architecture doc | contract consistency | reviewed | — |
@@ -57,11 +57,12 @@ review depth meanings:
 | `export.sh` | 328 | runtime entrypoint | client export entry helpers | manual semantic | reviewed | — |
 | `transport_endpoints.map` | 202 | data contract | neutral legacy transport endpoint seed source for grpc/http2 compatibility | manual semantic | reviewed | active xhttp path no longer references grpc-named seed files |
 | `health.sh` | 719 | runtime entrypoint | health diagnostics and monitor entry helpers | manual semantic | reviewed | — |
-| `install.sh` | 1553 | runtime entrypoint | install/update/repair/migrate/rollback entry flows | manual semantic | reviewed | f-003: still large and action-dense |
-| `lib.sh` | 2720 | runtime entrypoint | global runtime orchestrator and action dispatcher | manual semantic | reviewed | f-003: file remains large |
+| `install.sh` | 1406 | runtime entrypoint | install/update/repair/migrate/rollback entry flows | manual semantic | reviewed | f-003: still large and action-dense |
+| `lib.sh` | 2513 | runtime entrypoint | global runtime orchestrator and action dispatcher | manual semantic | reviewed | f-003: file remains large |
 | `LICENSE` | 21 | repo meta | license text | inventory-only | reviewed | — |
 | `Makefile` | 75 | build/tooling | local qa and audit entrypoints | manual semantic | reviewed | — |
 | `modules/config/add_clients.sh` | 686 | runtime module | add-clients runtime flow | manual semantic | reviewed | — |
+| `modules/config/client_artifacts.sh` | 1146 | runtime module | client artifact rendering, json normalization, rebuild, and self-check readiness helpers | manual semantic | reviewed | extracted from `config.sh` to narrow root entrypoint scope |
 | `modules/config/domain_planner.sh` | 933 | runtime module | domain planning and profile generation helpers | manual semantic | reviewed | legacy transport seeds renamed; planner still has multi-source complexity |
 | `modules/config/shared_helpers.sh` | 162 | runtime module | transport/tier/helper formatting and compatibility helpers | manual semantic | reviewed | transport compatibility helpers are now transport-neutral where active |
 | `modules/export/capabilities.sh` | 141 | runtime module | export capability matrix and compatibility notes helpers | manual semantic | reviewed | — |
@@ -104,7 +105,7 @@ review depth meanings:
 | `scripts/release.sh` | 253 | qa/release script | release cut helper | manual semantic | reviewed | — |
 | `scripts/windows/detect-bash.ps1` | 112 | windows helper | windows bash discovery helper | manual semantic | reviewed | — |
 | `scripts/windows/run-validation.ps1` | 164 | windows helper | windows validation orchestrator | manual semantic | reviewed | — |
-| `service.sh` | 1321 | runtime entrypoint | systemd status/logs/check-update/uninstall service control | manual semantic | reviewed | f-003: still large and multi-purpose |
+| `service.sh` | 1189 | runtime entrypoint | systemd status/logs/check-update/uninstall service control | manual semantic | reviewed | f-003: still large and multi-purpose |
 | `sni_pools.map` | 202 | data contract | legacy sni pool source | manual semantic | reviewed | planner still uses multi-source domain contract alongside catalog |
 | `tests/bats/config_generation.bats` | 106 | bats test | bats suite: config_generation | manual semantic | reviewed | — |
 | `tests/bats/domain_loading.bats` | 350 | bats test | bats suite: domain_loading | manual semantic | reviewed | — |
