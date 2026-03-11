@@ -33,7 +33,7 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | `lib.sh` | central orchestrator | cli args, env, runtime files, policy/state paths | action dispatch, logging, validation, cleanup, runtime defaults | works; still too large and contract-heavy |
 | `install.sh` | mutating lifecycle entrypoint | install/update/repair/migrate/uninstall args, current managed state | xray install/update, config creation, rollback, quick-start output | works; early gate and rollback behavior are good |
 | `config.sh` | config and runtime apply builder | planner outputs, ports, keys, domains, transport settings | `config.json`, environment snapshot, validated runtime apply helpers | works; artifact-heavy logic was extracted into a focused module |
-| `service.sh` | service/runtime ops | existing managed install and systemd state | `status`, `logs`, `check-update`, uninstall cleanup and systemd handling | works; status output and cleanup are strong |
+| `service.sh` | service/runtime ops | existing managed install and systemd state | `status`, `logs`, `check-update`, and service-level orchestration over focused modules | works; narrower after uninstall extraction, but still larger than ideal |
 | `health.sh` | health/diagnostics entry | runtime state, domain health data, timers | health script/timer content, diagnose helpers | works; heavy lifting now mostly delegated to modules |
 | `export.sh` | export entry helpers | generated clients/artifacts | export files and capability notes | works; most logic now lives in export module |
 
@@ -66,6 +66,7 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | `modules/health/measurements.sh` | field report import/summary/prune helpers | works; measurement surface is present and coherent |
 | `modules/health/self_check.sh` | transport-aware self-check engine and persisted verdicts | works; bounded process cleanup and fallback behavior verified |
 | `modules/install/bootstrap.sh` | installed runtime tree sync and wrapper deployment | works; packages neutral transport endpoint seeds for legacy transport compatibility |
+| `modules/service/uninstall.sh` | uninstall file removal, destructive path guards, account cleanup, and service teardown helpers | works; meaningfully narrows `service.sh` while preserving uninstall semantics |
 
 ## qa / release / lab scripts
 

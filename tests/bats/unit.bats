@@ -731,7 +731,7 @@ JSON
 @test "uninstall_is_allowed_file_path allows known xray logs in /var/log" {
     run bash -eo pipefail -c '
     source ./lib.sh
-    source ./service.sh
+    source ./modules/service/uninstall.sh
     uninstall_is_allowed_file_path /var/log/xray-install.log
     uninstall_is_allowed_file_path /var/log/xray-update.log
     uninstall_is_allowed_file_path /var/log/xray-diagnose.log
@@ -1642,7 +1642,7 @@ EOF
 @test "ufw delete operations are non-interactive" {
     run bash -eo pipefail -c '
     grep -q "ufw --force delete allow" ./modules/lib/firewall.sh
-    grep -q "ufw --force delete allow" ./service.sh
+    grep -q "ufw --force delete allow" ./modules/service/uninstall.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1739,11 +1739,11 @@ EOF
     grep -Fq "prompt_yes_no_from_tty \"\$tty_read_fd\" \"Подтвердите (yes/no): \" \"Введите yes или no (без кавычек)\" \"\$tty_write_fd\"" ./install.sh
     grep -Fq "printf \"Количество конфигов (1-%s): \" \"\$max_configs\" >&\"\$tty_write_fd\"" ./install.sh
     grep -Fq "printf \"Количество конфигов добавить (1-%s): \" \"\$max_add\" >&\"\$tty_write_fd\"" ./modules/config/add_clients.sh
-    grep -Fq "tty_print_box \"\$tty_write_fd\" \"\$RED\" \"\$uninstall_title\" 60 90" ./service.sh
-    grep -Fq "Вы уверены? Введите yes для подтверждения или no для отмены:" ./service.sh
-    grep -Fq "prompt_yes_no_from_tty \\" ./service.sh
-    grep -Fq "\"Введите yes или no (без кавычек)\"" ./service.sh
-    ! grep -Fq "if ! prompt_yes_no_from_tty" ./service.sh
+    grep -Fq "tty_print_box \"\$tty_write_fd\" \"\$RED\" \"\$uninstall_title\" 60 90" ./modules/service/uninstall.sh
+    grep -Fq "Вы уверены? Введите yes для подтверждения или no для отмены:" ./modules/service/uninstall.sh
+    grep -Fq "prompt_yes_no_from_tty \\" ./modules/service/uninstall.sh
+    grep -Fq "\"Введите yes или no (без кавычек)\"" ./modules/service/uninstall.sh
+    ! grep -Fq "if ! prompt_yes_no_from_tty" ./modules/service/uninstall.sh
     grep -Fq "open_interactive_tty_fds tty_read_fd tty_write_fd" ./lib.sh
     grep -Fq "Укажите путь вручную для %s:" ./lib.sh
     grep -Fq "read -r -u \"\$tty_read_fd\" custom_path" ./lib.sh
@@ -1753,8 +1753,8 @@ EOF
     ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Подтвердите (yes/no): \" answer" ./install.sh
     ! grep -Fq "read -r -p \"Сколько конфигов создать? (1-\${max_configs}): \" input < /dev/tty" ./install.sh
     ! grep -Fq "read -r -p \"Сколько конфигов добавить? (1-\${max_add}): \" input < /dev/tty" ./modules/config/add_clients.sh
-    ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Вы уверены? Введите yes для подтверждения или no для отмены: \" confirm" ./service.sh
-    ! grep -Fq "read -r -u \"\$tty_fd\" confirm" ./service.sh
+    ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Вы уверены? Введите yes для подтверждения или no для отмены: \" confirm" ./modules/service/uninstall.sh
+    ! grep -Fq "read -r -u \"\$tty_fd\" confirm" ./modules/service/uninstall.sh
     ! grep -Fq "read -r -u \"\$tty_fd\" -p \"  Укажите путь вручную для \${description}: \" custom_path" ./lib.sh
     echo "ok"
   '
@@ -3384,6 +3384,16 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "service modules are wired into lint and dead-function coverage" {
+    run bash -eo pipefail -c '
+    grep -Fq "modules/service/*.sh" ./Makefile
+    grep -Fq '"'"'$ROOT_DIR"'"'"/modules/service/*.sh' ./scripts/check-dead-functions.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "lab scripts are wired into lint and self-hosted workflows" {
     run bash -eo pipefail -c '
     grep -q '\''scripts/lab/\*.sh'\'' ./Makefile
@@ -3492,6 +3502,18 @@ EOF
     run bash -eo pipefail -c '
     grep -q '\''if ! uninstall_has_managed_artifacts; then'\'' ./install.sh
     grep -q '\''управляемые артефакты не обнаружены'\'' ./install.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "service sources dedicated uninstall module" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''SERVICE_UNINSTALL_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/service/uninstall.sh"'\'' ./service.sh
+    grep -Fq '\''source "$SERVICE_UNINSTALL_MODULE"'\'' ./service.sh
+    grep -q '\''uninstall_all() {'\'' ./modules/service/uninstall.sh
+    grep -q '\''uninstall_has_managed_artifacts() {'\'' ./modules/service/uninstall.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]

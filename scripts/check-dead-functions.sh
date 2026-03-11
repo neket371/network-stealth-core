@@ -20,6 +20,7 @@ FILES=(
     "$ROOT_DIR"/scripts/*.sh
     "$ROOT_DIR"/modules/lib/*.sh
     "$ROOT_DIR"/modules/config/*.sh
+    "$ROOT_DIR"/modules/service/*.sh
     "$ROOT_DIR"/modules/install/*.sh
 )
 

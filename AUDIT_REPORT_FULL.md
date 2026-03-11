@@ -11,7 +11,7 @@ this audit refresh covers the current `v7.1.0` baseline, not the old `4.2.x` she
 
 reviewed surfaces:
 
-- all repo-tracked files in `audit_coverage_matrix.md` (**123/123**)
+- all repo-tracked files in `audit_coverage_matrix.md` (**124/124** including the new `modules/service/uninstall.sh` split module)
 - runtime entrypoints: `xray-reality.sh`, `lib.sh`, `install.sh`, `config.sh`, `service.sh`, `health.sh`, `export.sh`
 - runtime modules under `modules/*`
 - qa/release/lab/windows scripts under `scripts/*`
@@ -128,6 +128,7 @@ status: **good with contract debt**
 - exports and raw-xray artifacts are coherent
 - capabilities/compatibility notes are honest
 - client artifact rendering/rebuild logic is now split out of `config.sh` into a focused module
+- uninstall/remove/account cleanup logic is now split out of `service.sh` into `modules/service/uninstall.sh`
 - however, planner data still spans catalog + tier + side-map inputs
 
 ### service/firewall/monitoring
@@ -170,13 +171,13 @@ status: **good**
 - files:
   - `lib.sh` — 2513 lines
   - `install.sh` — 1406 lines
-  - `service.sh` — 1189 lines
+  - `service.sh` — 902 lines
 - impact:
   - slows review and safe refactoring
   - increases blast radius of small changes
   - keeps important contracts spread across very large files plus modules
 - verdict:
-  - not a correctness bug today, but still the biggest code-shape problem left after reducing `config.sh`
+  - not a correctness bug today, but still the biggest code-shape problem left after reducing both `config.sh` and `service.sh`
 
 ## closed in this audit refresh
 

@@ -64,6 +64,7 @@ review depth meanings:
 | `modules/config/add_clients.sh` | 686 | runtime module | add-clients runtime flow | manual semantic | reviewed | — |
 | `modules/config/client_artifacts.sh` | 1146 | runtime module | client artifact rendering, json normalization, rebuild, and self-check readiness helpers | manual semantic | reviewed | extracted from `config.sh` to narrow root entrypoint scope |
 | `modules/config/domain_planner.sh` | 933 | runtime module | domain planning and profile generation helpers | manual semantic | reviewed | legacy transport seeds renamed; planner still has multi-source complexity |
+| `modules/service/uninstall.sh` | 461 | runtime module | uninstall file removal, account cleanup, and destructive guard helpers | manual semantic | reviewed | extracted from `service.sh` to narrow root entrypoint scope |
 | `modules/config/shared_helpers.sh` | 162 | runtime module | transport/tier/helper formatting and compatibility helpers | manual semantic | reviewed | transport compatibility helpers are now transport-neutral where active |
 | `modules/export/capabilities.sh` | 141 | runtime module | export capability matrix and compatibility notes helpers | manual semantic | reviewed | — |
 | `modules/health/measurements.sh` | 312 | runtime module | measurement import/compare/prune helpers | manual semantic | reviewed | — |
@@ -105,7 +106,7 @@ review depth meanings:
 | `scripts/release.sh` | 253 | qa/release script | release cut helper | manual semantic | reviewed | — |
 | `scripts/windows/detect-bash.ps1` | 112 | windows helper | windows bash discovery helper | manual semantic | reviewed | — |
 | `scripts/windows/run-validation.ps1` | 164 | windows helper | windows validation orchestrator | manual semantic | reviewed | — |
-| `service.sh` | 1189 | runtime entrypoint | systemd status/logs/check-update/uninstall service control | manual semantic | reviewed | f-003: still large and multi-purpose |
+| `service.sh` | 902 | runtime entrypoint | systemd status/logs/check-update service control and module composition | manual semantic | reviewed | uninstall cleanup moved into focused module; f-003 remains open elsewhere |
 | `sni_pools.map` | 202 | data contract | legacy sni pool source | manual semantic | reviewed | planner still uses multi-source domain contract alongside catalog |
 | `tests/bats/config_generation.bats` | 106 | bats test | bats suite: config_generation | manual semantic | reviewed | — |
 | `tests/bats/domain_loading.bats` | 350 | bats test | bats suite: domain_loading | manual semantic | reviewed | — |
@@ -140,4 +141,4 @@ review depth meanings:
 
 ## current audit-level findings referenced by matrix
 
-- `f-003` — core root entrypoints remain large enough to raise maintainability and refactor risk.
+- `f-003` — core root entrypoints remain large enough to raise maintainability and refactor risk, though `config.sh` and `service.sh` were already reduced by focused module extraction.
