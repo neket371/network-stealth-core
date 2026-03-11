@@ -1355,9 +1355,9 @@ EOF
 
 @test "install_xray trap restore does not use eval" {
     run bash -eo pipefail -c '
-    ! grep -q '\''eval "\${_prev_return_trap}"'\'' ./install.sh
-    grep -q '\''trap cleanup_install_xray_tmp RETURN'\'' ./install.sh
-    grep -q '\''trap - RETURN'\'' ./install.sh
+    ! grep -q '\''eval "\${_prev_return_trap}"'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''trap cleanup_install_xray_tmp RETURN'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''trap - RETURN'\'' ./modules/install/xray_runtime.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1366,8 +1366,8 @@ EOF
 
 @test "install_minisign supports MINISIGN_BIN override path" {
     run bash -eo pipefail -c '
-    grep -q '\''local minisign_bin="\${MINISIGN_BIN:-/usr/local/bin/minisign}"'\'' ./install.sh
-    grep -q '\''install -m 755 "\$bin_path" "\$minisign_bin"'\'' ./install.sh
+    grep -q '\''local minisign_bin="\${MINISIGN_BIN:-/usr/local/bin/minisign}"'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''install -m 755 "\$bin_path" "\$minisign_bin"'\'' ./modules/install/xray_runtime.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1376,9 +1376,9 @@ EOF
 
 @test "install_xray can use MINISIGN_BIN for signature verification" {
     run bash -eo pipefail -c '
-    grep -q '\''local minisign_cmd="minisign"'\'' ./install.sh
-    grep -q '\''if \[\[ -n "\${MINISIGN_BIN:-}" && -x "\${MINISIGN_BIN}" \]\]'\'' ./install.sh
-    grep -q '\''if "\$minisign_cmd" -Vm "\$zip_file" -p "\$MINISIGN_KEY" -x "\$sig_file"'\'' ./install.sh
+    grep -q '\''local minisign_cmd="minisign"'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''if \[\[ -n "\${MINISIGN_BIN:-}" && -x "\${MINISIGN_BIN}" \]\]'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''if "\$minisign_cmd" -Vm "\$zip_file" -p "\$MINISIGN_KEY" -x "\$sig_file"'\'' ./modules/install/xray_runtime.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1387,9 +1387,9 @@ EOF
 
 @test "install_xray suppresses noisy curl 404 lines for optional minisign lookup" {
     run bash -eo pipefail -c '
-    grep -Fq '\''sig_err_file=$(mktemp "${tmp_workdir}/xray-${version}.XXXXXX.sigerr"'\'' ./install.sh
-    grep -Fq '\''download_file_allowlist "${base}/Xray-linux-${arch}.zip.minisig" "$sig_file" "Скачиваем minisign подпись..." 2> "$sig_err_file"'\'' ./install.sh
-    grep -Fq '\''debug_file "minisign signature missing at ${base} (404)"'\'' ./install.sh
+    grep -Fq '\''sig_err_file=$(mktemp "${tmp_workdir}/xray-${version}.XXXXXX.sigerr"'\'' ./modules/install/xray_runtime.sh
+    grep -Fq '\''download_file_allowlist "${base}/Xray-linux-${arch}.zip.minisig" "$sig_file" "Скачиваем minisign подпись..." 2> "$sig_err_file"'\'' ./modules/install/xray_runtime.sh
+    grep -Fq '\''debug_file "minisign signature missing at ${base} (404)"'\'' ./modules/install/xray_runtime.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1398,10 +1398,10 @@ EOF
 
 @test "install supports strict minisign mode with pinned key fingerprint" {
     run bash -eo pipefail -c '
-    grep -q '\''REQUIRE_MINISIGN'\'' ./install.sh
-    grep -q '\''XRAY_MINISIGN_PUBKEY_SHA256'\'' ./install.sh
-    grep -q '\''write_pinned_minisign_key()'\'' ./install.sh
-    grep -q '\''handle_minisign_unavailable()'\'' ./install.sh
+    grep -q '\''REQUIRE_MINISIGN'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''XRAY_MINISIGN_PUBKEY_SHA256'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''write_pinned_minisign_key()'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''handle_minisign_unavailable()'\'' ./modules/install/xray_runtime.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -1736,7 +1736,7 @@ EOF
     grep -Fq "extract_confirmation_token_tail() {" ./modules/lib/tty.sh
     grep -Fq "extract_confirmation_token_from_prompt_echo_followup() {" ./modules/lib/tty.sh
     grep -Fq "resolve_confirmation_token() {" ./modules/lib/tty.sh
-    grep -Fq "prompt_yes_no_from_tty \"\$tty_read_fd\" \"Подтвердите (yes/no): \" \"Введите yes или no (без кавычек)\" \"\$tty_write_fd\"" ./install.sh
+    grep -Fq "prompt_yes_no_from_tty \"\$tty_read_fd\" \"Подтвердите (yes/no): \" \"Введите yes или no (без кавычек)\" \"\$tty_write_fd\"" ./modules/install/xray_runtime.sh
     grep -Fq "printf \"Количество конфигов (1-%s): \" \"\$max_configs\" >&\"\$tty_write_fd\"" ./modules/install/selection.sh
     grep -Fq "printf \"Количество конфигов добавить (1-%s): \" \"\$max_add\" >&\"\$tty_write_fd\"" ./modules/config/add_clients.sh
     grep -Fq "tty_print_box \"\$tty_write_fd\" \"\$RED\" \"\$uninstall_title\" 60 90" ./modules/service/uninstall.sh
@@ -1750,7 +1750,7 @@ EOF
     grep -Fq "Запускаем transport-aware self-check..." ./install.sh
     grep -Fq "transport-aware self-check: проверяем exported client variants..." ./modules/health/self_check.sh
     ! grep -Fq "read -r -p \"Профиль [1/2/3/4]: \" input < /dev/tty" ./modules/install/selection.sh
-    ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Подтвердите (yes/no): \" answer" ./install.sh
+    ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Подтвердите (yes/no): \" answer" ./modules/install/xray_runtime.sh
     ! grep -Fq "read -r -p \"Сколько конфигов создать? (1-\${max_configs}): \" input < /dev/tty" ./modules/install/selection.sh
     ! grep -Fq "read -r -p \"Сколько конфигов добавить? (1-\${max_add}): \" input < /dev/tty" ./modules/config/add_clients.sh
     ! grep -Fq "read -r -u \"\$tty_fd\" -p \"Вы уверены? Введите yes для подтверждения или no для отмены: \" confirm" ./modules/service/uninstall.sh
@@ -2626,6 +2626,19 @@ JSON
     grep -q '\''auto_configure() {'\'' ./modules/install/selection.sh
     grep -q '\''ask_domain_profile() {'\'' ./modules/install/selection.sh
     grep -q '\''ask_num_configs() {'\'' ./modules/install/selection.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "install sources dedicated xray runtime module" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''INSTALL_XRAY_RUNTIME_MODULE="$SCRIPT_DIR/modules/install/xray_runtime.sh"'\'' ./install.sh
+    grep -Fq '\''source "$INSTALL_XRAY_RUNTIME_MODULE"'\'' ./install.sh
+    grep -q '\''confirm_minisign_fallback() {'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''install_minisign() {'\'' ./modules/install/xray_runtime.sh
+    grep -q '\''install_xray() {'\'' ./modules/install/xray_runtime.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
