@@ -30,9 +30,9 @@ review depth meanings:
 | `AUDIT_FINDINGS_BACKLOG.md` | 80 | doc | prioritized audit backlog | contract consistency | reviewed | — |
 | `AUDIT_REPORT_FULL.md` | 242 | doc | full audit narrative and findings | contract consistency | reviewed | — |
 | `AUDIT_RUNTIME_MAP.md` | 145 | doc | per-script runtime responsibility map | contract consistency | reviewed | — |
-| `config.sh` | 2069 | runtime entrypoint | config builder and client artifact generator | manual semantic | reviewed | f-002/f-003: xhttp path still flows through grpc-named helpers; file remains large |
-| `data/domains/catalog.json` | 4618 | data contract | canonical domain metadata catalog | manual semantic | reviewed | f-002: canonical source exists, but planner still depends on legacy side maps |
-| `Dockerfile` | 50 | build/tooling | container packaging and smoke runtime image | manual semantic | reviewed | f-002: runtime bundle still copies grpc_services.map |
+| `config.sh` | 2069 | runtime entrypoint | config builder and client artifact generator | manual semantic | reviewed | f-003: file remains large |
+| `data/domains/catalog.json` | 4618 | data contract | canonical domain metadata catalog | manual semantic | reviewed | planner still combines catalog with side maps and tier files |
+| `Dockerfile` | 50 | build/tooling | container packaging and smoke runtime image | manual semantic | reviewed | runtime bundle now ships neutral transport endpoint seed file |
 | `docs/en/ARCHITECTURE.md` | 152 | doc | english architecture doc | contract consistency | reviewed | — |
 | `docs/en/CHANGELOG.md` | 130 | doc | english changelog doc | contract consistency | reviewed | — |
 | `docs/en/COMMUNITY.md` | 54 | doc | english community doc | contract consistency | reviewed | — |
@@ -53,27 +53,27 @@ review depth meanings:
 | `docs/ru/OPERATIONS.md` | 241 | doc | russian operations doc | contract consistency | reviewed | — |
 | `docs/ru/ROADMAP.md` | 35 | doc | russian roadmap doc | contract consistency | reviewed | — |
 | `docs/ru/TROUBLESHOOTING.md` | 125 | doc | russian troubleshooting doc | contract consistency | reviewed | — |
-| `domains.tiers` | 237 | data contract | legacy tier domain source | manual semantic | reviewed | f-002: planner still uses multi-source domain contract alongside catalog |
+| `domains.tiers` | 237 | data contract | legacy tier domain source | manual semantic | reviewed | planner still uses multi-source domain contract alongside catalog |
 | `export.sh` | 328 | runtime entrypoint | client export entry helpers | manual semantic | reviewed | — |
-| `grpc_services.map` | 202 | data contract | legacy-named endpoint seed source still used by planner | manual semantic | reviewed | f-002: active data source with stale grpc naming in xhttp-first product |
+| `transport_endpoints.map` | 202 | data contract | neutral legacy transport endpoint seed source for grpc/http2 compatibility | manual semantic | reviewed | active xhttp path no longer references grpc-named seed files |
 | `health.sh` | 719 | runtime entrypoint | health diagnostics and monitor entry helpers | manual semantic | reviewed | — |
 | `install.sh` | 1553 | runtime entrypoint | install/update/repair/migrate/rollback entry flows | manual semantic | reviewed | f-003: still large and action-dense |
-| `lib.sh` | 2720 | runtime entrypoint | global runtime orchestrator and action dispatcher | manual semantic | reviewed | f-002/f-003: legacy grpc-named contract still present; file remains large |
+| `lib.sh` | 2720 | runtime entrypoint | global runtime orchestrator and action dispatcher | manual semantic | reviewed | f-003: file remains large |
 | `LICENSE` | 21 | repo meta | license text | inventory-only | reviewed | — |
 | `Makefile` | 75 | build/tooling | local qa and audit entrypoints | manual semantic | reviewed | — |
 | `modules/config/add_clients.sh` | 686 | runtime module | add-clients runtime flow | manual semantic | reviewed | — |
-| `modules/config/domain_planner.sh` | 933 | runtime module | domain planning and profile generation helpers | manual semantic | reviewed | f-002: planner still depends on legacy-named grpc map for xhttp payload seeds |
-| `modules/config/shared_helpers.sh` | 162 | runtime module | transport/tier/helper formatting and compatibility helpers | manual semantic | reviewed | f-002: transport compatibility helpers still expose legacy grpc naming |
+| `modules/config/domain_planner.sh` | 933 | runtime module | domain planning and profile generation helpers | manual semantic | reviewed | legacy transport seeds renamed; planner still has multi-source complexity |
+| `modules/config/shared_helpers.sh` | 162 | runtime module | transport/tier/helper formatting and compatibility helpers | manual semantic | reviewed | transport compatibility helpers are now transport-neutral where active |
 | `modules/export/capabilities.sh` | 141 | runtime module | export capability matrix and compatibility notes helpers | manual semantic | reviewed | — |
 | `modules/health/measurements.sh` | 312 | runtime module | measurement import/compare/prune helpers | manual semantic | reviewed | — |
 | `modules/health/self_check.sh` | 777 | runtime module | post-action transport-aware self-check engine | manual semantic | reviewed | — |
-| `modules/install/bootstrap.sh` | 427 | runtime module | install/update bootstrap staging helpers | manual semantic | reviewed | f-002: bootstrap still ships legacy-named grpc map as active data file |
+| `modules/install/bootstrap.sh` | 427 | runtime module | install/update bootstrap staging helpers | manual semantic | reviewed | bootstrap now ships neutral transport endpoint seed file |
 | `modules/lib/cli.sh` | 531 | runtime module | cli parsing and runtime override resolution | manual semantic | reviewed | — |
 | `modules/lib/common_utils.sh` | 18 | runtime module | shared low-level helper primitives | manual semantic | reviewed | — |
 | `modules/lib/contract_gate.sh` | 91 | runtime module | legacy/pre-v7 mutating gate logic | manual semantic | reviewed | — |
 | `modules/lib/domain_sources.sh` | 348 | runtime module | domain/map loading helpers | manual semantic | reviewed | — |
 | `modules/lib/firewall.sh` | 203 | runtime module | firewall mutation helpers | manual semantic | reviewed | — |
-| `modules/lib/globals_contract.sh` | 198 | runtime module | global variable defaults and contracts | manual semantic | reviewed | f-002: legacy grpc-named globals remain active in xhttp-first baseline |
+| `modules/lib/globals_contract.sh` | 198 | runtime module | global variable defaults and contracts | manual semantic | reviewed | transport endpoint seed contract now has neutral primary naming |
 | `modules/lib/lifecycle.sh` | 216 | runtime module | backup/rollback/cleanup helpers | manual semantic | reviewed | — |
 | `modules/lib/policy.sh` | 225 | runtime module | policy.json load/save helpers | manual semantic | reviewed | — |
 | `modules/lib/runtime_reuse.sh` | 266 | runtime module | runtime reuse and existing-config extraction | manual semantic | reviewed | — |
@@ -105,7 +105,7 @@ review depth meanings:
 | `scripts/windows/detect-bash.ps1` | 112 | windows helper | windows bash discovery helper | manual semantic | reviewed | — |
 | `scripts/windows/run-validation.ps1` | 164 | windows helper | windows validation orchestrator | manual semantic | reviewed | — |
 | `service.sh` | 1321 | runtime entrypoint | systemd status/logs/check-update/uninstall service control | manual semantic | reviewed | f-003: still large and multi-purpose |
-| `sni_pools.map` | 202 | data contract | legacy sni pool source | manual semantic | reviewed | f-002: planner still uses multi-source domain contract alongside catalog |
+| `sni_pools.map` | 202 | data contract | legacy sni pool source | manual semantic | reviewed | planner still uses multi-source domain contract alongside catalog |
 | `tests/bats/config_generation.bats` | 106 | bats test | bats suite: config_generation | manual semantic | reviewed | — |
 | `tests/bats/domain_loading.bats` | 350 | bats test | bats suite: domain_loading | manual semantic | reviewed | — |
 | `tests/bats/download.bats` | 172 | bats test | bats suite: download | manual semantic | reviewed | — |
@@ -139,5 +139,4 @@ review depth meanings:
 
 ## current audit-level findings referenced by matrix
 
-- `f-002` — xhttp-first runtime still depends on a legacy-named multi-source planner contract (`catalog.json` + `domains.tiers` + `sni_pools.map` + `grpc_services.map`).
 - `f-003` — core root entrypoints remain large enough to raise maintainability and refactor risk.

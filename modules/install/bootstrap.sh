@@ -194,7 +194,7 @@ install_self() {
         install_self_sync_tree "$SCRIPT_DIR/data" "$XRAY_DATA_DIR" "data"
         install_self_sync_tree "$SCRIPT_DIR/scripts" "$XRAY_DATA_DIR" "scripts"
         local f
-        for f in domains.tiers sni_pools.map grpc_services.map lib.sh install.sh config.sh service.sh health.sh export.sh; do
+        for f in domains.tiers sni_pools.map transport_endpoints.map lib.sh install.sh config.sh service.sh health.sh export.sh; do
             local src_path="$SCRIPT_DIR/$f"
             local dest_path="$XRAY_DATA_DIR/$f"
             if [[ -f "$src_path" && "$src_path" != "$dest_path" ]]; then

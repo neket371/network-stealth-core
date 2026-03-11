@@ -29,7 +29,7 @@ RUN apt-get update \
 WORKDIR $XRAY_HOME
 
 COPY xray-reality.sh lib.sh install.sh config.sh service.sh health.sh export.sh ./
-COPY domains.tiers sni_pools.map grpc_services.map ./
+COPY domains.tiers sni_pools.map transport_endpoints.map ./
 COPY modules ./modules
 
 RUN chmod +x \

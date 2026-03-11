@@ -18,7 +18,7 @@
 @test "data files exist" {
     [ -f "domains.tiers" ]
     [ -f "sni_pools.map" ]
-    [ -f "grpc_services.map" ]
+    [ -f "transport_endpoints.map" ]
 }
 
 @test "bash syntax is valid" {

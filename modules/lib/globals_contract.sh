@@ -22,6 +22,7 @@
 : "${XRAY_DATA_DIR:=}"
 : "${XRAY_TIERS_FILE:=}"
 : "${XRAY_SNI_POOLS_FILE:=}"
+: "${XRAY_TRANSPORT_ENDPOINTS_FILE:=}"
 : "${XRAY_GRPC_SERVICES_FILE:=}"
 : "${XRAY_DOMAIN_CATALOG_FILE:=}"
 : "${XRAY_SCRIPT_PATH:=/usr/local/bin/xray-reality.sh}"
@@ -189,6 +190,25 @@ if ! declare -p DOMAIN_PRIORITY_MAP > /dev/null 2>&1; then declare -A DOMAIN_PRI
 if ! declare -p DOMAIN_RISK_MAP > /dev/null 2>&1; then declare -A DOMAIN_RISK_MAP=(); fi
 if ! declare -p DOMAIN_PORT_HINTS > /dev/null 2>&1; then declare -A DOMAIN_PORT_HINTS=(); fi
 if ! declare -p DOMAIN_SNI_POOL_OVERRIDES > /dev/null 2>&1; then declare -A DOMAIN_SNI_POOL_OVERRIDES=(); fi
+
+sync_transport_endpoint_file_contract() {
+    local default_path="${XRAY_DATA_DIR:-/usr/local/share/xray-reality}/transport_endpoints.map"
+    local legacy_default_path="${XRAY_DATA_DIR:-/usr/local/share/xray-reality}/grpc_services.map"
+
+    if [[ -z "${XRAY_TRANSPORT_ENDPOINTS_FILE:-}" ]]; then
+        if [[ -n "${XRAY_GRPC_SERVICES_FILE:-}" ]]; then
+            XRAY_TRANSPORT_ENDPOINTS_FILE="$XRAY_GRPC_SERVICES_FILE"
+        elif [[ -f "$default_path" || ! -f "$legacy_default_path" ]]; then
+            XRAY_TRANSPORT_ENDPOINTS_FILE="$default_path"
+        else
+            XRAY_TRANSPORT_ENDPOINTS_FILE="$legacy_default_path"
+        fi
+    fi
+
+    if [[ -z "${XRAY_GRPC_SERVICES_FILE:-}" ]]; then
+        XRAY_GRPC_SERVICES_FILE="$XRAY_TRANSPORT_ENDPOINTS_FILE"
+    fi
+}
 if ! declare -p FIREWALL_ROLLBACK_ENTRIES > /dev/null 2>&1; then FIREWALL_ROLLBACK_ENTRIES=(); fi
 if ! declare -p FIREWALL_FIREWALLD_DIRTY > /dev/null 2>&1; then FIREWALL_FIREWALLD_DIRTY=false; fi
 if ! declare -p CREATED_PATHS > /dev/null 2>&1; then CREATED_PATHS=(); fi

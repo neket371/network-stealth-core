@@ -29,7 +29,7 @@ cli_option_requires_value() {
     local option="$1"
     case "$option" in
         --config | --domain-tier | --domain-profile | --num-configs | --domain-check-timeout | --domain-check-parallelism | \
-            --tiers-file | --sni-pools-file | --grpc-services-file | --start-port | --server-ip | --server-ip6 | --mux-mode | \
+            --tiers-file | --sni-pools-file | --transport-endpoints-file | --grpc-services-file | --start-port | --server-ip | --server-ip6 | --mux-mode | \
             --transport | --progress-mode | --xray-version | --xray-mirror | --minisign-mirror | --auto-update-oncalendar | \
             --auto-update-random-delay | --primary-domain-mode | --primary-pin-domain | --primary-adaptive-top-n | \
             --domain-quarantine-fail-streak | --domain-quarantine-cooldown-min)
@@ -156,8 +156,12 @@ cli_handle_long_option() {
         sni-pools-file | sni-pools-file=*)
             XRAY_SNI_POOLS_FILE="$(cli_read_long_option_value "$optarg")"
             ;;
+        transport-endpoints-file | transport-endpoints-file=*)
+            XRAY_TRANSPORT_ENDPOINTS_FILE="$(cli_read_long_option_value "$optarg")"
+            ;;
         grpc-services-file | grpc-services-file=*)
             XRAY_GRPC_SERVICES_FILE="$(cli_read_long_option_value "$optarg")"
+            XRAY_TRANSPORT_ENDPOINTS_FILE="$XRAY_GRPC_SERVICES_FILE"
             ;;
         start-port | start-port=*)
             XRAY_START_PORT="$(cli_read_long_option_value "$optarg")"
@@ -524,8 +528,6 @@ apply_runtime_overrides() {
         if [[ -z "$XRAY_SNI_POOLS_FILE" || "$XRAY_SNI_POOLS_FILE" == "$DEFAULT_DATA_DIR/sni_pools.map" ]]; then
             XRAY_SNI_POOLS_FILE="$XRAY_DATA_DIR/sni_pools.map"
         fi
-        if [[ -z "$XRAY_GRPC_SERVICES_FILE" || "$XRAY_GRPC_SERVICES_FILE" == "$DEFAULT_DATA_DIR/grpc_services.map" ]]; then
-            XRAY_GRPC_SERVICES_FILE="$XRAY_DATA_DIR/grpc_services.map"
-        fi
+        sync_transport_endpoint_file_contract
     fi
 }

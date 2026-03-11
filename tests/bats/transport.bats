@@ -44,7 +44,7 @@
     TRANSPORT="xhttp"
     SKIP_REALITY_CHECK=true
     declare -A SNI_POOLS
-    declare -A GRPC_SERVICES
+    declare -A TRANSPORT_ENDPOINT_SEEDS
     SNI_POOLS["yandex.ru"]="yandex.ru"
     declare -a fp_pool=("chrome")
     build_inbound_profile_for_domain "yandex.ru" fp_pool
@@ -62,7 +62,7 @@
     TRANSPORT="xhttp"
     SKIP_REALITY_CHECK=true
     declare -A SNI_POOLS
-    declare -A GRPC_SERVICES
+    declare -A TRANSPORT_ENDPOINT_SEEDS
     SNI_POOLS["yandex.ru"]="yandex.ru"
     declare -a fp_pool=("chrome")
     build_inbound_profile_for_domain "yandex.ru" fp_pool

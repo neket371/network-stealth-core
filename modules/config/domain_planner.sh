@@ -90,7 +90,7 @@ setup_domains() {
     fi
 
     declare -gA SNI_POOLS=()
-    declare -gA GRPC_SERVICES=()
+    declare -gA TRANSPORT_ENDPOINT_SEEDS=()
     if [[ -n "$XRAY_SNI_POOLS_FILE" && -f "$XRAY_SNI_POOLS_FILE" ]]; then
         load_map_file "$XRAY_SNI_POOLS_FILE" SNI_POOLS || return 1
     else
@@ -101,10 +101,10 @@ setup_domains() {
         SNI_POOLS["$sni_domain"]="${DOMAIN_SNI_POOL_OVERRIDES[$sni_domain]}"
     done
     if transport_is_legacy "$TRANSPORT"; then
-        if [[ -n "$XRAY_GRPC_SERVICES_FILE" && -f "$XRAY_GRPC_SERVICES_FILE" ]]; then
-            load_map_file "$XRAY_GRPC_SERVICES_FILE" GRPC_SERVICES || return 1
+        if [[ -n "$XRAY_TRANSPORT_ENDPOINTS_FILE" && -f "$XRAY_TRANSPORT_ENDPOINTS_FILE" ]]; then
+            load_map_file "$XRAY_TRANSPORT_ENDPOINTS_FILE" TRANSPORT_ENDPOINT_SEEDS || return 1
         else
-            log WARN "gRPC services file не найден: $XRAY_GRPC_SERVICES_FILE"
+            log WARN "Файл legacy transport endpoint seeds не найден: $XRAY_TRANSPORT_ENDPOINTS_FILE"
         fi
     fi
     validate_domain_map_coverage || return 1
@@ -231,7 +231,7 @@ validate_domain_map_coverage() {
     for domain in "${AVAILABLE_DOMAINS[@]}"; do
         [[ -n "${SNI_POOLS[$domain]:-}" ]] || missing_sni+=("$domain")
         if transport_is_legacy "$TRANSPORT"; then
-            [[ -n "${GRPC_SERVICES[$domain]:-}" ]] || missing_grpc+=("$domain")
+            [[ -n "${TRANSPORT_ENDPOINT_SEEDS[$domain]:-}" ]] || missing_grpc+=("$domain")
         fi
     done
 
@@ -247,7 +247,7 @@ validate_domain_map_coverage() {
     fi
 
     if [[ "$strict" == "true" ]]; then
-        log ERROR "Неполное покрытие map-файлов для ${DOMAIN_TIER}. Исправьте sni_pools.map и legacy grpc_services.map."
+        log ERROR "Неполное покрытие map-файлов для ${DOMAIN_TIER}. Исправьте sni_pools.map и transport_endpoints.map для legacy transport."
         return 1
     fi
 }
@@ -738,7 +738,7 @@ pick_random_from_array() {
     printf '%s' "${_arr[$_idx]}"
 }
 
-select_grpc_service_name() {
+select_legacy_transport_endpoint() {
     local domain="$1"
     local -a grpc_fallbacks=(
         "cdn.storage.v1.UploadService"
@@ -746,7 +746,7 @@ select_grpc_service_name() {
         "cloud.metrics.v1.CollectorService"
     )
     local -a grpc_candidates=()
-    local grpc_pool="${GRPC_SERVICES[$domain]:-}"
+    local grpc_pool="${TRANSPORT_ENDPOINT_SEEDS[$domain]:-}"
 
     if [[ -n "$grpc_pool" ]]; then
         local -a grpc_array=()
@@ -767,7 +767,7 @@ select_grpc_service_name() {
     pick_random_from_array grpc_candidates
 }
 
-grpc_service_to_http2_path() {
+legacy_transport_endpoint_to_http2_path() {
     local service_name="$1"
     if [[ "$service_name" == /* ]]; then
         printf '%s' "$service_name"
@@ -854,7 +854,7 @@ build_inbound_profile_for_domain() {
     if [[ "$TRANSPORT" == "xhttp" ]]; then
         PROFILE_TRANSPORT_ENDPOINT=$(generate_xhttp_path_for_domain "$domain")
     else
-        PROFILE_TRANSPORT_ENDPOINT=$(select_grpc_service_name "$domain")
+        PROFILE_TRANSPORT_ENDPOINT=$(select_legacy_transport_endpoint "$domain")
     fi
     if ! PROFILE_FP=$(pick_random_from_array _fp_pool); then
         PROFILE_FP="chrome"
@@ -870,7 +870,7 @@ build_inbound_profile_for_domain() {
 
     PROFILE_TRANSPORT_PAYLOAD="$PROFILE_TRANSPORT_ENDPOINT"
     if [[ "$TRANSPORT" == "http2" ]]; then
-        PROFILE_TRANSPORT_PAYLOAD=$(grpc_service_to_http2_path "$PROFILE_TRANSPORT_ENDPOINT")
+        PROFILE_TRANSPORT_PAYLOAD=$(legacy_transport_endpoint_to_http2_path "$PROFILE_TRANSPORT_ENDPOINT")
     fi
 }
 

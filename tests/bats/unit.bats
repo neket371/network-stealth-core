@@ -3607,3 +3607,40 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
 }
+
+
+@test "sync_transport_endpoint_file_contract prefers neutral seed path" {
+    run bash -eo pipefail -c '
+    source ./modules/lib/globals_contract.sh
+    tmpdir=$(mktemp -d)
+    trap "rm -rf "$tmpdir"" EXIT
+    XRAY_DATA_DIR="$tmpdir"
+    : > "$tmpdir/transport_endpoints.map"
+    XRAY_TRANSPORT_ENDPOINTS_FILE=""
+    XRAY_GRPC_SERVICES_FILE=""
+    sync_transport_endpoint_file_contract
+    echo "primary=$XRAY_TRANSPORT_ENDPOINTS_FILE"
+    echo "alias=$XRAY_GRPC_SERVICES_FILE"
+  '
+    [ "$status" -eq 0 ]
+    [[ "${lines[0]}" == primary=*transport_endpoints.map ]]
+    [ "${lines[1]}" = "alias=${lines[0]#primary=}" ]
+}
+
+@test "sync_transport_endpoint_file_contract falls back to legacy grpc map when needed" {
+    run bash -eo pipefail -c '
+    source ./modules/lib/globals_contract.sh
+    tmpdir=$(mktemp -d)
+    trap "rm -rf "$tmpdir"" EXIT
+    XRAY_DATA_DIR="$tmpdir"
+    : > "$tmpdir/grpc_services.map"
+    XRAY_TRANSPORT_ENDPOINTS_FILE=""
+    XRAY_GRPC_SERVICES_FILE=""
+    sync_transport_endpoint_file_contract
+    echo "primary=$XRAY_TRANSPORT_ENDPOINTS_FILE"
+    echo "alias=$XRAY_GRPC_SERVICES_FILE"
+  '
+    [ "$status" -eq 0 ]
+    [[ "${lines[0]}" == primary=*grpc_services.map ]]
+    [ "${lines[1]}" = "alias=${lines[0]#primary=}" ]
+}

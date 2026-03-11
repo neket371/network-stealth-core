@@ -494,13 +494,13 @@ rebuild_config_for_transport() {
             if [[ "$target_transport" == "xhttp" ]]; then
                 transport_endpoint=$(generate_xhttp_path_for_domain "$domain")
             else
-                transport_endpoint=$(select_grpc_service_name "$domain")
+                transport_endpoint=$(select_legacy_transport_endpoint "$domain")
             fi
         fi
 
         local payload="$transport_endpoint"
         if [[ "$target_transport" == "http2" ]]; then
-            payload=$(grpc_service_to_http2_path "$transport_endpoint")
+            payload=$(legacy_transport_endpoint_to_http2_path "$transport_endpoint")
         fi
 
         local sni_json
@@ -1440,7 +1440,7 @@ EOF
 
         local endpoint="$transport_endpoint"
         if [[ "$transport_value" == "http2" ]]; then
-            endpoint=$(grpc_service_to_http2_path "$transport_endpoint")
+            endpoint=$(legacy_transport_endpoint_to_http2_path "$transport_endpoint")
         fi
         transport_extra_value="$endpoint"
         local variants='[]'

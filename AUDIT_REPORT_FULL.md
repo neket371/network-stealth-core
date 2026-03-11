@@ -16,7 +16,7 @@ reviewed surfaces:
 - runtime modules under `modules/*`
 - qa/release/lab/windows scripts under `scripts/*`
 - workflows under `.github/workflows/*`
-- data contracts: `catalog.json`, `domains.tiers`, `sni_pools.map`, `grpc_services.map`
+- data contracts: `catalog.json`, `domains.tiers`, `sni_pools.map`, `transport_endpoints.map`
 - user/maintainer/security docs in both languages
 - bats and e2e coverage surface
 
@@ -84,10 +84,9 @@ on `185.218.204.206`:
 
 ### what is not broken but still costly
 
-- some legacy grpc naming is still active inside xhttp-era planning and output generation
-- planner data contract is split across multiple sources, not truly canonicalized yet
+- active xhttp planning no longer depends on grpc-named endpoint seed files
+- planner data contract is still split across multiple sources, even after neutral endpoint seed naming cleanup
 - root runtime entrypoints are still large enough to slow future maintenance and review
-- official lint entrypoints still do not cover exactly the same workflow set
 
 ### dead code verdict
 
@@ -163,34 +162,6 @@ status: **good**
 
 ## findings
 
-### f-002 — xhttp-first planner still depends on a legacy-named multi-source contract
-
-- severity: **p2**
-- type: maintainability / contract debt
-- files:
-  - `config.sh`
-  - `lib.sh`
-  - `modules/config/domain_planner.sh`
-  - `modules/config/shared_helpers.sh`
-  - `modules/lib/globals_contract.sh`
-  - `modules/install/bootstrap.sh`
-  - `Dockerfile`
-  - `data/domains/catalog.json`
-  - `domains.tiers`
-  - `sni_pools.map`
-  - `grpc_services.map`
-- evidence:
-  - xhttp is the active product transport
-  - planner still loads and depends on `grpc_services.map`
-  - grpc-named globals and helper functions still participate in active config generation
-  - runtime bundle still ships the grpc-named map file
-- impact:
-  - not dead code, but misleading contract naming
-  - maintainers must reason about four related data sources instead of one truly canonical source
-  - future cleanup/removal work is easier to break by mistake
-- verdict:
-  - this is the main structural debt in current runtime generation
-
 ### f-003 — core root scripts remain oversized after modularization
 
 - severity: **p3**
@@ -211,7 +182,7 @@ status: **good**
 
 the previous audit docs themselves were stale. this pass closes that documentation gap by replacing the old baseline with a current `v7.1.0` audit set.
 
-in addition, `f-001` was closed during the first follow-up pass by aligning `make lint` workflow coverage with `tests/lint.sh`.
+in addition, `f-001` was closed during the first follow-up pass by aligning `make lint` workflow coverage with `tests/lint.sh`, and `f-002` was closed by moving the active planner seed surface to the neutral `transport_endpoints.map` contract while keeping grpc/http2 handling inside explicit legacy-only branches.
 
 ## conclusion
 
@@ -221,6 +192,6 @@ current product verdict:
 - safety/rollback behavior: **good**
 - test and smoke coverage: **strong**
 - dead code situation: **no confirmed active dead runtime code found**
-- biggest remaining debt: **planner/data contract naming and large orchestration files**
+- biggest remaining debt: **multi-source planner inputs and large orchestration files**
 
 there is no p0/p1 finding from this pass.

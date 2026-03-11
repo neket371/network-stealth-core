@@ -32,7 +32,7 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | `xray-reality.sh` | bootstrap wrapper and trusted loader | env bootstrap refs, repo url, pinning, local script dir | cloned/synced runtime tree, sourced module dir | works; trust boundary is explicit and pinned |
 | `lib.sh` | central orchestrator | cli args, env, runtime files, policy/state paths | action dispatch, logging, validation, cleanup, runtime defaults | works; still too large and contract-heavy |
 | `install.sh` | mutating lifecycle entrypoint | install/update/repair/migrate/uninstall args, current managed state | xray install/update, config creation, rollback, quick-start output | works; early gate and rollback behavior are good |
-| `config.sh` | config and artifact builder | planner outputs, ports, keys, domains, transport settings | `config.json`, `clients.json`, `clients.txt`, links, raw exports | works; still carries legacy-named transport helpers |
+| `config.sh` | config and artifact builder | planner outputs, ports, keys, domains, transport settings | `config.json`, `clients.json`, `clients.txt`, links, raw exports | works; active transport naming is now xhttp-neutral |
 | `service.sh` | service/runtime ops | existing managed install and systemd state | `status`, `logs`, `check-update`, uninstall cleanup and systemd handling | works; status output and cleanup are strong |
 | `health.sh` | health/diagnostics entry | runtime state, domain health data, timers | health script/timer content, diagnose helpers | works; heavy lifting now mostly delegated to modules |
 | `export.sh` | export entry helpers | generated clients/artifacts | export files and capability notes | works; most logic now lives in export module |
@@ -46,7 +46,7 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | `modules/lib/contract_gate.sh` | blocks invalid mutating flows on legacy/pre-v7 contracts | works; fresh install and legacy gating now behave correctly |
 | `modules/lib/domain_sources.sh` | loads tiers/maps/catalog data | works; contributes to multi-source planner complexity |
 | `modules/lib/firewall.sh` | ufw/iptables/nftables mutation helpers | works in tested paths |
-| `modules/lib/globals_contract.sh` | default globals and env contract | works; still exposes grpc-named settings in xhttp-first baseline |
+| `modules/lib/globals_contract.sh` | default globals and env contract | works; neutral transport-endpoint contract is primary, grpc alias is compatibility-only |
 | `modules/lib/lifecycle.sh` | backup session, restore, cleanup, runtime reconciliation | works; rollback semantics are a project strength |
 | `modules/lib/policy.sh` | managed `policy.json` save/load helpers | works; policy/state separation is explicit |
 | `modules/lib/runtime_reuse.sh` | extracts reusable settings from current runtime | works; still needs compatibility awareness |
@@ -59,12 +59,12 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | file | role | current verdict |
 |---|---|---|
 | `modules/config/add_clients.sh` | `add-clients` flow, append + artifact rebuild | works; rebuild-from-config behavior is correct |
-| `modules/config/domain_planner.sh` | domain selection, provider diversity, path/service payload generation | works; biggest contract hotspot because xhttp path generation still depends on legacy-named grpc map |
-| `modules/config/shared_helpers.sh` | transport/tier labels and compatibility helpers | works; names still reflect mixed grpc/xhttp history |
+| `modules/config/domain_planner.sh` | domain selection, provider diversity, path/service payload generation | works; xhttp path generation is no longer tied to grpc-named seed files, but planner still spans multiple data inputs |
+| `modules/config/shared_helpers.sh` | transport/tier labels and compatibility helpers | works; active helpers are transport-neutral, legacy labels remain scoped to grpc/http2 branches |
 | `modules/export/capabilities.sh` | capability matrix and compatibility notes generation | works; export honesty is good |
 | `modules/health/measurements.sh` | field report import/summary/prune helpers | works; measurement surface is present and coherent |
 | `modules/health/self_check.sh` | transport-aware self-check engine and persisted verdicts | works; bounded process cleanup and fallback behavior verified |
-| `modules/install/bootstrap.sh` | installed runtime tree sync and wrapper deployment | works; still packages legacy-named data artifacts |
+| `modules/install/bootstrap.sh` | installed runtime tree sync and wrapper deployment | works; packages neutral transport endpoint seeds for legacy transport compatibility |
 
 ## qa / release / lab scripts
 
@@ -102,9 +102,9 @@ baseline commit: `c848ef7ca8ed3679d7e2cfe5ac6649ee21ff24f4`
 | `data/domains/catalog.json` | canonical domain metadata with provider-family awareness | works, but not yet the only planner source |
 | `domains.tiers` | tier domain fallback/source list | still active |
 | `sni_pools.map` | sni fallback/source list | still active |
-| `grpc_services.map` | xhttp payload seed source under legacy grpc naming | active, not dead, but naming is misleading |
-| `Makefile` | primary local qa contract | works; workflow lint scope still differs from `tests/lint.sh` |
-| `Dockerfile` | packaged smoke/runtime image | works; still ships legacy-named grpc map because runtime expects it |
+| `transport_endpoints.map` | neutral legacy transport endpoint seed source for grpc/http2 compatibility | legacy-only, no longer part of active xhttp naming |
+| `Makefile` | primary local qa contract | works; workflow lint scope is aligned with `tests/lint.sh` |
+| `Dockerfile` | packaged smoke/runtime image | works; ships neutral transport endpoint seeds, not grpc-named planner inputs |
 
 ## docs surface
 
@@ -127,10 +127,10 @@ current verdict is strict:
 
 that means:
 
-- `grpc_services.map` and grpc-named helper paths are **not dead today**
-- they are still active inputs in xhttp-era planning/output
-- removing them blindly would be wrong
-- but their naming and split-source contract now increase maintenance risk
+- legacy transport endpoint seeds are **not dead today**
+- they still matter for grpc/http2 compatibility and migration helpers
+- but they are no longer the active xhttp naming contract
+- the remaining risk is planner split across catalog + tiers + side maps
 
 ## audit bottom line
 
@@ -140,6 +140,5 @@ that means:
 - public contract consistency: **good**
 - confirmed dead code: **none found in current active path**
 - biggest remaining debt:
-  1. workflow lint coverage mismatch
-  2. multi-source planner/data contract with legacy grpc naming in xhttp-first product
-  3. large root entrypoints that still centralize too much behavior
+  1. multi-source planner/data contract across catalog + tiers + side maps
+  2. large root entrypoints that still centralize too much behavior

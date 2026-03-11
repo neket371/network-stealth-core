@@ -45,9 +45,9 @@
     source ./lib.sh
     mapfile -t domains < <(load_tier_domains_from_file "domains.tiers" "tier_global_ms10")
     declare -A SNI=()
-    declare -A GRPC=()
+    declare -A ENDPOINTS=()
     load_map_file "sni_pools.map" SNI
-    load_map_file "grpc_services.map" GRPC
+    load_map_file "transport_endpoints.map" ENDPOINTS
 
     echo "domains=${#domains[@]}"
     unique_count=$(printf "%s\n" "${domains[@]}" | sort -u | wc -l | tr -d " ")
@@ -56,7 +56,7 @@
     missing=0
     for d in "${domains[@]}"; do
       [[ -n "${SNI[$d]:-}" ]] || missing=$((missing + 1))
-      [[ -n "${GRPC[$d]:-}" ]] || missing=$((missing + 1))
+      [[ -n "${ENDPOINTS[$d]:-}" ]] || missing=$((missing + 1))
     done
     echo "missing=${missing}"
   '
@@ -143,11 +143,11 @@ EOF
     [[ "$output" == *"api.yandex.ru"* ]]
 }
 
-@test "load_map_file parses grpc_services.map" {
+@test "load_map_file parses transport_endpoints.map" {
     run bash -eo pipefail -c '
     source ./lib.sh
     declare -A MAP=()
-    load_map_file "grpc_services.map" MAP
+    load_map_file "transport_endpoints.map" MAP
     echo "${MAP[vk.com]}"
   '
     [ "$status" -eq 0 ]
@@ -210,9 +210,9 @@ EOF
     source ./lib.sh
     mapfile -t domains < <(load_tier_domains_from_file "domains.tiers" "tier_ru")
     declare -A SNI=()
-    declare -A GRPC=()
+    declare -A ENDPOINTS=()
     load_map_file "sni_pools.map" SNI
-    load_map_file "grpc_services.map" GRPC
+    load_map_file "transport_endpoints.map" ENDPOINTS
 
     echo "domains=${#domains[@]}"
     unique_count=$(printf "%s\n" "${domains[@]}" | sort -u | wc -l | tr -d " ")
@@ -221,7 +221,7 @@ EOF
     missing=0
     for d in "${domains[@]}"; do
       [[ -n "${SNI[$d]:-}" ]] || missing=$((missing + 1))
-      [[ -n "${GRPC[$d]:-}" ]] || missing=$((missing + 1))
+      [[ -n "${ENDPOINTS[$d]:-}" ]] || missing=$((missing + 1))
     done
     echo "missing=${missing}"
   '
