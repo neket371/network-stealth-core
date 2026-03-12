@@ -224,11 +224,6 @@ create_systemd_service() {
         return 1
     }
 
-    local logs_directory_lines=""
-    if [[ "$_sd_logs" == "/var/log/xray" ]]; then
-        logs_directory_lines=$'LogsDirectory=xray\nLogsDirectoryMode=0750\n'
-    fi
-
     backup_file /etc/systemd/system/xray.service
     atomic_write /etc/systemd/system/xray.service 0644 << EOF
 [Unit]
@@ -261,7 +256,7 @@ SystemCallFilter=@system-service @network-io
 SystemCallFilter=~@privileged @mount @swap @reboot @raw-io @cpu-emulation @debug @obsolete
 PrivateTmp=true
 ReadWritePaths=${_sd_logs} ${_sd_logs}/access.log ${_sd_logs}/error.log
-${logs_directory_lines}ExecStart=${_sd_bin} run -config ${_sd_config}
+ExecStart=${_sd_bin} run -config ${_sd_config}
 Restart=on-failure
 RestartSec=5s
 LimitNOFILE=1000000

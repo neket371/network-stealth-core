@@ -3137,8 +3137,6 @@ EOF
     grep -Fq '\''chown "${XRAY_USER}:${XRAY_GROUP}" "$logs_dir"'\'' ./modules/service/runtime.sh
     grep -Fq '\''chmod 750 "$logs_dir"'\'' ./modules/service/runtime.sh
     grep -Fq '\''ReadWritePaths=${_sd_logs} ${_sd_logs}/access.log ${_sd_logs}/error.log'\'' ./modules/service/runtime.sh
-    grep -Fq "LogsDirectory=xray" ./modules/service/runtime.sh
-    grep -Fq "LogsDirectoryMode=0750" ./modules/service/runtime.sh
     echo ok
   '
     [ "$status" -eq 0 ]
