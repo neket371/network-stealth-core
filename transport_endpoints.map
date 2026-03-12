@@ -1,5 +1,5 @@
-# legacy transport endpoint seeds for grpc/http2 compatibility
-# format: domain=endpoint1 endpoint2 ... (synthetic placeholder names for legacy transport camouflage; xhttp no longer depends on this file)
+# legacy transport endpoint seeds kept only for migration/compatibility paths
+# format: domain=endpoint1 endpoint2 ... (synthetic placeholder names for legacy transport camouflage; active xhttp installs do not read this file)
 yandex.ru=ru.yandex.api.v1.GatewayService ru.yandex.api.v1.SessionService ru.yandex.api.v1.CatalogService ru.yandex.api.v1.TelemetryService ru.yandex.api.v1.ContentService ru.yandex.api.v1.HealthService
 disk.yandex.ru=ru.yandex.disk.api.v1.GatewayService ru.yandex.disk.api.v1.SessionService ru.yandex.disk.api.v1.CatalogService ru.yandex.disk.api.v1.TelemetryService ru.yandex.disk.api.v1.ContentService ru.yandex.disk.api.v1.HealthService
 mail.ru=ru.mail.api.v1.GatewayService ru.mail.api.v1.SessionService ru.mail.api.v1.CatalogService ru.mail.api.v1.TelemetryService ru.mail.api.v1.ContentService ru.mail.api.v1.HealthService

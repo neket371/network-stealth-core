@@ -104,7 +104,7 @@ setup_domains() {
         if [[ -n "$XRAY_TRANSPORT_ENDPOINTS_FILE" && -f "$XRAY_TRANSPORT_ENDPOINTS_FILE" ]]; then
             load_map_file "$XRAY_TRANSPORT_ENDPOINTS_FILE" TRANSPORT_ENDPOINT_SEEDS || return 1
         else
-            log WARN "Файл legacy transport endpoint seeds не найден: $XRAY_TRANSPORT_ENDPOINTS_FILE"
+            log WARN "Файл legacy transport endpoint seeds (migration-only) не найден: $XRAY_TRANSPORT_ENDPOINTS_FILE"
         fi
     fi
     validate_domain_map_coverage || return 1
@@ -226,28 +226,28 @@ validate_domain_map_coverage() {
     fi
 
     local -a missing_sni=()
-    local -a missing_grpc=()
+    local -a missing_legacy_endpoints=()
     local domain
     for domain in "${AVAILABLE_DOMAINS[@]}"; do
         [[ -n "${SNI_POOLS[$domain]:-}" ]] || missing_sni+=("$domain")
         if transport_is_legacy "$TRANSPORT"; then
-            [[ -n "${TRANSPORT_ENDPOINT_SEEDS[$domain]:-}" ]] || missing_grpc+=("$domain")
+            [[ -n "${TRANSPORT_ENDPOINT_SEEDS[$domain]:-}" ]] || missing_legacy_endpoints+=("$domain")
         fi
     done
 
-    if [[ ${#missing_sni[@]} -eq 0 && ${#missing_grpc[@]} -eq 0 ]]; then
+    if [[ ${#missing_sni[@]} -eq 0 && ${#missing_legacy_endpoints[@]} -eq 0 ]]; then
         return 0
     fi
 
     if [[ ${#missing_sni[@]} -gt 0 ]]; then
         log WARN "Домены без SNI pool: ${missing_sni[*]}"
     fi
-    if [[ ${#missing_grpc[@]} -gt 0 ]]; then
-        log WARN "Домены без gRPC pool: ${missing_grpc[*]}"
+    if [[ ${#missing_legacy_endpoints[@]} -gt 0 ]]; then
+        log WARN "Домены без legacy transport endpoint seeds: ${missing_legacy_endpoints[*]}"
     fi
 
     if [[ "$strict" == "true" ]]; then
-        log ERROR "Неполное покрытие map-файлов для ${DOMAIN_TIER}. Исправьте sni_pools.map и transport_endpoints.map для legacy transport."
+        log ERROR "Неполное покрытие map-файлов для ${DOMAIN_TIER}. Исправьте sni_pools.map и transport_endpoints.map только для legacy migration coverage."
         return 1
     fi
 }
@@ -740,31 +740,31 @@ pick_random_from_array() {
 
 select_legacy_transport_endpoint() {
     local domain="$1"
-    local -a grpc_fallbacks=(
+    local -a legacy_endpoint_fallbacks=(
         "cdn.storage.v1.UploadService"
         "api.internal.health.v1.HealthCheck"
         "cloud.metrics.v1.CollectorService"
     )
-    local -a grpc_candidates=()
-    local grpc_pool="${TRANSPORT_ENDPOINT_SEEDS[$domain]:-}"
+    local -a legacy_endpoint_candidates=()
+    local legacy_endpoint_pool="${TRANSPORT_ENDPOINT_SEEDS[$domain]:-}"
 
-    if [[ -n "$grpc_pool" ]]; then
-        local -a grpc_array=()
+    if [[ -n "$legacy_endpoint_pool" ]]; then
+        local -a legacy_endpoint_array=()
         local svc
-        read -r -a grpc_array <<< "$grpc_pool"
-        for svc in "${grpc_array[@]}"; do
+        read -r -a legacy_endpoint_array <<< "$legacy_endpoint_pool"
+        for svc in "${legacy_endpoint_array[@]}"; do
             if is_valid_grpc_service_name "$svc"; then
-                grpc_candidates+=("$svc")
+                legacy_endpoint_candidates+=("$svc")
             else
-                log WARN "Пропускаем невалидный gRPC serviceName для ${domain}: ${svc}"
+                log WARN "Пропускаем невалидный legacy transport endpoint seed для ${domain}: ${svc}"
             fi
         done
     fi
-    if ((${#grpc_candidates[@]} == 0)); then
-        grpc_candidates=("${grpc_fallbacks[@]}")
+    if ((${#legacy_endpoint_candidates[@]} == 0)); then
+        legacy_endpoint_candidates=("${legacy_endpoint_fallbacks[@]}")
     fi
 
-    pick_random_from_array grpc_candidates
+    pick_random_from_array legacy_endpoint_candidates
 }
 
 legacy_transport_endpoint_to_http2_path() {
