@@ -2490,6 +2490,18 @@ JSON
     [ "$output" = "ok" ]
 }
 
+@test "domain planner sources dedicated runtime profiles module" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''CONFIG_RUNTIME_PROFILES_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/runtime_profiles.sh"'\'' ./modules/config/domain_planner.sh
+    grep -Fq '\''source "$CONFIG_RUNTIME_PROFILES_MODULE"'\'' ./modules/config/domain_planner.sh
+    grep -q '\''allocate_ports() {'\'' ./modules/config/runtime_profiles.sh
+    grep -q '\''build_inbound_profile_for_domain() {'\'' ./modules/config/runtime_profiles.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "build_install_quick_start_file prints primary and fallback links" {
     run bash -eo pipefail -c '
     source ./lib.sh

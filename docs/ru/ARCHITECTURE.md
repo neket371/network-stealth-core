@@ -143,6 +143,7 @@ raw xray json остаётся canonical artifact, потому что он бе
 | `modules/health/measurements.sh` | агрегация field reports и promotion hints |
 | `modules/lib/policy.sh` | сериализация и загрузка managed policy |
 | `modules/config/domain_planner.sh` | выбор доменов и diversity-aware planning |
+| `modules/config/runtime_profiles.sh` | выделение портов, генерация runtime-профилей и ключей |
 | `export.sh` | генерация export’ов, capability matrix и canary bundle |
 
 ## дизайн-идея

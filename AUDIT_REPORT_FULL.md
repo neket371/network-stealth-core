@@ -11,7 +11,7 @@ this audit refresh covers the current `v7.1.0` baseline, not the old `4.2.x` she
 
 reviewed surfaces:
 
-- all repo-tracked files in `audit_coverage_matrix.md` (**139/139** including the new `modules/lib/*` extraction, vm proof-pack tooling, and public issue/pr templates)
+- all repo-tracked files in `audit_coverage_matrix.md` (**140/140** including the new `modules/lib/*` extraction, `modules/config/runtime_profiles.sh`, vm proof-pack tooling, and public issue/pr templates)
 - runtime entrypoints: `xray-reality.sh`, `lib.sh`, `install.sh`, `config.sh`, `service.sh`, `health.sh`, `export.sh`
 - runtime modules under `modules/*`
 - qa/release/lab/windows scripts under `scripts/*`
@@ -31,7 +31,7 @@ companion docs for this pass:
 ### local verification
 
 - `make ci-full` — **pass**
-  - bats: **441/441** pass
+  - bats: **442/442** pass
   - release consistency: pass (`7.1.0`)
   - dead-function check: pass
   - shell complexity check: pass
@@ -87,7 +87,7 @@ on `185.218.204.206`:
 
 ### what is not broken but still costly
 
-- planner still has fallback/compatibility side inputs, but active xhttp tier planning is now catalog-first
+- planner still has fallback/compatibility side inputs, but active xhttp tier planning is now catalog-first and runtime-profile helpers were split into a focused module
 - `config.sh` and `modules/lib/runtime_inputs.sh` still hold broad contracts and will remain the next likely maintenance hotspots if the product grows further
 - support matrix is still intentionally narrow: ubuntu 24.04 is the supported and ci-validated platform
 
@@ -133,6 +133,7 @@ status: **good with bounded complexity**
 - exports and raw-xray artifacts are coherent
 - capabilities/compatibility notes are honest
 - client artifact rendering/rebuild logic is split out of `config.sh` into a focused module
+- runtime profile, port-allocation, and key helpers are split out of `modules/config/domain_planner.sh` into `modules/config/runtime_profiles.sh`
 - install success/runtime-mode, selection, and xray/minisign bootstrap logic are split out of `install.sh` into focused modules
 - service runtime and uninstall behavior are split out of `service.sh` into focused modules
 - planner keeps fallback/compatibility side inputs, but active xhttp tier planning is now catalog-first rather than hard-wired to tiers and sni maps

@@ -17,12 +17,12 @@ these are real future maintenance costs, but they are **not** proven defects in 
 - files:
   - `config.sh`
   - `modules/lib/runtime_inputs.sh`
-  - `modules/config/domain_planner.sh`
 - problem:
-  - the root-script sprawl problem was materially reduced, but a few remaining files still carry broad contracts and could become the next hotspots if new product scope is added carelessly.
+  - the root-script sprawl problem was materially reduced, but a couple of remaining files still carry broad contracts and could become the next hotspots if new product scope is added carelessly.
 - recommended direction:
   - keep new behavior out of the root entrypoints.
   - prefer subsystem-focused extractions before these files start growing sharply again.
+  - keep `modules/config/runtime_profiles.sh` focused; do not let it turn into the next planner-style catch-all.
 
 ## resolved in this wave
 

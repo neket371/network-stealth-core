@@ -4,7 +4,7 @@ date: 2026-03-11
 repository: `neket371/network-stealth-core`
 branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
-total repo-tracked files reviewed: **139**
+total repo-tracked files reviewed: **140**
 
 review depth meanings:
 - `manual semantic` — file behavior and contracts were traced manually.
@@ -63,7 +63,8 @@ review depth meanings:
 | `Makefile` | 78 | build/tooling | local qa and audit entrypoints | manual semantic | reviewed | — |
 | `modules/config/add_clients.sh` | 686 | runtime module | add-clients runtime flow | manual semantic | reviewed | — |
 | `modules/config/client_artifacts.sh` | 1288 | runtime module | client artifact rendering, json normalization, rebuild, and self-check readiness helpers | manual semantic | reviewed | extracted from `config.sh` to narrow root entrypoint scope |
-| `modules/config/domain_planner.sh` | 961 | runtime module | domain planning and profile generation helpers | manual semantic | reviewed | active xhttp tier planning is now catalog-first; side maps remain scoped to fallback and legacy coverage |
+| `modules/config/domain_planner.sh` | 510 | runtime module | domain selection, provider diversity, and plan assembly helpers | manual semantic | reviewed | active xhttp tier planning is now catalog-first; runtime profile helpers were extracted into a focused sibling module |
+| `modules/config/runtime_profiles.sh` | 476 | runtime module | port allocation, xhttp/legacy endpoint payload generation, and key helpers | manual semantic | reviewed | extracted from `modules/config/domain_planner.sh` to keep planner scope narrower |
 | `modules/service/runtime.sh` | 485 | runtime module | systemd unit creation, firewall apply, service startup, and runtime update helpers | manual semantic | reviewed | extracted from `service.sh` to narrow service runtime orchestration scope |
 | `modules/service/uninstall.sh` | 461 | runtime module | uninstall file removal, account cleanup, and destructive guard helpers | manual semantic | reviewed | extracted from `service.sh` to narrow root entrypoint scope |
 | `modules/config/shared_helpers.sh` | 162 | runtime module | transport/tier/helper formatting and compatibility helpers | manual semantic | reviewed | transport compatibility helpers are now transport-neutral where active |
@@ -148,11 +149,11 @@ review depth meanings:
 | `.github/ISSUE_TEMPLATE/support_request.yml` | 63 | repo meta | support-request issue template | contract consistency | reviewed | new public hygiene template for operator/support cases |
 | `.github/PULL_REQUEST_TEMPLATE.md` | 21 | doc | pull request template | contract consistency | reviewed | new public hygiene template for contribution quality |
 | `modules/lib/downloads.sh` | 219 | runtime module | allowlisted download and mirror helpers | manual semantic | reviewed | extracted from `lib.sh` to narrow bootstrap/download responsibility |
-| `modules/lib/runtime_inputs.sh` | 957 | runtime module | runtime env/config loading and strict range normalization helpers | manual semantic | reviewed | extracted from `lib.sh` to narrow runtime input handling |
+| `modules/lib/runtime_inputs.sh` | 966 | runtime module | runtime env/config loading and strict range normalization helpers | manual semantic | reviewed | extracted from `lib.sh` to narrow runtime input handling |
 | `modules/lib/system_runtime.sh` | 139 | runtime module | systemd/listening/runtime inspection helpers | manual semantic | reviewed | extracted from `lib.sh` to narrow runtime/system helpers |
 | `modules/lib/ui_logging.sh` | 591 | runtime module | log rendering, progress, tty-safe output, and logging backend helpers | manual semantic | reviewed | extracted from `lib.sh` to narrow orchestration ui/logging |
 | `scripts/lab/generate-vm-proof-pack.sh` | 194 | lab script | sanitized vm proof-pack generator | manual semantic | reviewed | packages vm-lab lifecycle evidence without shipping secrets |
 
 ## current audit-level watch items referenced by matrix
 
-- `w-002` — `config.sh`, `modules/lib/runtime_inputs.sh`, and `modules/config/domain_planner.sh` remain broad enough to watch as future growth hotspots.
+- `w-002` — `config.sh` and `modules/lib/runtime_inputs.sh` remain broad enough to watch as future growth hotspots.

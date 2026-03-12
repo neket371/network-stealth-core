@@ -17,6 +17,7 @@
     [ -f "modules/lib/validation.sh" ]
     [ -f "modules/config/client_artifacts.sh" ]
     [ -f "modules/config/domain_planner.sh" ]
+    [ -f "modules/config/runtime_profiles.sh" ]
     [ -f "modules/service/uninstall.sh" ]
     [ -f "modules/service/runtime.sh" ]
     [ -f "modules/install/bootstrap.sh" ]
@@ -34,6 +35,6 @@
 
 @test "bash syntax is valid" {
     run bash -n xray-reality.sh lib.sh install.sh config.sh service.sh health.sh export.sh \
-        modules/lib/ui_logging.sh modules/lib/system_runtime.sh modules/lib/downloads.sh modules/lib/runtime_inputs.sh modules/lib/validation.sh modules/config/client_artifacts.sh modules/config/domain_planner.sh modules/service/uninstall.sh modules/service/runtime.sh modules/install/bootstrap.sh modules/install/output.sh modules/install/selection.sh modules/install/xray_runtime.sh scripts/lab/generate-vm-proof-pack.sh
+        modules/lib/ui_logging.sh modules/lib/system_runtime.sh modules/lib/downloads.sh modules/lib/runtime_inputs.sh modules/lib/validation.sh modules/config/client_artifacts.sh modules/config/domain_planner.sh modules/config/runtime_profiles.sh modules/service/uninstall.sh modules/service/runtime.sh modules/install/bootstrap.sh modules/install/output.sh modules/install/selection.sh modules/install/xray_runtime.sh scripts/lab/generate-vm-proof-pack.sh
     [ "$status" -eq 0 ]
 }

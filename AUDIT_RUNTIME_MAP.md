@@ -70,7 +70,8 @@ baseline snapshot: `ubuntu` working tree after maturity hardening wave
 |---|---|---|
 | `modules/config/add_clients.sh` | `add-clients` flow, append + artifact rebuild | works; rebuild-from-config behavior is correct |
 | `modules/config/client_artifacts.sh` | client artifact rendering, json normalization, rebuild, and self-check readiness | works; meaningfully narrows `config.sh` |
-| `modules/config/domain_planner.sh` | domain selection, provider diversity, path/service payload generation | works; xhttp path generation no longer depends on grpc-named seed files, and active xhttp tiers are now catalog-first |
+| `modules/config/domain_planner.sh` | domain selection, provider diversity, and plan assembly | works; active xhttp tiers are catalog-first and the planner no longer carries port/key/runtime-profile helpers |
+| `modules/config/runtime_profiles.sh` | port allocation, path/service payload generation, and key helpers | works; focused extraction narrowed planner breadth without changing config/add-clients behavior |
 | `modules/config/shared_helpers.sh` | transport/tier labels and compatibility helpers | works; active helpers are transport-neutral, legacy labels remain scoped to grpc/http2 branches |
 | `modules/export/capabilities.sh` | capability matrix and compatibility notes generation | works; export honesty is good |
 | `modules/health/measurements.sh` | field report import/summary/prune helpers | works; measurement surface is present and coherent |
@@ -107,7 +108,7 @@ baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
 | suite | role | current verdict |
 |---|---|---|
-| `tests/bats/*.bats` | unit/integration/validation/health/runtime contract suites | strong coverage: current `bats` total is 441 passing tests inside `make ci-full` |
+| `tests/bats/*.bats` | unit/integration/validation/health/runtime contract suites | strong coverage: current `bats` total is 442 passing tests inside `make ci-full` |
 | `tests/e2e/*.sh` | install/add/update/rollback/migrate contract scenarios | strong coverage for product paths and regressions |
 | `tests/lint.sh` | broader standalone lint harness | passes and currently covers all workflows, including self-hosted |
 
@@ -156,5 +157,5 @@ that means:
 - public contract consistency: **good**
 - confirmed dead code: **none found in current active path**
 - biggest remaining watch items:
-  1. broad-but-contained files such as `config.sh`, `modules/lib/runtime_inputs.sh`, and `modules/config/domain_planner.sh`
+  1. broad-but-contained files such as `config.sh` and `modules/lib/runtime_inputs.sh`
   2. intentionally narrow support matrix centered on ubuntu 24.04

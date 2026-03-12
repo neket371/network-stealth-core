@@ -143,6 +143,7 @@ that support map is written to `export/capabilities.json`.
 | `modules/health/measurements.sh` | saved field report aggregation and promotion hints |
 | `modules/lib/policy.sh` | managed policy serialization and loading |
 | `modules/config/domain_planner.sh` | domain selection and diversity-aware planning |
+| `modules/config/runtime_profiles.sh` | port allocation, path/runtime profile generation, and key helpers |
 | `export.sh` | export generation, capability matrix, and canary bundle |
 
 ## design intent
