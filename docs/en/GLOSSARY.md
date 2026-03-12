@@ -6,7 +6,7 @@ the default install contract: minimal prompts, strongest safe direct stack, and 
 
 ## advanced mode
 
-`install --advanced`, the explicit manual compatibility flow with profile and config-count prompts.
+`install --advanced`, the explicit manual compatibility flow that enables the domain-profile prompt.
 
 ## stealth contract version
 

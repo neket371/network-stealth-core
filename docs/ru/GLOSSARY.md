@@ -6,7 +6,7 @@ default install-контракт: минимум prompt’ов, strongest safe d
 
 ## advanced mode
 
-`install --advanced` — явный manual compatibility flow с prompt’ами профиля и числа конфигов.
+`install --advanced` — явный manual compatibility flow, который включает prompt выбора профиля доменов.
 
 ## stealth contract version
 

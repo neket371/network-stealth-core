@@ -19,6 +19,13 @@ strongest-direct defaults:
 ### normal path
 
 ```bash
+sudo xray-reality.sh install
+```
+
+interactive installs on the normal path still ask for the config count.
+for scripted installs, use:
+
+```bash
 sudo xray-reality.sh install --non-interactive --yes
 ```
 
@@ -37,7 +44,7 @@ what this should do:
 sudo xray-reality.sh install --advanced
 ```
 
-use this only when you intentionally want manual profile and count prompts.
+use this only when you intentionally want the manual domain-profile prompt.
 
 ## migration
 

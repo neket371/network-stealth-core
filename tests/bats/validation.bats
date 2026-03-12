@@ -235,22 +235,93 @@
     [[ "$output" == *"переданное количество конфигов"* ]]
 }
 
-@test "ask_num_configs auto-selects default on minimal path" {
+@test "ask_num_configs prompts on interactive minimal path for tier_ru" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./install.sh
-    NON_INTERACTIVE=true
+    NON_INTERACTIVE=false
     XRAY_NUM_CONFIGS=""
     DOMAIN_TIER="tier_ru"
     ADVANCED_MODE=false
+    AUTO_PROFILE_MODE=true
+    prompt_file=$(mktemp)
+    exec {mock_read}<<<"7"
+    exec {mock_write}> "$prompt_file"
+    open_interactive_tty_fds() {
+        printf -v "$1" "%s" "$mock_read"
+        printf -v "$2" "%s" "$mock_write"
+    }
     ask_num_configs
-    echo "$NUM_CONFIGS"
+    exec {mock_read}<&-
+    exec {mock_write}>&-
+    prompt_text=$(cat "$prompt_file")
+    rm -f "$prompt_file"
+    echo "NUM=$NUM_CONFIGS"
+    echo "PROMPT=$prompt_text"
   '
     [ "$status" -eq 0 ]
-    [[ "$output" == *"5"* ]]
-    [[ "$output" == *"Количество конфигов выбрано автоматически (5)"* ]]
-    [[ "$output" == *"--num-configs <n>"* ]]
-    [[ "$output" == *"install --advanced"* ]]
+    [[ "$output" == *"NUM=7"* ]]
+    [[ "$output" == *"Количество конфигов (1-100):"* ]]
+}
+
+@test "ask_num_configs prompts on interactive minimal path for tier_global_ms10" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./install.sh
+    NON_INTERACTIVE=false
+    XRAY_NUM_CONFIGS=""
+    DOMAIN_TIER="tier_global_ms10"
+    ADVANCED_MODE=false
+    AUTO_PROFILE_MODE=true
+    prompt_file=$(mktemp)
+    exec {mock_read}<<<"12"
+    exec {mock_write}> "$prompt_file"
+    open_interactive_tty_fds() {
+        printf -v "$1" "%s" "$mock_read"
+        printf -v "$2" "%s" "$mock_write"
+    }
+    ask_num_configs
+    exec {mock_read}<&-
+    exec {mock_write}>&-
+    prompt_text=$(cat "$prompt_file")
+    rm -f "$prompt_file"
+    echo "NUM=$NUM_CONFIGS"
+    echo "PROMPT=$prompt_text"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"NUM=12"* ]]
+    [[ "$output" == *"Количество конфигов (1-15):"* ]]
+}
+
+@test "ask_num_configs retries empty interactive input then accepts valid value" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./install.sh
+    NON_INTERACTIVE=false
+    XRAY_NUM_CONFIGS=""
+    DOMAIN_TIER="tier_ru"
+    ADVANCED_MODE=false
+    AUTO_PROFILE_MODE=true
+    prompt_file=$(mktemp)
+    printf "\n6\n" > "$prompt_file.input"
+    exec {mock_read}< "$prompt_file.input"
+    exec {mock_write}> "$prompt_file"
+    open_interactive_tty_fds() {
+        printf -v "$1" "%s" "$mock_read"
+        printf -v "$2" "%s" "$mock_write"
+    }
+    ask_num_configs
+    exec {mock_read}<&-
+    exec {mock_write}>&-
+    prompt_text=$(cat "$prompt_file")
+    rm -f "$prompt_file" "$prompt_file.input"
+    echo "NUM=$NUM_CONFIGS"
+    echo "PROMPT=$prompt_text"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"NUM=6"* ]]
+    [[ "$output" == *"Введите число от 1 до 100 (пустой ввод не допускается)"* ]]
+    [[ "$output" == *"Количество конфигов (1-100):"* ]]
 }
 
 @test "ask_num_configs skips when reusing config" {
@@ -364,7 +435,7 @@
     echo "NUM=$NUM_CONFIGS"
   '
     [ "$status" -eq 0 ]
-    [[ "$output" == *"NUM=10"* ]]
+    [[ "$output" == *"NUM=5"* ]]
 }
 
 @test "ask_num_configs auto-selects default in non-interactive minimal mode" {
@@ -386,11 +457,11 @@
     source ./install.sh
     NON_INTERACTIVE=true
     DOMAIN_TIER="tier_global_ms10"
-    XRAY_NUM_CONFIGS=11
+    XRAY_NUM_CONFIGS=16
     ask_num_configs
   '
     [ "$status" -ne 0 ]
-    [[ "$output" == *"1-10"* ]]
+    [[ "$output" == *"1-15"* ]]
 }
 
 @test "resolve_paths sets default paths when dirs are writable" {
@@ -466,11 +537,11 @@
     [ "$status" -ne 0 ]
 }
 
-@test "validate_install_config accepts 10 configs for tier_global_ms10" {
+@test "validate_install_config accepts 15 configs for tier_global_ms10" {
     run bash -eo pipefail -c '
     source ./lib.sh
     DOMAIN_TIER="tier_global_ms10"
-    NUM_CONFIGS=10
+    NUM_CONFIGS=15
     START_PORT=443
     TRANSPORT="xhttp"
     MUX_MODE="off"
@@ -483,11 +554,11 @@
     [[ "$output" == *"ok"* ]]
 }
 
-@test "validate_install_config rejects more than 10 configs for tier_global_ms10" {
+@test "validate_install_config rejects more than 15 configs for tier_global_ms10" {
     run bash -eo pipefail -c '
     source ./lib.sh
     DOMAIN_TIER="tier_global_ms10"
-    NUM_CONFIGS=11
+    NUM_CONFIGS=16
     START_PORT=443
     TRANSPORT="xhttp"
     MUX_MODE="on"

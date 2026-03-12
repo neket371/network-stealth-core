@@ -34,7 +34,7 @@ expect {
         set saw_profile 1
         exp_continue
     }
-    -re {(Сколько VPN-ключей создать\?|Количество VPN-ключей|Количество конфигов) \(1-10\):} {
+    -re {(Сколько VPN-ключей создать\?|Количество VPN-ключей|Количество конфигов) \(1-15\):} {
         send -- "$env(INITIAL_CONFIGS)\r"
         set saw_count 1
         exp_continue
@@ -106,7 +106,7 @@ if ((count_after != expected_after)); then
     echo "Expected ${expected_after} IPv4 inbounds after add-keys, got ${count_after}" >&2
     exit 1
 fi
-if ((count_after > 10)); then
+if ((count_after > 15)); then
     echo "global-50 limit violated: got ${count_after} inbounds" >&2
     exit 1
 fi

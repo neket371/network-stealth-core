@@ -24,7 +24,7 @@ Options:
   --dry-run                      Show actions without executing
   --verbose                      More logging (also: detailed status)
   --yes, --non-interactive       Skip prompts (automation mode)
-  --advanced                     Enable legacy interactive prompt flow
+  --advanced                     Enable manual domain-profile prompt flow
   --num-configs <N>              Number of configs (tier-aware limit)
   --domain-profile <ru|ru-auto|global-50|global-50-auto|custom>
                                    Domain profile for install/add (default install path: ru-auto)
@@ -53,7 +53,7 @@ Environment variables:
   SELF_CHECK_ENABLED             Enable transport-aware post-action self-check (default: true)
   SELF_CHECK_URLS                Comma-separated probe URLs for xhttp self-check
   SELF_CHECK_TIMEOUT_SEC         Curl timeout per self-check probe (default: 8)
-  XRAY_ADVANCED                  Enable legacy interactive prompt flow
+  XRAY_ADVANCED                  Enable manual domain-profile prompt flow
   SHORT_ID_BYTES_MIN             Min Reality ShortID bytes (default: 8)
   SHORT_ID_BYTES_MAX             Max Reality ShortID bytes (default: 8)
   DOMAIN_HEALTH_RANKING          Use adaptive domain ranking (default: true)

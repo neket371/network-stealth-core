@@ -28,7 +28,7 @@ auto_profile_default_num_configs() {
         tier="tier_ru"
     fi
     case "$tier" in
-        tier_global_ms10) echo 10 ;;
+        tier_global_ms10) echo 5 ;;
         *) echo 5 ;;
     esac
 }
@@ -108,9 +108,9 @@ ask_domain_profile() {
     while true; do
         printf '%s\n' "Выберите профиль доменов:" >&"$tty_write_fd"
         printf '%s\n' "  1) ru (ручной ввод числа ключей, до 100)" >&"$tty_write_fd"
-        printf '%s\n' "  2) global-50 (ручной ввод числа ключей, до 10)" >&"$tty_write_fd"
+        printf '%s\n' "  2) global-50 (ручной ввод числа ключей, до 15)" >&"$tty_write_fd"
         printf '%s\n' "  3) ru-auto (автоматически: 5 ключей)" >&"$tty_write_fd"
-        printf '%s\n' "  4) global-50-auto (автоматически: 10 ключей)" >&"$tty_write_fd"
+        printf '%s\n' "  4) global-50-auto (автоматически: 5 ключей)" >&"$tty_write_fd"
         if ! printf "Профиль [1/2/3/4]: " >&"$tty_write_fd"; then
             exec {tty_read_fd}<&-
             exec {tty_write_fd}>&-
@@ -176,11 +176,6 @@ ask_domain_profile() {
 }
 
 ask_num_configs() {
-    local has_tty=false
-    if [[ -t 0 || -t 1 || -t 2 ]]; then
-        has_tty=true
-    fi
-
     if [[ "$REUSE_EXISTING_CONFIG" == true ]]; then
         return 0
     fi
@@ -198,15 +193,10 @@ ask_num_configs() {
         exit 1
     fi
 
-    if [[ "${AUTO_PROFILE_MODE:-false}" == "true" ]] || [[ "${ADVANCED_MODE:-false}" != "true" ]] || [[ "$NON_INTERACTIVE" == "true" ]]; then
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
         NUM_CONFIGS=$(auto_profile_default_num_configs "$DOMAIN_TIER")
-        log INFO "Количество конфигов выбрано автоматически (${NUM_CONFIGS}); для ручного выбора используйте --num-configs <n> или install --advanced"
+        log INFO "Non-interactive режим: используем авто-количество конфигов (${NUM_CONFIGS}); для явного выбора используйте --num-configs <n>"
         return 0
-    fi
-
-    if [[ "$has_tty" != "true" ]]; then
-        log ERROR "Не удалось открыть /dev/tty для обязательного ввода NUM_CONFIGS"
-        exit 1
     fi
 
     local tty_read_fd="" tty_write_fd=""

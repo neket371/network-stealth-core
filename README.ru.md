@@ -61,7 +61,7 @@ curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/
 sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install --non-interactive --yes
 ```
 
-### ручные prompt’ы только когда они действительно нужны
+### ручной prompt выбора профиля доменов, когда он тебе нужен
 
 ```bash
 sudo xray-reality.sh install --advanced
@@ -86,8 +86,8 @@ sudo xray-reality.sh install --advanced
 
 ## публичный strongest-direct контракт
 
-- `install` = минимальный strongest-direct путь без вопросов про transport и profile на основном пути
-- `install --advanced` = явный manual compatibility flow для тех, кому нужны prompt’ы
+- `install` = минимальный strongest-direct путь без вопросов про transport и profile на основном пути; в интерактивном режиме число конфигов всё равно вводится явно
+- `install --advanced` = явный manual compatibility flow для тех, кому нужен prompt выбора профиля доменов
 - `migrate-stealth` = единственный mutating-мост для managed legacy `grpc/http2` install и pre-v7 xhttp install
 - `update`, `repair`, `add-clients` и `add-keys` блокируются на старом managed-контракте, пока не выполнен `migrate-stealth`
 - `clients.json` = `schema_version: 3`
@@ -176,7 +176,7 @@ sudo bash scripts/measure-stealth.sh prune \
 заметки:
 
 - `--transport` в v7 зафиксирован на `xhttp` и оставлен только как compatibility no-op для поддерживаемого значения
-- обычный strongest-default `install` сам выбирает число конфигов; для ручного числа используй `--num-configs n` или `install --advanced`
+- интерактивный `install` всегда спрашивает число конфигов; чтобы пропустить prompt, используй `--num-configs n`, а для scripted-режима — `--non-interactive --yes`
 - legacy-алиасы `global-ms10` и `global-ms10-auto` всё ещё мапятся на `global-50` и `global-50-auto`
 - `XRAY_DATA_DIR` в wrapper-режиме не является свободным trusted source; `XRAY_ALLOW_CUSTOM_DATA_DIR=true` используй только для trusted non-world-writable директорий
 

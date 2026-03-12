@@ -1529,7 +1529,7 @@ max_configs_for_tier() {
         tier="tier_ru"
     fi
     case "$tier" in
-        tier_global_ms10) echo 10 ;;
+        tier_global_ms10) echo 15 ;;
         *) echo 100 ;;
     esac
 }

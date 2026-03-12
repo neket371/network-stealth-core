@@ -7,6 +7,11 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### changed
+
+- interactive `install` now always requires an explicit config count on the normal path; `--num-configs` remains the scripted override
+- raised the manual `global-50` config-count ceiling to `15` while keeping non-interactive auto defaults at `5`
+
 ## [7.1.0] - 2026-03-07
 
 ### changed

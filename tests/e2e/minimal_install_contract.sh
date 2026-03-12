@@ -7,7 +7,7 @@ SCRIPT_PATH="$ROOT_DIR/xray-reality.sh"
 source "$ROOT_DIR/tests/e2e/lib.sh"
 
 START_PORT="${START_PORT:-24340}"
-EXPECTED_CONFIGS="${EXPECTED_CONFIGS:-5}"
+EXPECTED_CONFIGS="${EXPECTED_CONFIGS:-4}"
 CLIENTS_JSON="/etc/xray/private/keys/clients.json"
 CLIENTS_TXT="/etc/xray/private/keys/clients.txt"
 STATUS_FILE="/tmp/xru-minimal-status.txt"
@@ -23,9 +23,10 @@ echo "==> pre-clean"
 cleanup
 
 echo "==> interactive minimal install"
-export ROOT_DIR SCRIPT_PATH START_PORT
+export ROOT_DIR SCRIPT_PATH START_PORT EXPECTED_CONFIGS
 expect << 'EXPECT_INSTALL'
 set timeout 900
+set saw_count 0
 
 spawn bash -lc "source \"$env(ROOT_DIR)/tests/e2e/lib.sh\"; run_root env START_PORT=$env(START_PORT) SERVER_IP=127.0.0.1 DOMAIN_CHECK=false SKIP_REALITY_CHECK=true ALLOW_INSECURE_SHA256=true bash \"$env(SCRIPT_PATH)\" install"
 
@@ -35,8 +36,9 @@ expect {
         exit 1
     }
     -re {(Сколько VPN-ключей создать\?|Количество VPN-ключей|Количество конфигов) \(1-[0-9]+\):} {
-        puts stderr "unexpected manual count prompt during minimal install"
-        exit 1
+        send -- "$env(EXPECTED_CONFIGS)\r"
+        set saw_count 1
+        exp_continue
     }
     timeout {
         puts stderr "timed out during minimal install"
@@ -49,6 +51,10 @@ set rc [wait]
 set code [lindex $rc 3]
 if {$code != 0} {
     exit $code
+}
+if {$saw_count != 1} {
+    puts stderr "expected manual count prompt during minimal install"
+    exit 1
 }
 EXPECT_INSTALL
 

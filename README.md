@@ -61,7 +61,7 @@ curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/ubuntu/
 sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install --non-interactive --yes
 ```
 
-### manual prompts only when you explicitly want them
+### manual domain-profile prompt when you explicitly want it
 
 ```bash
 sudo xray-reality.sh install --advanced
@@ -86,8 +86,8 @@ sudo xray-reality.sh install --advanced
 
 ## strongest-direct public contract
 
-- `install` = minimal strongest-direct path with no transport or profile questions on the normal path
-- `install --advanced` = explicit manual compatibility flow for operators who want prompts
+- `install` = minimal strongest-direct path with no transport or profile questions on the normal path; interactive installs still require an explicit config count
+- `install --advanced` = explicit manual compatibility flow for operators who want the domain-profile prompt
 - `migrate-stealth` = only supported mutating bridge for managed legacy `grpc/http2` installs and pre-v7 xhttp installs
 - `update`, `repair`, `add-clients`, and `add-keys` are blocked on older managed contracts until `migrate-stealth` succeeds
 - `clients.json` = `schema_version: 3`
@@ -176,7 +176,7 @@ if you maintain the repo and need isolated smoke or busy-host lifecycle validati
 notes:
 
 - `--transport` is fixed to `xhttp` in v7 and exists only as a compatibility no-op for the supported value
-- the normal strongest-default `install` path auto-picks the config count; use `--num-configs n` or `install --advanced` if you want to choose it manually
+- interactive `install` always asks for the config count; use `--num-configs n` to skip the prompt or `--non-interactive --yes` for scripted installs
 - legacy aliases `global-ms10` and `global-ms10-auto` still map to `global-50` and `global-50-auto`
 - `XRAY_DATA_DIR` is not a free-form trusted code source in wrapper mode; use `XRAY_ALLOW_CUSTOM_DATA_DIR=true` only for trusted non-world-writable directories
 

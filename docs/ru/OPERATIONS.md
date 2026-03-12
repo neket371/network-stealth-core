@@ -19,6 +19,13 @@ strongest-direct defaults:
 ### normal path
 
 ```bash
+sudo xray-reality.sh install
+```
+
+в обычном интерактивном режиме normal path всё равно спрашивает число конфигов.
+для scripted-установок используй:
+
+```bash
 sudo xray-reality.sh install --non-interactive --yes
 ```
 
@@ -37,7 +44,7 @@ sudo xray-reality.sh install --non-interactive --yes
 sudo xray-reality.sh install --advanced
 ```
 
-используй это только если тебе сознательно нужны ручные prompt’ы для профиля и числа конфигов.
+используй это только если тебе сознательно нужен ручной prompt выбора профиля доменов.
 
 ## миграция
 

@@ -3,7 +3,8 @@
 ## 1. install is asking questions i did not expect
 
 default install should stay minimal.
-if you used `install --advanced`, prompts are expected.
+ordinary interactive installs still ask for the config count.
+if you used `install --advanced`, the extra domain-profile prompt is expected.
 for unattended installs use:
 
 ```bash

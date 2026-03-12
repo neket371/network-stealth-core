@@ -7,6 +7,11 @@
 
 ## [unreleased]
 
+### changed
+
+- интерактивный `install` теперь всегда требует явный ввод числа конфигов на обычном пути; `--num-configs` остаётся scripted-override
+- ручной потолок для `global-50` поднят до `15`, а non-interactive auto default оставлен на `5`
+
 ## [7.1.0] - 2026-03-07
 
 ### changed

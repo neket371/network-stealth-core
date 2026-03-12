@@ -11,8 +11,8 @@ that is why the normal path avoids transport and profile prompts.
 
 ## when should i use `install --advanced`?
 
-only when you explicitly want manual profile and config-count prompts.
-it is not the recommended path for ordinary installs.
+only when you explicitly want the manual domain-profile prompt.
+ordinary interactive installs already ask for the config count.
 
 ## why are some mutating actions blocked on older installs?
 
