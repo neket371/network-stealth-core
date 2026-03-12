@@ -73,6 +73,8 @@ ensure_xray_runtime_logs_ready() {
     [[ -n "$logs_dir" ]] || logs_dir="/var/log/xray"
 
     install -d -m 0750 -o "$XRAY_USER" -g "$XRAY_GROUP" "$logs_dir"
+    chown "${XRAY_USER}:${XRAY_GROUP}" "$logs_dir"
+    chmod 750 "$logs_dir"
 
     local log_file
     for log_file in "$logs_dir/access.log" "$logs_dir/error.log"; do

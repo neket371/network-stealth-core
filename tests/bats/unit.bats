@@ -3134,6 +3134,8 @@ EOF
 @test "create_systemd_service hardens writable log paths for xray" {
     run bash -eo pipefail -c '
     grep -Fq '\''ensure_xray_runtime_logs_ready || {'\'' ./modules/service/runtime.sh
+    grep -Fq '\''chown "${XRAY_USER}:${XRAY_GROUP}" "$logs_dir"'\'' ./modules/service/runtime.sh
+    grep -Fq '\''chmod 750 "$logs_dir"'\'' ./modules/service/runtime.sh
     grep -Fq '\''ReadWritePaths=${_sd_logs} ${_sd_logs}/access.log ${_sd_logs}/error.log'\'' ./modules/service/runtime.sh
     grep -Fq "LogsDirectory=xray" ./modules/service/runtime.sh
     grep -Fq "LogsDirectoryMode=0750" ./modules/service/runtime.sh
