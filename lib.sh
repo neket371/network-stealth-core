@@ -722,6 +722,28 @@ fi
 # shellcheck source=/dev/null
 source "$LIB_CONTRACT_GATE_MODULE"
 
+LIB_CONFIG_LOADING_MODULE="$MODULE_DIR/modules/lib/config_loading.sh"
+if [[ ! -f "$LIB_CONFIG_LOADING_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    LIB_CONFIG_LOADING_MODULE="$XRAY_DATA_DIR/modules/lib/config_loading.sh"
+fi
+if [[ ! -f "$LIB_CONFIG_LOADING_MODULE" ]]; then
+    log ERROR "Не найден модуль config loading: $LIB_CONFIG_LOADING_MODULE"
+    exit 1
+fi
+# shellcheck source=/dev/null
+source "$LIB_CONFIG_LOADING_MODULE"
+
+LIB_PATH_SAFETY_MODULE="$MODULE_DIR/modules/lib/path_safety.sh"
+if [[ ! -f "$LIB_PATH_SAFETY_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    LIB_PATH_SAFETY_MODULE="$XRAY_DATA_DIR/modules/lib/path_safety.sh"
+fi
+if [[ ! -f "$LIB_PATH_SAFETY_MODULE" ]]; then
+    log ERROR "Не найден модуль path safety: $LIB_PATH_SAFETY_MODULE"
+    exit 1
+fi
+# shellcheck source=/dev/null
+source "$LIB_PATH_SAFETY_MODULE"
+
 LIB_RUNTIME_INPUTS_MODULE="$MODULE_DIR/modules/lib/runtime_inputs.sh"
 if [[ ! -f "$LIB_RUNTIME_INPUTS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_RUNTIME_INPUTS_MODULE="$XRAY_DATA_DIR/modules/lib/runtime_inputs.sh"

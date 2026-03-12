@@ -15,7 +15,7 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 - kept wrapper bootstrap validation compatible with historical pinned tags used by `migrate-stealth` coverage instead of requiring newer split lib modules
 - made active canonical xhttp tiers load catalog metadata first, reducing dependence on `domains.tiers`/`sni_pools.map` and normalizing catalog values cleanly on windows line endings
 - split runtime profile, port-allocation, and key-generation helpers out of `modules/config/domain_planner.sh` into a focused `modules/config/runtime_profiles.sh` module
-- decomposed `lib.sh` into focused ui/logging, system-runtime, downloads, and runtime-input modules
+- decomposed `lib.sh` into focused ui/logging, system-runtime, downloads, config-loading, path-safety, and runtime-input modules
 - added sanitized `make vm-proof-pack` / `scripts/lab/generate-vm-proof-pack.sh` evidence bundles for vm-lab lifecycle runs
 - added public issue templates and a pull request template for cleaner bug/support/feature intake
 - refreshed pinned github action revisions to node24-safe upstream shas and taught self-hosted/nightly vm-lab workflows to upload proof-pack artifacts

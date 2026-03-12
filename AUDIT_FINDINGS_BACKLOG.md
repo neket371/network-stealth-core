@@ -1,6 +1,6 @@
 # audit findings backlog
 
-date: 2026-03-12
+date: 2026-03-13
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
 ## active backlog
@@ -16,13 +16,13 @@ these are real future maintenance costs, but they are **not** proven defects in 
 - type: maintainability
 - files:
   - `config.sh`
-  - `modules/lib/runtime_inputs.sh`
 - problem:
-  - the root-script sprawl problem was materially reduced, but a couple of remaining files still carry broad contracts and could become the next hotspots if new product scope is added carelessly.
+  - the root-script sprawl problem was materially reduced, but `config.sh` still carries a broad contract and could become the next hotspot if new product scope is added carelessly.
 - recommended direction:
   - keep new behavior out of the root entrypoints.
   - prefer subsystem-focused extractions before these files start growing sharply again.
   - keep `modules/config/runtime_profiles.sh` focused; do not let it turn into the next planner-style catch-all.
+  - keep `modules/lib/runtime_inputs.sh` narrow; new path/config loading logic should stay in the dedicated lib modules.
 
 ## resolved in this wave
 

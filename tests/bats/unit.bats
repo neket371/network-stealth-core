@@ -3582,15 +3582,19 @@ EOF
     [ "$output" = "ok" ]
 }
 
-@test "lib sources extracted ui runtime download and input modules" {
+@test "lib sources extracted ui runtime download config and path-safety modules" {
     run bash -eo pipefail -c '
     grep -q '\''LIB_UI_LOGGING_MODULE='\'' ./lib.sh
     grep -q '\''LIB_SYSTEM_RUNTIME_MODULE='\'' ./lib.sh
     grep -q '\''LIB_DOWNLOADS_MODULE='\'' ./lib.sh
+    grep -q '\''LIB_CONFIG_LOADING_MODULE='\'' ./lib.sh
+    grep -q '\''LIB_PATH_SAFETY_MODULE='\'' ./lib.sh
     grep -q '\''LIB_RUNTIME_INPUTS_MODULE='\'' ./lib.sh
     grep -q '\''source "$LIB_UI_LOGGING_MODULE"'\'' ./lib.sh
     grep -q '\''source "$LIB_SYSTEM_RUNTIME_MODULE"'\'' ./lib.sh
     grep -q '\''source "$LIB_DOWNLOADS_MODULE"'\'' ./lib.sh
+    grep -q '\''source "$LIB_CONFIG_LOADING_MODULE"'\'' ./lib.sh
+    grep -q '\''source "$LIB_PATH_SAFETY_MODULE"'\'' ./lib.sh
     grep -q '\''source "$LIB_RUNTIME_INPUTS_MODULE"'\'' ./lib.sh
     echo "ok"
   '

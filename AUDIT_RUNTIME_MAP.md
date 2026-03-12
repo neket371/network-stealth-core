@@ -1,6 +1,6 @@
 # audit runtime map
 
-date: 2026-03-12
+date: 2026-03-13
 repository: `neket371/network-stealth-core`
 branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
@@ -52,11 +52,13 @@ baseline snapshot: `ubuntu` working tree after maturity hardening wave
 | `modules/lib/contract_gate.sh` | blocks invalid mutating flows on legacy/pre-v7 contracts | works; fresh install and legacy gating behave correctly |
 | `modules/lib/domain_sources.sh` | loads tiers/maps/catalog data | works; active xhttp tier planning is now catalog-first and the remaining side maps are fallback/compatibility inputs |
 | `modules/lib/downloads.sh` | allowlisted download, mirror, and https validation helpers | works; extracted from `lib.sh` and now carries the download trust contract clearly |
+| `modules/lib/config_loading.sh` | env/config loading helpers for `.env` and policy-adjacent runtime defaults | works; isolates config loading from broader runtime normalization |
 | `modules/lib/firewall.sh` | ufw/iptables/nftables mutation helpers | works in tested paths |
 | `modules/lib/globals_contract.sh` | default globals and env contract | works; neutral transport-endpoint contract is primary, grpc alias is compatibility-only |
 | `modules/lib/lifecycle.sh` | backup session, restore, cleanup, runtime reconciliation | works; rollback semantics are a project strength |
 | `modules/lib/policy.sh` | managed `policy.json` save/load helpers | works; policy/state separation is explicit |
-| `modules/lib/runtime_inputs.sh` | runtime env/config loading, path guards, and strict normalization | works; broad but now isolated from dispatch/orchestration |
+| `modules/lib/path_safety.sh` | path guards, destructive-scope checks, and systemd-safe path/value helpers | works; isolates destructive/runtime path safety from broader normalization |
+| `modules/lib/runtime_inputs.sh` | runtime normalization, install validation, and strict action-level input checks | works; noticeably narrower after config-loading and path-safety extraction |
 | `modules/lib/runtime_reuse.sh` | extracts reusable settings from current runtime | works; compatibility-aware and covered |
 | `modules/lib/system_runtime.sh` | systemd/listening/runtime inspection helpers | works; narrowed out of `lib.sh` |
 | `modules/lib/tty.sh` | tty normalization and interactive prompt parsing | works; vm-lab interactive minisign check confirmed single prompt path |
@@ -157,5 +159,5 @@ that means:
 - public contract consistency: **good**
 - confirmed dead code: **none found in current active path**
 - biggest remaining watch items:
-  1. broad-but-contained files such as `config.sh` and `modules/lib/runtime_inputs.sh`
+  1. broad-but-contained files such as `config.sh`
   2. intentionally narrow support matrix centered on ubuntu 24.04

@@ -1,6 +1,6 @@
 # full audit report
 
-date: 2026-03-12
+date: 2026-03-13
 repository: `neket371/network-stealth-core`
 branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
@@ -11,7 +11,7 @@ this audit refresh covers the current `v7.1.0` baseline, not the old `4.2.x` she
 
 reviewed surfaces:
 
-- all repo-tracked files in `audit_coverage_matrix.md` (**140/140** including the new `modules/lib/*` extraction, `modules/config/runtime_profiles.sh`, vm proof-pack tooling, and public issue/pr templates)
+- all repo-tracked files in `audit_coverage_matrix.md` (**142/142** including the new `modules/lib/*` extraction, `modules/config/runtime_profiles.sh`, vm proof-pack tooling, and public issue/pr templates)
 - runtime entrypoints: `xray-reality.sh`, `lib.sh`, `install.sh`, `config.sh`, `service.sh`, `health.sh`, `export.sh`
 - runtime modules under `modules/*`
 - qa/release/lab/windows scripts under `scripts/*`
@@ -88,7 +88,7 @@ on `185.218.204.206`:
 ### what is not broken but still costly
 
 - planner still has fallback/compatibility side inputs, but active xhttp tier planning is now catalog-first and runtime-profile helpers were split into a focused module
-- `config.sh` and `modules/lib/runtime_inputs.sh` still hold broad contracts and will remain the next likely maintenance hotspots if the product grows further
+- `config.sh` still holds the broadest remaining runtime contract and is now the clearest next maintainability hotspot if the product grows further
 - support matrix is still intentionally narrow: ubuntu 24.04 is the supported and ci-validated platform
 
 ### dead code verdict
@@ -179,15 +179,15 @@ no active `p0`–`p3` finding remains from this audit pass.
 
 the older open maintainability item around oversized root entrypoints is considered **closed for this wave** because:
 
-- `lib.sh` dropped to **939** lines from the previous 2700+ monolith
+- `lib.sh` dropped to **961** lines from the previous 2700+ monolith
 - `install.sh` dropped to **605** lines
 - `service.sh` dropped to **484** lines
-- behavior now lives in focused modules for ui/logging, downloads, runtime inputs, system runtime, install output, install selection, xray bootstrap, service runtime, and uninstall cleanup
+- behavior now lives in focused modules for ui/logging, downloads, config loading, path safety, runtime inputs, system runtime, install output, install selection, xray bootstrap, service runtime, and uninstall cleanup
 
 remaining concerns are now watch items, not active defects:
 
 - planner still keeps fallback/compatibility side inputs even though active xhttp tier planning is now catalog-first
-- `config.sh` and `modules/lib/runtime_inputs.sh` are still broad enough to deserve future refactors if scope expands
+- `config.sh` is still broad enough to deserve future refactors if scope expands; `modules/lib/runtime_inputs.sh` is now much narrower after the latest lib split
 - ubuntu 24.04 remains the intentionally narrow supported matrix
 
 ## closed in this audit refresh

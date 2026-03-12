@@ -15,7 +15,7 @@
 - wrapper bootstrap верификация сохранена совместимой с историческими pinned tag, которые используются в `migrate-stealth`, и больше не требует новые split lib modules
 - активные canonical xhttp tier теперь читают metadata из catalog в первую очередь, а `domains.tiers`/`sni_pools.map` стали fallback/compatibility-источниками; значения catalog при этом нормально нормализуются и на windows line endings
 - runtime profile, выделение портов и генерация ключей вынесены из `modules/config/domain_planner.sh` в отдельный `modules/config/runtime_profiles.sh`
-- `lib.sh` дополнительно декомпозирован на focused-модули ui/logging, system-runtime, downloads и runtime-inputs
+- `lib.sh` дополнительно декомпозирован на focused-модули ui/logging, system-runtime, downloads, config-loading, path-safety и runtime-inputs
 - добавлен санитизированный `make vm-proof-pack` / `scripts/lab/generate-vm-proof-pack.sh` для evidence bundle из vm-lab lifecycle run
 - добавлены public issue templates и pull request template для более чистого bug/support/feature intake
 - pinned github actions обновлены до node24-safe upstream shas, а self-hosted/nightly vm-lab workflow теперь выгружает proof-pack artifacts
