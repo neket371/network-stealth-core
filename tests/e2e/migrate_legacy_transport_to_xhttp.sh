@@ -14,10 +14,31 @@ STATUS_AFTER="/tmp/xru-migrate-after.txt"
 STATUS_REPAIR="/tmp/xru-migrate-repair.txt"
 LEGACY_BOOTSTRAP="/tmp/xru-legacy-bootstrap.sh"
 LEGACY_LOGS="${LEGACY_LOGS:-/var/lib/xray/legacy-logs}"
+VAR_LOG_MODE_STATE="/tmp/xru-var-log-mode.txt"
+
+prepare_legacy_var_log_traverse() {
+    local current_mode other_digit
+    current_mode="$(run_root stat -c '%a' /var/log)"
+    printf '%s\n' "$current_mode" > "$VAR_LOG_MODE_STATE"
+    other_digit="${current_mode: -1}"
+    if (((8#${other_digit} & 5) != 5)); then
+        run_root chmod o+rx /var/log
+    fi
+}
+
+restore_legacy_var_log_traverse() {
+    local saved_mode
+    [[ -f "$VAR_LOG_MODE_STATE" ]] || return 0
+    saved_mode="$(cat "$VAR_LOG_MODE_STATE")"
+    if [[ "$saved_mode" =~ ^[0-7]{3,4}$ ]]; then
+        run_root chmod "$saved_mode" /var/log
+    fi
+}
 
 cleanup() {
     cleanup_installation "$SCRIPT_PATH"
-    rm -f "$STATUS_BEFORE" "$STATUS_AFTER" "$STATUS_REPAIR" "$LEGACY_BOOTSTRAP"
+    restore_legacy_var_log_traverse
+    rm -f "$STATUS_BEFORE" "$STATUS_AFTER" "$STATUS_REPAIR" "$LEGACY_BOOTSTRAP" "$VAR_LOG_MODE_STATE"
 }
 
 trap cleanup EXIT
@@ -28,6 +49,9 @@ cleanup
 echo "==> prepare legacy bootstrap wrapper"
 cp "$ROOT_DIR/xray-reality.sh" "$LEGACY_BOOTSTRAP"
 chmod +x "$LEGACY_BOOTSTRAP"
+
+echo "==> prepare legacy /var/log traverse shim"
+prepare_legacy_var_log_traverse
 
 echo "==> install legacy grpc profile from v5.1.0"
 run_root env \
