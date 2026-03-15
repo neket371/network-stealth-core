@@ -62,15 +62,6 @@ self_check_trim_ws() {
     printf '%s\n' "$value"
 }
 
-self_check_split_list() {
-    local raw="${1:-}"
-    if declare -F split_list > /dev/null 2>&1; then
-        split_list "$raw"
-        return 0
-    fi
-    printf '%s\n' "$raw" | sed -E 's/[[:space:],]+/\n/g' | sed '/^$/d'
-}
-
 self_check_port_is_listening() {
     local port="${1:-}"
     if declare -F port_is_listening > /dev/null 2>&1; then
@@ -574,19 +565,7 @@ self_check_status_summary_tsv() {
     ] | @tsv' <<< "$state_json"
 }
 
-self_check_post_action_verdict() {
-    local action="${1:-action}"
-    local state_file
-    state_file=$(self_check_state_file_path)
-
-    local verdict="OK"
-    local -a reasons=()
-    local runtime_ok=true
-    local transport_probe_required=true
-    local state_json=""
-    local selected_variant='null'
-    local attempted_variants='[]'
-
+self_check_post_action_runtime_preflight() {
     if [[ ! -x "$XRAY_BIN" ]]; then
         verdict="BROKEN"
         runtime_ok=false
@@ -632,103 +611,123 @@ self_check_post_action_verdict() {
         fi
         reasons+=("loopback install detected: transport-aware self-check пропущен")
     fi
+}
 
-    local json_file="${XRAY_KEYS}/clients.json"
-    if [[ "$runtime_ok" == true && "$transport_probe_required" == true ]]; then
-        if [[ ! -f "$json_file" ]]; then
-            verdict="BROKEN"
-            reasons+=("clients.json не найден: ${json_file}")
-        elif ! jq -e 'type == "object" and (.configs | type == "array") and (.configs | length) >= 1' "$json_file" > /dev/null 2>&1; then
-            verdict="BROKEN"
-            reasons+=("clients.json повреждён или пуст")
-        else
-            self_check_log STEP "transport-aware self-check: проверяем exported client variants..."
-            local primary_recommended_variant
-            primary_recommended_variant=$(jq -r '.configs[0].recommended_variant // "recommended"' "$json_file" 2> /dev/null)
-            local config_index
-            while IFS= read -r config_index; do
-                config_index=${config_index//$'\r'/}
-                config_index=$(self_check_trim_ws "$config_index")
-                [[ "$config_index" =~ ^[0-9]+$ ]] || continue
-                local variant_key
-                while IFS= read -r variant_key; do
-                    variant_key=${variant_key//$'\r'/}
-                    variant_key=$(self_check_trim_ws "$variant_key")
-                    [[ -n "$variant_key" ]] || continue
+self_check_post_action_missing_raw_probe_result() {
+    local action="$1"
+    local job_json="$2"
+    local variant_key="$3"
+    jq -n \
+        --arg action "$action" \
+        --arg config_name "$(jq -r '.config_name' <<< "$job_json")" \
+        --arg variant_key "$variant_key" \
+        --arg mode "$(jq -r '.mode' <<< "$job_json")" \
+        '{
+            checked_at: now | todateiso8601,
+            action: $action,
+            config_name: $config_name,
+            variant_key: $variant_key,
+            mode: (if ($mode | length) > 0 then $mode else null end),
+            ip_family: "n/a",
+            raw_config_file: null,
+            success: false,
+            latency_ms: 0,
+            selected_url: null,
+            reason: "raw_variant_file_missing",
+            probe_results: []
+        }'
+}
 
-                    local job_json=""
-                    job_json=$(self_check_config_job_json "$json_file" "$config_index" "$variant_key")
-                    [[ -n "$job_json" ]] || continue
+self_check_post_action_probe_variants() {
+    local action="$1"
+    local json_file="$2"
 
-                    local raw_pair=""
-                    if ! raw_pair=$(self_check_first_raw_file_for_job "$job_json"); then
-                        local probe_result
-                        probe_result=$(jq -n \
-                            --arg action "$action" \
-                            --arg config_name "$(jq -r '.config_name' <<< "$job_json")" \
-                            --arg variant_key "$variant_key" \
-                            --arg mode "$(jq -r '.mode' <<< "$job_json")" \
-                            '{
-                                checked_at: now | todateiso8601,
-                                action: $action,
-                                config_name: $config_name,
-                                variant_key: $variant_key,
-                                mode: (if ($mode | length) > 0 then $mode else null end),
-                                ip_family: "n/a",
-                                raw_config_file: null,
-                                success: false,
-                                latency_ms: 0,
-                                selected_url: null,
-                                reason: "raw_variant_file_missing",
-                                probe_results: []
-                            }')
-                        attempted_variants=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants")
-                        continue
-                    fi
-
-                    local ip_family raw_file
-                    IFS=$'\t' read -r ip_family raw_file <<< "$raw_pair"
-                    self_check_log INFO "self-check: $(jq -r '.config_name' <<< "$job_json") / ${variant_key} / ${ip_family}"
-                    local probe_result
-                    probe_result=$(self_check_run_variant_probe \
-                        "$action" \
-                        "$(jq -r '.config_name' <<< "$job_json")" \
-                        "$variant_key" \
-                        "$(jq -r '.mode' <<< "$job_json")" \
-                        "$ip_family" \
-                        "$raw_file")
-                    attempted_variants=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants")
-
-                    if jq -e '.success == true' <<< "$probe_result" > /dev/null 2>&1; then
-                        selected_variant="$probe_result"
-                        if [[ "$config_index" == "0" ]]; then
-                            if [[ "$variant_key" != "$primary_recommended_variant" && "$verdict" != "BROKEN" ]]; then
-                                verdict="WARNING"
-                                reasons+=("recommended-вариант не прошёл self-check; используем rescue")
-                            fi
-                        else
-                            if [[ "$verdict" != "BROKEN" ]]; then
-                                verdict="WARNING"
-                            fi
-                            if [[ "$variant_key" == "rescue" ]]; then
-                                reasons+=("primary-конфиг не прошёл self-check; используем запасной rescue-вариант $(jq -r '.config_name' <<< "$job_json")")
-                            else
-                                reasons+=("primary-конфиг не прошёл self-check; используем запасной конфиг $(jq -r '.config_name' <<< "$job_json")")
-                            fi
-                        fi
-                        break 2
-                    fi
-                done < <(self_check_preferred_variant_keys "$json_file" "$config_index")
-            done < <(jq -r '.configs | keys[]' "$json_file" 2> /dev/null)
-
-            if [[ "$selected_variant" == "null" ]]; then
-                verdict="BROKEN"
-                reasons+=("ни recommended, ни rescue не прошли transport-aware self-check")
-            fi
-        fi
+    if [[ "$runtime_ok" != true || "$transport_probe_required" != true ]]; then
+        return 0
+    fi
+    if [[ ! -f "$json_file" ]]; then
+        verdict="BROKEN"
+        reasons+=("clients.json не найден: ${json_file}")
+        return 0
+    fi
+    if ! jq -e 'type == "object" and (.configs | type == "array") and (.configs | length) >= 1' "$json_file" > /dev/null 2>&1; then
+        verdict="BROKEN"
+        reasons+=("clients.json повреждён или пуст")
+        return 0
     fi
 
-    state_json=$(jq -n \
+    self_check_log STEP "transport-aware self-check: проверяем exported client variants..."
+    local primary_recommended_variant
+    primary_recommended_variant=$(jq -r '.configs[0].recommended_variant // "recommended"' "$json_file" 2> /dev/null)
+    local config_index
+    while IFS= read -r config_index; do
+        config_index=${config_index//$'\r'/}
+        config_index=$(self_check_trim_ws "$config_index")
+        [[ "$config_index" =~ ^[0-9]+$ ]] || continue
+        local variant_key
+        while IFS= read -r variant_key; do
+            variant_key=${variant_key//$'\r'/}
+            variant_key=$(self_check_trim_ws "$variant_key")
+            [[ -n "$variant_key" ]] || continue
+
+            local job_json=""
+            job_json=$(self_check_config_job_json "$json_file" "$config_index" "$variant_key")
+            [[ -n "$job_json" ]] || continue
+
+            local raw_pair=""
+            if ! raw_pair=$(self_check_first_raw_file_for_job "$job_json"); then
+                local probe_result=""
+                probe_result=$(self_check_post_action_missing_raw_probe_result "$action" "$job_json" "$variant_key")
+                attempted_variants=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants")
+                continue
+            fi
+
+            local ip_family raw_file
+            IFS=$'\t' read -r ip_family raw_file <<< "$raw_pair"
+            self_check_log INFO "self-check: $(jq -r '.config_name' <<< "$job_json") / ${variant_key} / ${ip_family}"
+
+            local probe_result
+            probe_result=$(self_check_run_variant_probe \
+                "$action" \
+                "$(jq -r '.config_name' <<< "$job_json")" \
+                "$variant_key" \
+                "$(jq -r '.mode' <<< "$job_json")" \
+                "$ip_family" \
+                "$raw_file")
+            attempted_variants=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants")
+
+            if jq -e '.success == true' <<< "$probe_result" > /dev/null 2>&1; then
+                selected_variant="$probe_result"
+                if [[ "$config_index" == "0" ]]; then
+                    if [[ "$variant_key" != "$primary_recommended_variant" && "$verdict" != "BROKEN" ]]; then
+                        verdict="WARNING"
+                        reasons+=("recommended-вариант не прошёл self-check; используем rescue")
+                    fi
+                else
+                    if [[ "$verdict" != "BROKEN" ]]; then
+                        verdict="WARNING"
+                    fi
+                    if [[ "$variant_key" == "rescue" ]]; then
+                        reasons+=("primary-конфиг не прошёл self-check; используем запасной rescue-вариант $(jq -r '.config_name' <<< "$job_json")")
+                    else
+                        reasons+=("primary-конфиг не прошёл self-check; используем запасной конфиг $(jq -r '.config_name' <<< "$job_json")")
+                    fi
+                fi
+                return 0
+            fi
+        done < <(self_check_preferred_variant_keys "$json_file" "$config_index")
+    done < <(jq -r '.configs | keys[]' "$json_file" 2> /dev/null)
+
+    if [[ "$selected_variant" == "null" ]]; then
+        verdict="BROKEN"
+        reasons+=("ни recommended, ни rescue не прошли transport-aware self-check")
+    fi
+}
+
+self_check_post_action_build_state_json() {
+    local action="$1"
+    local state_file="$2"
+    jq -n \
         --arg checked_at "$(self_check_now_utc)" \
         --arg action "$action" \
         --arg verdict "$verdict" \
@@ -746,11 +745,11 @@ self_check_post_action_verdict() {
             reasons: $reasons,
             systemd_ready: $systemd_ready,
             state_file: $state_file
-        }')
+        }'
+}
 
-    self_check_write_state_json "$state_json" || self_check_log WARN "не удалось сохранить self-check state"
-    self_check_append_history_json "$state_json" || self_check_log WARN "не удалось сохранить self-check history"
-
+self_check_post_action_render_summary() {
+    local action="$1"
     echo ""
     case "$verdict" in
         OK)
@@ -763,6 +762,7 @@ self_check_post_action_verdict() {
             self_check_log ERROR "self-check verdict (${action}): broken"
             ;;
     esac
+
     local reason
     for reason in "${reasons[@]}"; do
         [[ -n "$reason" ]] || continue
@@ -772,6 +772,29 @@ self_check_post_action_verdict() {
         echo "  - selected variant: $(jq -r '.config_name' <<< "$selected_variant") / $(jq -r '.variant_key' <<< "$selected_variant") / $(jq -r '.ip_family' <<< "$selected_variant") / $(jq -r '(.latency_ms // 0 | tostring) + "ms"' <<< "$selected_variant")"
     fi
     echo ""
+}
+
+self_check_post_action_verdict() {
+    local action="${1:-action}"
+    local state_file
+    state_file=$(self_check_state_file_path)
+
+    local verdict="OK"
+    local -a reasons=()
+    local runtime_ok=true
+    local transport_probe_required=true
+    local state_json=""
+    local selected_variant='null'
+    local attempted_variants='[]'
+    local json_file="${XRAY_KEYS}/clients.json"
+
+    self_check_post_action_runtime_preflight
+    self_check_post_action_probe_variants "$action" "$json_file"
+
+    state_json=$(self_check_post_action_build_state_json "$action" "$state_file")
+    self_check_write_state_json "$state_json" || self_check_log WARN "не удалось сохранить self-check state"
+    self_check_append_history_json "$state_json" || self_check_log WARN "не удалось сохранить self-check history"
+    self_check_post_action_render_summary "$action"
 
     [[ "$verdict" != "BROKEN" ]]
 }

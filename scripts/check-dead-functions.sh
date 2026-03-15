@@ -22,7 +22,21 @@ FILES=(
     "$ROOT_DIR"/modules/config/*.sh
     "$ROOT_DIR"/modules/service/*.sh
     "$ROOT_DIR"/modules/install/*.sh
+    "$ROOT_DIR"/modules/health/*.sh
 )
+
+IGNORED_FUNCTIONS=(
+    # Keep exact-name allowlist support for intentional wrappers if they appear later.
+)
+
+dead_function_is_ignored() {
+    local fn="${1:-}"
+    local ignored
+    for ignored in "${IGNORED_FUNCTIONS[@]}"; do
+        [[ "$fn" == "$ignored" ]] && return 0
+    done
+    return 1
+}
 
 declare -a DEFS=()
 declare -a DEAD=()
@@ -36,6 +50,9 @@ done
 
 for def in "${DEFS[@]}"; do
     IFS='|' read -r file line fn <<< "$def"
+    if dead_function_is_ignored "$fn"; then
+        continue
+    fi
     def_base="$(basename "$file")"
     pattern="(^|[^A-Za-z0-9_])${fn}([^A-Za-z0-9_]|$)"
     matches="$(rg -n --pcre2 "$pattern" "${FILES[@]}" || true)"

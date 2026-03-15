@@ -235,22 +235,7 @@ install_minisign() {
     fi
 }
 
-install_xray() {
-    log STEP "Устанавливаем Xray-core с криптографической проверкой..."
-
-    local tmp_workdir=""
-    local temp_dir=""
-    local sig_file=""
-    # shellcheck disable=SC2317,SC2329
-    cleanup_install_xray_tmp() {
-        rm -f "${sig_file:-}" 2> /dev/null || true
-        [[ -n "${temp_dir:-}" ]] && rm -rf "$temp_dir"
-        [[ -n "${tmp_workdir:-}" ]] && rm -rf "$tmp_workdir"
-        trap - RETURN
-    }
-    trap cleanup_install_xray_tmp RETURN
-
-    local arch
+install_xray_detect_arch() {
     case "$(uname -m)" in
         x86_64) arch="64" ;;
         aarch64) arch="arm64-v8a" ;;
@@ -260,8 +245,9 @@ install_xray() {
             return 1
             ;;
     esac
+}
 
-    local version
+install_xray_resolve_version() {
     version="$(trim_ws "${XRAY_VERSION:-}")"
     if [[ "${version,,}" == "latest" ]]; then
         version=""
@@ -282,29 +268,34 @@ install_xray() {
         log ERROR "Не удалось получить версию Xray"
         return 1
     fi
-
     if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9._-]+)?$ ]]; then
         log ERROR "Неверный формат версии Xray: $version"
         return 1
     fi
 
     log INFO "Версия Xray: ${BOLD}${version}${NC}"
+}
 
-    local tmp_base="${TMPDIR:-/tmp}"
+install_xray_prepare_download_workspace() {
+    local tmp_base="$1"
     tmp_workdir=$(mktemp -d "${tmp_base}/xray-${version}.XXXXXX") || {
         log ERROR "Не удалось создать временную директорию для загрузки Xray"
         return 1
     }
-    local zip_file="${tmp_workdir}/Xray-linux-${arch}.zip"
-    local dgst_file="${tmp_workdir}/Xray-linux-${arch}.zip.dgst"
-    local used_base=""
-    local -a bases=()
-    local downloaded=false
-    local base
+    zip_file="${tmp_workdir}/Xray-linux-${arch}.zip"
+    dgst_file="${tmp_workdir}/Xray-linux-${arch}.zip.dgst"
+}
 
+install_xray_download_release_with_sha256() {
+    used_base=""
+    bases=()
+    downloaded=false
+
+    local base
     while read -r base; do
         [[ -n "$base" ]] && bases+=("$base")
     done < <(build_mirror_list "https://github.com/XTLS/Xray-core/releases/download/v${version}" "$XRAY_MIRRORS" "$version")
+
     local gh_proxy_base="${GH_PROXY_BASE:-https://ghproxy.com/https://github.com}"
     gh_proxy_base="${gh_proxy_base%/}"
     if [[ -n "$gh_proxy_base" ]]; then
@@ -326,6 +317,7 @@ install_xray() {
             log WARN "Архив Xray пустой ($base)"
             continue
         fi
+
         local expected_sha256=""
         local dgst_ok=false
         local dgst_base=""
@@ -349,9 +341,9 @@ install_xray() {
             log WARN "Не удалось скачать/прочитать .dgst из доступных источников"
             continue
         fi
+
         local actual_sha256
         actual_sha256=$(sha256sum "$zip_file" | awk '{print $1}')
-
         if [[ "$expected_sha256" != "$actual_sha256" ]]; then
             log WARN "SHA256 не совпадает ($base)"
             continue
@@ -368,113 +360,123 @@ install_xray() {
     fi
 
     log OK "✓ SHA256 проверка пройдена"
+}
 
+install_xray_is_minisig_file() {
+    local file="$1"
+    [[ -s "$file" ]] || return 1
+    local line1 line2
+    line1="$(head -n 1 "$file" 2> /dev/null | tr -d '\r' || true)"
+    line2="$(head -n 2 "$file" 2> /dev/null | tail -n 1 | tr -d '\r' || true)"
+    [[ "$line1" == untrusted\ comment:* ]] || return 1
+    [[ "$line2" =~ ^R[0-9A-Za-z+/=]{40,}$ ]] || return 1
+    return 0
+}
+
+install_xray_verify_release_signature() {
     if [[ "$SKIP_MINISIGN" == true ]]; then
         if [[ "$REQUIRE_MINISIGN" == "true" && "$ALLOW_INSECURE_SHA256" != "true" ]]; then
             log ERROR "Minisign недоступен, а REQUIRE_MINISIGN=true"
             return 1
         fi
         log INFO "Minisign недоступен; продолжаем только с SHA256"
-    else
-        log INFO "Проверяем minisign подпись (если доступна в релизе)..."
+        return 0
+    fi
 
-        sig_file=$(mktemp "${tmp_workdir}/xray-${version}.XXXXXX.minisig" 2> /dev/null || true)
-        if [[ -z "$sig_file" ]]; then
-            if ! confirm_minisign_fallback "Не удалось создать временный файл подписи minisign"; then
-                return 1
-            fi
-            if [[ "$ALLOW_INSECURE_SHA256" == "true" ]]; then
-                log WARN "Не удалось создать временный файл подписи; продолжаем только с SHA256 (ALLOW_INSECURE_SHA256=true)"
-            else
-                log INFO "Не удалось создать временный файл подписи; продолжаем только с SHA256 после подтверждения"
-            fi
+    log INFO "Проверяем minisign подпись (если доступна в релизе)..."
+    sig_file=$(mktemp "${tmp_workdir}/xray-${version}.XXXXXX.minisig" 2> /dev/null || true)
+    if [[ -z "$sig_file" ]]; then
+        if ! confirm_minisign_fallback "Не удалось создать временный файл подписи minisign"; then
+            return 1
         fi
-        local sig_downloaded=false
-        is_minisig_file() {
-            local f="$1"
-            [[ -s "$f" ]] || return 1
-            local line1 line2
-            line1="$(head -n 1 "$f" 2> /dev/null | tr -d '\r' || true)"
-            line2="$(head -n 2 "$f" 2> /dev/null | tail -n 1 | tr -d '\r' || true)"
-            [[ "$line1" == untrusted\ comment:* ]] || return 1
-            [[ "$line2" =~ ^R[0-9A-Za-z+/=]{40,}$ ]] || return 1
-            return 0
-        }
-        local -a sig_bases=("$used_base")
-        sig_bases+=("${bases[@]}")
-        declare -A sig_seen=()
-        for base in "${sig_bases[@]}"; do
-            [[ -n "$sig_file" ]] || break
-            base="${base%/}"
-            [[ -z "$base" || -n "${sig_seen[$base]:-}" ]] && continue
-            sig_seen["$base"]=1
-            rm -f "$sig_file"
-            local sig_err_file
-            sig_err_file=$(mktemp "${tmp_workdir}/xray-${version}.XXXXXX.sigerr" 2> /dev/null || true)
-            if [[ -z "$sig_err_file" ]]; then
-                sig_err_file="/dev/null"
-            fi
-            if download_file_allowlist "${base}/Xray-linux-${arch}.zip.minisig" "$sig_file" "Скачиваем minisign подпись..." 2> "$sig_err_file"; then
-                if ! is_minisig_file "$sig_file"; then
-                    log INFO "Источник minisign подписи вернул невалидный формат, пропускаем: $base"
-                    debug_file "invalid minisig payload from ${base}"
-                    rm -f "$sig_file"
-                    [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
-                    continue
-                fi
-                sig_downloaded=true
-                [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
-                break
-            else
-                local sig_err_line=""
-                if [[ -f "$sig_err_file" ]]; then
-                    sig_err_line=$(head -n 1 "$sig_err_file" 2> /dev/null | tr -d '\r' || true)
-                fi
-                if [[ "$sig_err_line" == *"requested URL returned error: 404"* ]]; then
-                    debug_file "minisign signature missing at ${base} (404)"
-                elif [[ -n "$sig_err_line" ]]; then
-                    log WARN "Источник minisign подписи недоступен: ${base}"
-                    debug_file "minisign download failed from ${base}: ${sig_err_line}"
-                fi
-            fi
-            [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
-        done
-        if [[ "$sig_downloaded" != true ]]; then
-            if ! confirm_minisign_fallback "Minisign подпись не найдена в релизе"; then
-                return 1
-            fi
-            if [[ "$ALLOW_INSECURE_SHA256" == "true" ]]; then
-                log INFO "Minisign подпись не найдена в релизе; продолжаем только с SHA256 (ALLOW_INSECURE_SHA256=true)"
-            else
-                log INFO "Minisign подпись не найдена в релизе; продолжаем только с SHA256 после подтверждения"
-            fi
-        fi
-
-        if [[ "$sig_downloaded" == true && -n "$sig_file" && -f "$sig_file" ]]; then
-            local minisign_cmd="minisign"
-            if [[ -n "${MINISIGN_BIN:-}" && -x "${MINISIGN_BIN}" ]]; then
-                minisign_cmd="${MINISIGN_BIN}"
-            fi
-            if ! write_pinned_minisign_key; then
-                return 1
-            fi
-
-            if "$minisign_cmd" -Vm "$zip_file" -p "$MINISIGN_KEY" -x "$sig_file" > /dev/null 2>&1; then
-                log OK "✓ Minisign подпись верна"
-            else
-                if [[ "$ALLOW_INSECURE_SHA256" == true ]]; then
-                    log WARN "Minisign подпись не прошла (возможно, ключ обновился); продолжаем с SHA256"
-                else
-                    if ! confirm_minisign_fallback "Ошибка проверки minisign подписи"; then
-                        return 1
-                    fi
-                    log WARN "Продолжаем только с SHA256 после подтверждения оператора"
-                fi
-            fi
-            rm -f "$sig_file"
+        if [[ "$ALLOW_INSECURE_SHA256" == "true" ]]; then
+            log WARN "Не удалось создать временный файл подписи; продолжаем только с SHA256 (ALLOW_INSECURE_SHA256=true)"
+        else
+            log INFO "Не удалось создать временный файл подписи; продолжаем только с SHA256 после подтверждения"
         fi
     fi
 
+    local sig_downloaded=false
+    local base
+    local -a sig_bases=("$used_base")
+    sig_bases+=("${bases[@]}")
+    declare -A sig_seen=()
+    for base in "${sig_bases[@]}"; do
+        [[ -n "$sig_file" ]] || break
+        base="${base%/}"
+        [[ -z "$base" || -n "${sig_seen[$base]:-}" ]] && continue
+        sig_seen["$base"]=1
+        rm -f "$sig_file"
+
+        local sig_err_file
+        sig_err_file=$(mktemp "${tmp_workdir}/xray-${version}.XXXXXX.sigerr" 2> /dev/null || true)
+        if [[ -z "$sig_err_file" ]]; then
+            sig_err_file="/dev/null"
+        fi
+
+        if download_file_allowlist "${base}/Xray-linux-${arch}.zip.minisig" "$sig_file" "Скачиваем minisign подпись..." 2> "$sig_err_file"; then
+            if ! install_xray_is_minisig_file "$sig_file"; then
+                log INFO "Источник minisign подписи вернул невалидный формат, пропускаем: $base"
+                debug_file "invalid minisig payload from ${base}"
+                rm -f "$sig_file"
+                [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
+                continue
+            fi
+            sig_downloaded=true
+            [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
+            break
+        fi
+
+        local sig_err_line=""
+        if [[ -f "$sig_err_file" ]]; then
+            sig_err_line=$(head -n 1 "$sig_err_file" 2> /dev/null | tr -d '\r' || true)
+        fi
+        if [[ "$sig_err_line" == *"requested URL returned error: 404"* ]]; then
+            debug_file "minisign signature missing at ${base} (404)"
+        elif [[ -n "$sig_err_line" ]]; then
+            log WARN "Источник minisign подписи недоступен: ${base}"
+            debug_file "minisign download failed from ${base}: ${sig_err_line}"
+        fi
+        [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
+    done
+
+    if [[ "$sig_downloaded" != true ]]; then
+        if ! confirm_minisign_fallback "Minisign подпись не найдена в релизе"; then
+            return 1
+        fi
+        if [[ "$ALLOW_INSECURE_SHA256" == "true" ]]; then
+            log INFO "Minisign подпись не найдена в релизе; продолжаем только с SHA256 (ALLOW_INSECURE_SHA256=true)"
+        else
+            log INFO "Minisign подпись не найдена в релизе; продолжаем только с SHA256 после подтверждения"
+        fi
+        return 0
+    fi
+
+    if [[ -n "$sig_file" && -f "$sig_file" ]]; then
+        local minisign_cmd="minisign"
+        if [[ -n "${MINISIGN_BIN:-}" && -x "${MINISIGN_BIN}" ]]; then
+            minisign_cmd="${MINISIGN_BIN}"
+        fi
+        if ! write_pinned_minisign_key; then
+            return 1
+        fi
+
+        if "$minisign_cmd" -Vm "$zip_file" -p "$MINISIGN_KEY" -x "$sig_file" > /dev/null 2>&1; then
+            log OK "✓ Minisign подпись верна"
+        elif [[ "$ALLOW_INSECURE_SHA256" == true ]]; then
+            log WARN "Minisign подпись не прошла (возможно, ключ обновился); продолжаем с SHA256"
+        else
+            if ! confirm_minisign_fallback "Ошибка проверки minisign подписи"; then
+                return 1
+            fi
+            log WARN "Продолжаем только с SHA256 после подтверждения оператора"
+        fi
+        rm -f "$sig_file"
+    fi
+}
+
+install_xray_unpack_release_archive() {
+    local tmp_base="$1"
     temp_dir=$(mktemp -d "${tmp_base}/xray-install.XXXXXX") || {
         log ERROR "Не удалось создать временную директорию"
         return 1
@@ -483,16 +485,19 @@ install_xray() {
         log ERROR "Не удалось распаковать архив Xray"
         return 1
     fi
-
     if [[ ! -f "$temp_dir/xray" ]]; then
         log ERROR "Бинарник xray не найден в архиве"
         return 1
     fi
+}
 
+install_xray_finalize_install() {
     install -m 755 "$temp_dir/xray" "$XRAY_BIN"
+
     local xray_asset_dir
     xray_asset_dir="$(xray_geo_dir)"
     mkdir -p "$xray_asset_dir"
+
     local asset
     for asset in geoip.dat geosite.dat; do
         if [[ -f "$temp_dir/$asset" ]]; then
@@ -501,6 +506,7 @@ install_xray() {
             log WARN "В архиве Xray не найден ${asset}; возможны ошибки geoip/geosite"
         fi
     done
+
     if command -v restorecon > /dev/null 2>&1; then
         restorecon -v "$XRAY_BIN" > /dev/null 2>&1 || log WARN "restorecon не применился для $XRAY_BIN"
     elif command -v getenforce > /dev/null 2>&1 && [[ "$(getenforce)" == "Enforcing" ]]; then
@@ -519,5 +525,38 @@ install_xray() {
     first_line=$(printf '%s\n' "$version_output" | sed -n '1p')
     installed_version=$(printf '%s\n' "$first_line" | awk '{print $2}')
     log OK "Xray ${installed_version} установлен и проверен"
+}
+
+install_xray() {
+    log STEP "Устанавливаем Xray-core с криптографической проверкой..."
+
+    local tmp_workdir=""
+    local temp_dir=""
+    local sig_file=""
+    # shellcheck disable=SC2317,SC2329
+    cleanup_install_xray_tmp() {
+        rm -f "${sig_file:-}" 2> /dev/null || true
+        [[ -n "${temp_dir:-}" ]] && rm -rf "$temp_dir"
+        [[ -n "${tmp_workdir:-}" ]] && rm -rf "$tmp_workdir"
+        trap - RETURN
+    }
+    trap cleanup_install_xray_tmp RETURN
+
+    local arch=""
+    local version=""
+    local zip_file=""
+    local dgst_file=""
+    local used_base=""
+    local downloaded=false
+    local -a bases=()
+    local tmp_base="${TMPDIR:-/tmp}"
+
+    install_xray_detect_arch || return 1
+    install_xray_resolve_version || return 1
+    install_xray_prepare_download_workspace "$tmp_base" || return 1
+    install_xray_download_release_with_sha256 || return 1
+    install_xray_verify_release_signature || return 1
+    install_xray_unpack_release_archive "$tmp_base" || return 1
+    install_xray_finalize_install || return 1
     return 0
 }

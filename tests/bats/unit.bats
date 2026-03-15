@@ -100,6 +100,25 @@
     [ "$output" = "true:true:install" ]
 }
 
+@test "parse_args accepts rollback long option with optional directory" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    parse_args --rollback /tmp/session
+    echo "${ACTION}:${ROLLBACK_DIR}"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "rollback:/tmp/session" ]
+}
+
+@test "parse_args rejects unknown long option" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    parse_args --definitely-unknown install
+  '
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Неизвестный аргумент: --definitely-unknown"* ]]
+}
+
 @test "trim_ws strips leading and trailing spaces" {
     run bash -eo pipefail -c 'source ./lib.sh; trim_ws "  hello world  "'
     [ "$status" -eq 0 ]
@@ -3366,6 +3385,52 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "status_flow keeps major sections in stable order" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_BIN="$tmp/xray"
+    XRAY_CONFIG="$tmp/config.json"
+    XRAY_KEYS="$tmp/keys"
+    mkdir -p "$XRAY_KEYS"
+    touch "$XRAY_KEYS/clients.txt" "$XRAY_KEYS/clients-links.txt"
+    cat > "$XRAY_CONFIG" <<'"'"'EOF'"'"'
+{"inbounds":[{"listen":"0.0.0.0","port":443,"streamSettings":{"network":"xhttp","realitySettings":{"dest":"example.com:443","serverNames":["example.com"],"fingerprint":"chrome"},"xhttpSettings":{"path":"/x"}},"settings":{"decryption":"none","clients":[{"flow":"xtls-rprx-vision"}]}}]}
+EOF
+    cat > "$XRAY_BIN" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+echo "Xray 25.9.5"
+EOF
+    chmod +x "$XRAY_BIN"
+    SERVER_IP="203.0.113.10"
+    SERVER_IP6="2001:db8::10"
+    VERBOSE=false
+    systemctl() {
+      if [[ "${1:-}" == "is-active" ]]; then
+        return 0
+      fi
+      if [[ "${1:-}" == "show" && "${2:-}" == "xray" ]]; then
+        echo "2026-03-15 12:00:00 UTC"
+        return 0
+      fi
+      return 1
+    }
+    out="$(status_flow | sed -E "s/\x1B\\[[0-9;]*[A-Za-z]//g")"
+    xray_line="$(printf "%s\n" "$out" | grep -n "^Xray:" | head -n1 | cut -d: -f1)"
+    server_line="$(printf "%s\n" "$out" | grep -n "^Сервер:" | head -n1 | cut -d: -f1)"
+    clients_line="$(printf "%s\n" "$out" | grep -n "^Клиентские конфиги:" | head -n1 | cut -d: -f1)"
+    test -n "$xray_line" -a -n "$server_line" -a -n "$clients_line"
+    test "$xray_line" -lt "$server_line"
+    test "$server_line" -lt "$clients_line"
+    printf "%s\n" "$out" | grep -q "Подсказка: используйте --verbose для подробной информации"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "release workflow avoids curl pipe sh and unpinned release action" {
     run bash -eo pipefail -c '
     grep -q '\''gh release create'\'' ./.github/workflows/release.yml
@@ -3566,10 +3631,126 @@ EOF
     [ "$output" = "ok" ]
 }
 
-@test "service modules are wired into lint and dead-function coverage" {
+@test "self_check_post_action_verdict reports broken when runtime artifacts are missing" {
+    run bash -eo pipefail -c '
+    source ./modules/health/self_check.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_BIN="$tmp/missing-xray"
+    XRAY_CONFIG="$tmp/missing-config.json"
+    XRAY_KEYS="$tmp/keys"
+    XRAY_GROUP="root"
+    SELF_CHECK_STATE_FILE="$tmp/state/self-check.json"
+    SELF_CHECK_HISTORY_FILE="$tmp/state/self-check-history.ndjson"
+    self_check_log() { printf "%s %s\n" "$1" "$2"; }
+    if self_check_post_action_verdict install; then
+      echo "unexpected-success"
+      exit 1
+    fi
+    test -f "$SELF_CHECK_STATE_FILE"
+    jq -e ".verdict == \"broken\"" "$SELF_CHECK_STATE_FILE" > /dev/null
+    grep -q "бинарник xray не найден" "$SELF_CHECK_STATE_FILE"
+    grep -q "конфиг не найден" "$SELF_CHECK_STATE_FILE"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "self_check_post_action_verdict warns on loopback runtime without transport probe" {
+    run bash -eo pipefail -c '
+    source ./modules/health/self_check.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_BIN="$tmp/xray"
+    XRAY_CONFIG="$tmp/config.json"
+    XRAY_KEYS="$tmp/keys"
+    XRAY_GROUP="root"
+    SELF_CHECK_STATE_FILE="$tmp/state/self-check.json"
+    SELF_CHECK_HISTORY_FILE="$tmp/state/self-check-history.ndjson"
+    mkdir -p "$XRAY_KEYS"
+    printf "#!/usr/bin/env bash\nexit 0\n" > "$XRAY_BIN"
+    chmod +x "$XRAY_BIN"
+    printf "{}\n" > "$XRAY_CONFIG"
+    xray_config_test_ok() { return 0; }
+    systemctl_available() { return 1; }
+    systemd_running() { return 1; }
+    SERVER_IP="127.0.0.1"
+    self_check_log() { printf "%s %s\n" "$1" "$2"; }
+    self_check_post_action_verdict install
+    jq -e ".verdict == \"warning\"" "$SELF_CHECK_STATE_FILE" > /dev/null
+    grep -q "loopback install detected: transport-aware self-check пропущен" "$SELF_CHECK_STATE_FILE"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "self_check_post_action_verdict stores selected successful variant" {
+    run bash -eo pipefail -c '
+    source ./modules/health/self_check.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_BIN="$tmp/xray"
+    XRAY_CONFIG="$tmp/config.json"
+    XRAY_KEYS="$tmp/keys"
+    XRAY_GROUP="root"
+    SELF_CHECK_STATE_FILE="$tmp/state/self-check.json"
+    SELF_CHECK_HISTORY_FILE="$tmp/state/self-check-history.ndjson"
+    mkdir -p "$XRAY_KEYS"
+    printf "#!/usr/bin/env bash\nexit 0\n" > "$XRAY_BIN"
+    chmod +x "$XRAY_BIN"
+    printf "{}\n" > "$XRAY_CONFIG"
+    cat > "$XRAY_KEYS/clients.json" <<'"'"'EOF'"'"'
+{"configs":[{"recommended_variant":"recommended"}]}
+EOF
+    xray_config_test_ok() { return 0; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl() { [[ "${1:-}" == "is-active" ]] && return 0; return 1; }
+    self_check_log() { printf "%s %s\n" "$1" "$2"; }
+    self_check_config_job_json() {
+      jq -n '\''{config_name:"Config 1", mode:"auto"}'\''
+    }
+    self_check_preferred_variant_keys() {
+      printf "recommended\n"
+    }
+    self_check_first_raw_file_for_job() {
+      printf "ipv4\t%s/raw.json\n" "$tmp"
+    }
+    self_check_run_variant_probe() {
+      jq -n '\''{
+        checked_at:"2026-03-15T12:00:00Z",
+        action:"install",
+        config_name:"Config 1",
+        variant_key:"recommended",
+        mode:"auto",
+        ip_family:"ipv4",
+        raw_config_file:"raw.json",
+        success:true,
+        latency_ms:91,
+        selected_url:"https://cp.cloudflare.com/generate_204",
+        probe_results:[]
+      }'\''
+    }
+    self_check_post_action_verdict install
+    jq -e ".verdict == \"ok\"" "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e ".selected_variant.config_name == \"Config 1\"" "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e ".selected_variant.variant_key == \"recommended\"" "$SELF_CHECK_STATE_FILE" > /dev/null
+    jq -e ".attempted_variants | length == 1" "$SELF_CHECK_STATE_FILE" > /dev/null
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"selected variant: Config 1 / recommended / ipv4 / 91ms"* ]]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "service and health modules are wired into lint and dead-function coverage" {
     run bash -eo pipefail -c '
     grep -Fq "modules/service/*.sh" ./Makefile
+    grep -Fq "modules/health/*.sh" ./Makefile
     grep -Fq '"'"'$ROOT_DIR"'"'"/modules/service/*.sh' ./scripts/check-dead-functions.sh
+    grep -Fq '"'"'$ROOT_DIR"'"'"/modules/health/*.sh' ./scripts/check-dead-functions.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3695,7 +3876,7 @@ EOF
     set -euo pipefail
     tmp="$(mktemp -d)"
     trap "rm -rf \"$tmp\"" EXIT
-    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install"
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
 
     cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
     chmod +x "$tmp/scripts/check-dead-functions.sh"
@@ -3738,7 +3919,7 @@ EOF
     set -euo pipefail
     tmp="$(mktemp -d)"
     trap "rm -rf \"$tmp\"" EXIT
-    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install"
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
 
     cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
     chmod +x "$tmp/scripts/check-dead-functions.sh"
@@ -3756,6 +3937,75 @@ alive_fn() { :; }
 dead_fn() { :; }
 alive_fn
 dead_fn
+EOF
+
+    (cd "$tmp/scripts" && bash ./check-dead-functions.sh > "$tmp/out.txt" 2>&1)
+    grep -q "dead-function-check: ok" "$tmp/out.txt"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "dead-function checker catches unused helper inside modules health" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
+
+    cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
+    chmod +x "$tmp/scripts/check-dead-functions.sh"
+
+    for f in xray-reality.sh install.sh config.sh service.sh health.sh export.sh lib.sh; do
+      cat > "$tmp/$f" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+:
+EOF
+    done
+
+    cat > "$tmp/modules/health/self_check.sh" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+health_live() { :; }
+health_dead() { :; }
+health_live
+EOF
+
+    if (cd "$tmp/scripts" && bash ./check-dead-functions.sh > "$tmp/out.txt" 2>&1); then
+      echo "unexpected-success"
+      cat "$tmp/out.txt"
+      exit 1
+    fi
+
+    grep -q "health_dead" "$tmp/out.txt"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "dead-function checker accepts live helper inside modules health" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
+
+    cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
+    chmod +x "$tmp/scripts/check-dead-functions.sh"
+
+    for f in xray-reality.sh install.sh config.sh service.sh health.sh export.sh lib.sh; do
+      cat > "$tmp/$f" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+:
+EOF
+    done
+
+    cat > "$tmp/modules/health/self_check.sh" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+health_live() { :; }
+health_bridge() { health_live; }
+health_bridge
 EOF
 
     (cd "$tmp/scripts" && bash ./check-dead-functions.sh > "$tmp/out.txt" 2>&1)

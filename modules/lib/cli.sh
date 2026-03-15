@@ -61,9 +61,8 @@ cli_append_csv_value() {
     fi
 }
 
-cli_handle_long_option() {
+cli_handle_long_option_flag() {
     local optarg="$1"
-    local value
 
     case "$optarg" in
         help)
@@ -83,25 +82,111 @@ cli_handle_long_option() {
             ;;
         dry-run)
             DRY_RUN=true
+            return 0
             ;;
         verbose)
             VERBOSE=true
+            return 0
             ;;
         allow-insecure-sha256)
             ALLOW_INSECURE_SHA256=true
+            return 0
             ;;
         require-minisign)
             REQUIRE_MINISIGN=true
+            return 0
             ;;
         no-require-minisign)
             REQUIRE_MINISIGN=false
+            return 0
             ;;
         allow-no-systemd)
             ALLOW_NO_SYSTEMD=true
+            return 0
             ;;
         no-allow-no-systemd)
             ALLOW_NO_SYSTEMD=false
+            return 0
             ;;
+        spider | spider-mode)
+            XRAY_SPIDER_MODE="true"
+            return 0
+            ;;
+        no-spider)
+            XRAY_SPIDER_MODE="false"
+            return 0
+            ;;
+        domain-check)
+            DOMAIN_CHECK="true"
+            return 0
+            ;;
+        no-domain-check)
+            DOMAIN_CHECK="false"
+            return 0
+            ;;
+        skip-reality-check)
+            SKIP_REALITY_CHECK="true"
+            return 0
+            ;;
+        keep-local-backups)
+            KEEP_LOCAL_BACKUPS="true"
+            return 0
+            ;;
+        no-local-backups)
+            KEEP_LOCAL_BACKUPS="false"
+            return 0
+            ;;
+        reuse-config)
+            REUSE_EXISTING="true"
+            return 0
+            ;;
+        no-reuse-config)
+            REUSE_EXISTING="false"
+            return 0
+            ;;
+        auto-rollback)
+            AUTO_ROLLBACK="true"
+            return 0
+            ;;
+        no-auto-rollback)
+            AUTO_ROLLBACK="false"
+            return 0
+            ;;
+        qr)
+            QR_ENABLED="true"
+            return 0
+            ;;
+        no-qr)
+            QR_ENABLED="false"
+            return 0
+            ;;
+        auto-update)
+            AUTO_UPDATE="true"
+            return 0
+            ;;
+        no-auto-update)
+            AUTO_UPDATE="false"
+            return 0
+            ;;
+        replan)
+            REPLAN="true"
+            return 0
+            ;;
+        no-replan)
+            REPLAN="false"
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+cli_handle_long_option_value() {
+    local optarg="$1"
+    local value
+
+    case "$optarg" in
         config | config=*)
             XRAY_CONFIG_FILE="$(cli_read_long_option_value "$optarg")"
             ;;
@@ -113,21 +198,6 @@ cli_handle_long_option() {
             ;;
         num-configs | num-configs=*)
             XRAY_NUM_CONFIGS="$(cli_read_long_option_value "$optarg")"
-            ;;
-        spider | spider-mode)
-            XRAY_SPIDER_MODE="true"
-            ;;
-        no-spider)
-            XRAY_SPIDER_MODE="false"
-            ;;
-        domain-check)
-            DOMAIN_CHECK="true"
-            ;;
-        no-domain-check)
-            DOMAIN_CHECK="false"
-            ;;
-        skip-reality-check)
-            SKIP_REALITY_CHECK="true"
             ;;
         domain-check-timeout | domain-check-timeout=*)
             DOMAIN_CHECK_TIMEOUT="$(cli_read_long_option_value "$optarg")"
@@ -181,24 +251,6 @@ cli_handle_long_option() {
         progress-mode | progress-mode=*)
             PROGRESS_MODE="$(cli_read_long_option_value "$optarg")"
             ;;
-        keep-local-backups)
-            KEEP_LOCAL_BACKUPS="true"
-            ;;
-        no-local-backups)
-            KEEP_LOCAL_BACKUPS="false"
-            ;;
-        reuse-config)
-            REUSE_EXISTING="true"
-            ;;
-        no-reuse-config)
-            REUSE_EXISTING="false"
-            ;;
-        auto-rollback)
-            AUTO_ROLLBACK="true"
-            ;;
-        no-auto-rollback)
-            AUTO_ROLLBACK="false"
-            ;;
         xray-version | xray-version=*)
             XRAY_VERSION="$(cli_read_long_option_value "$optarg")"
             ;;
@@ -210,36 +262,32 @@ cli_handle_long_option() {
             value="$(cli_read_long_option_value "$optarg")"
             cli_append_csv_value MINISIGN_MIRRORS "$value"
             ;;
-        qr)
-            QR_ENABLED="true"
-            ;;
-        no-qr)
-            QR_ENABLED="false"
-            ;;
-        auto-update)
-            AUTO_UPDATE="true"
-            ;;
-        no-auto-update)
-            AUTO_UPDATE="false"
-            ;;
-        replan)
-            REPLAN="true"
-            ;;
-        no-replan)
-            REPLAN="false"
-            ;;
         auto-update-oncalendar | auto-update-oncalendar=*)
             AUTO_UPDATE_ONCALENDAR="$(cli_read_long_option_value "$optarg")"
             ;;
         auto-update-random-delay | auto-update-random-delay=*)
             AUTO_UPDATE_RANDOM_DELAY="$(cli_read_long_option_value "$optarg")"
             ;;
-        rollback)
+        *)
+            return 1
+            ;;
+    esac
+}
+
+cli_handle_long_option_action() {
+    local optarg="$1"
+
+    case "$optarg" in
+        rollback | rollback=*)
             ACTION="rollback"
-            local next="${!OPTIND:-}"
-            if [[ -n "$next" && "$next" != --* ]]; then
-                ROLLBACK_DIR="$next"
-                OPTIND=$((OPTIND + 1))
+            if [[ "$optarg" == *=* ]]; then
+                ROLLBACK_DIR="${optarg#*=}"
+            else
+                local next="${!OPTIND:-}"
+                if [[ -n "$next" && "$next" != --* ]]; then
+                    ROLLBACK_DIR="$next"
+                    OPTIND=$((OPTIND + 1))
+                fi
             fi
             ;;
         uninstall)
@@ -258,11 +306,27 @@ cli_handle_long_option() {
             ACTION="diagnose"
             ;;
         *)
-            log ERROR "Неизвестный аргумент: --$optarg"
-            print_usage
-            exit 1
+            return 1
             ;;
     esac
+}
+
+cli_handle_long_option() {
+    local optarg="$1"
+
+    if cli_handle_long_option_flag "$optarg"; then
+        return 0
+    fi
+    if cli_handle_long_option_value "$optarg"; then
+        return 0
+    fi
+    if cli_handle_long_option_action "$optarg"; then
+        return 0
+    fi
+
+    log ERROR "Неизвестный аргумент: --$optarg"
+    print_usage
+    exit 1
 }
 
 parse_args() {
@@ -302,11 +366,12 @@ parse_args() {
                 fi
                 opts+=("${a}=${args[$i]}")
             elif [[ "$a" == --rollback && "$a" != *=* ]]; then
-                opts+=("$a")
                 local next="${args[$((i + 1))]:-}"
                 if [[ -n "$next" && "$next" != --* ]]; then
                     i=$((i + 1))
-                    opts+=("$next")
+                    opts+=("${a}=${next}")
+                else
+                    opts+=("$a")
                 fi
             else
                 opts+=("$a")

@@ -204,27 +204,7 @@ uninstall_remove_group_account() {
     return 1
 }
 
-uninstall_all() {
-    local uninstall_box_width uninstall_title
-    uninstall_title="УДАЛЕНИЕ NETWORK STEALTH CORE"
-    uninstall_box_width=$(ui_box_width_for_lines 60 90 "$uninstall_title")
-    local tty_read_fd=""
-    local tty_write_fd=""
-    local require_confirmation=false
-    if [[ "$ASSUME_YES" != "true" && "$NON_INTERACTIVE" != "true" ]]; then
-        require_confirmation=true
-        if [[ ! -t 0 && ! -t 1 && ! -t 2 ]]; then
-            log ERROR "Требуется интерактивное подтверждение удаления, но /dev/tty недоступен"
-            hint "Повторите команду с --yes --non-interactive для явного подтверждения"
-            exit 1
-        fi
-        if ! open_interactive_tty_fds tty_read_fd tty_write_fd; then
-            log ERROR "Требуется интерактивное подтверждение удаления, но /dev/tty недоступен"
-            hint "Повторите команду с --yes --non-interactive для явного подтверждения"
-            exit 1
-        fi
-    fi
-
+uninstall_render_intro() {
     if [[ "$require_confirmation" == "true" ]]; then
         tty_print_line "$tty_write_fd" ""
         tty_print_box "$tty_write_fd" "$RED" "$uninstall_title" 60 90
@@ -238,23 +218,26 @@ uninstall_all() {
         tty_print_line "$tty_write_fd" "  • Системные оптимизации"
         tty_print_line "$tty_write_fd" "  • Пользователь и группа xray"
         tty_print_line "$tty_write_fd" ""
-    else
-        echo ""
-        echo -e "${BOLD}${RED}$(ui_box_border_string top "$uninstall_box_width")${NC}"
-        echo -e "${BOLD}${RED}$(ui_box_line_string "$uninstall_title" "$uninstall_box_width")${NC}"
-        echo -e "${BOLD}${RED}$(ui_box_border_string bottom "$uninstall_box_width")${NC}"
-        echo ""
-        echo -e "${YELLOW}⚠️  Будет удалено ВСЁ, связанное с Network Stealth Core:${NC}"
-        echo "  • Сервисы и таймеры systemd"
-        echo "  • Бинарники и скрипты"
-        echo "  • Конфигурации и ключи"
-        echo "  • Логи и бэкапы"
-        echo "  • Правила файрвола"
-        echo "  • Системные оптимизации"
-        echo "  • Пользователь и группа xray"
-        echo ""
+        return 0
     fi
 
+    echo ""
+    echo -e "${BOLD}${RED}$(ui_box_border_string top "$uninstall_box_width")${NC}"
+    echo -e "${BOLD}${RED}$(ui_box_line_string "$uninstall_title" "$uninstall_box_width")${NC}"
+    echo -e "${BOLD}${RED}$(ui_box_border_string bottom "$uninstall_box_width")${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  Будет удалено ВСЁ, связанное с Network Stealth Core:${NC}"
+    echo "  • Сервисы и таймеры systemd"
+    echo "  • Бинарники и скрипты"
+    echo "  • Конфигурации и ключи"
+    echo "  • Логи и бэкапы"
+    echo "  • Правила файрвола"
+    echo "  • Системные оптимизации"
+    echo "  • Пользователь и группа xray"
+    echo ""
+}
+
+uninstall_confirm_if_needed() {
     if [[ "$require_confirmation" == "true" ]]; then
         local prompt_rc=0
         prompt_yes_no_from_tty \
@@ -273,20 +256,14 @@ uninstall_all() {
             log ERROR "Не удалось прочитать подтверждение из /dev/tty"
             exit 1
         fi
-    else
-        log INFO "Неблокирующее удаление: подтверждение пропущено (--yes/non-interactive)"
+        return 0
     fi
 
-    if ! validate_destructive_runtime_paths; then
-        log ERROR "Операция uninstall заблокирована: обнаружены небезопасные runtime-пути"
-        exit 1
-    fi
+    log INFO "Неблокирующее удаление: подтверждение пропущено (--yes/non-interactive)"
+}
 
-    echo ""
-    set +e
-
-    local manage_systemd_uninstall=true
-    local uninstall_cleanup_failed=false
+uninstall_detect_systemd_mode() {
+    manage_systemd_uninstall=true
     if ! systemctl_available; then
         manage_systemd_uninstall=false
         log INFO "systemctl не найден; systemd-операции удаления пропущены"
@@ -294,10 +271,13 @@ uninstall_all() {
         manage_systemd_uninstall=false
         log INFO "systemd не запущен; systemd-операции удаления пропущены"
     fi
+}
 
+uninstall_remove_systemd_artifacts() {
     log STEP "Останавливаем сервисы..."
     local -a services=(xray xray-health.service xray-health.timer xray-auto-update.service xray-auto-update.timer)
     if [[ "$manage_systemd_uninstall" == true ]]; then
+        local svc
         for svc in "${services[@]}"; do
             if systemctl is-active --quiet "$svc" 2> /dev/null; then
                 if systemctl_uninstall_bounded stop "$svc"; then
@@ -324,12 +304,15 @@ uninstall_all() {
     uninstall_remove_file /etc/systemd/system/xray-auto-update.service
     uninstall_remove_file /etc/systemd/system/xray-auto-update.timer
     uninstall_remove_file /etc/systemd/system/xray-diagnose@.service
+}
 
+uninstall_remove_runtime_artifacts() {
     log STEP "Удаляем бинарники и скрипты..."
     uninstall_remove_file "$XRAY_BIN"
     uninstall_remove_file "$XRAY_SCRIPT_PATH"
     uninstall_remove_file "$XRAY_UPDATE_SCRIPT"
     uninstall_remove_file /usr/local/bin/xray-health.sh
+
     local -a geo_dirs=()
     geo_dirs+=("$(xray_geo_dir)")
     geo_dirs+=("$(dirname "$XRAY_BIN")")
@@ -352,7 +335,9 @@ uninstall_all() {
     uninstall_remove_dir /etc/xray-reality
     uninstall_remove_dir "$XRAY_DATA_DIR"
     uninstall_remove_file "$XRAY_POLICY"
+}
 
+uninstall_remove_logs_and_auxiliary_artifacts() {
     log STEP "Удаляем логи и бэкапы..."
     uninstall_remove_dir "$XRAY_LOGS"
     uninstall_remove_dir "$XRAY_BACKUP"
@@ -373,7 +358,9 @@ uninstall_all() {
     uninstall_remove_file /etc/sysctl.d/99-xray.conf
     uninstall_remove_file /etc/security/limits.d/99-xray.conf
     sysctl --system > /dev/null 2>&1 || true
+}
 
+uninstall_remove_accounts_and_reload() {
     log STEP "Удаляем пользователя и группу..."
     if id "$XRAY_USER" > /dev/null 2>&1; then
         if uninstall_remove_user_account "$XRAY_USER"; then
@@ -400,9 +387,9 @@ uninstall_all() {
             echo -e "  ${YELLOW}⚠️  Не удалось выполнить systemctl daemon-reload${NC}"
         fi
     fi
+}
 
-    set -e
-
+uninstall_render_done() {
     local uninstall_done_title uninstall_done_width
     uninstall_done_title="УДАЛЕНИЕ ЗАВЕРШЕНО"
     uninstall_done_width=$(ui_box_width_for_lines 60 90 "$uninstall_done_title")
@@ -411,6 +398,51 @@ uninstall_all() {
     echo -e "${BOLD}${GREEN}$(ui_box_line_string "$uninstall_done_title" "$uninstall_done_width")${NC}"
     echo -e "${BOLD}${GREEN}$(ui_box_border_string bottom "$uninstall_done_width")${NC}"
     echo ""
+}
+
+uninstall_all() {
+    local uninstall_box_width uninstall_title
+    uninstall_title="УДАЛЕНИЕ NETWORK STEALTH CORE"
+    uninstall_box_width=$(ui_box_width_for_lines 60 90 "$uninstall_title")
+    local tty_read_fd=""
+    local tty_write_fd=""
+    local require_confirmation=false
+    if [[ "$ASSUME_YES" != "true" && "$NON_INTERACTIVE" != "true" ]]; then
+        require_confirmation=true
+        if [[ ! -t 0 && ! -t 1 && ! -t 2 ]]; then
+            log ERROR "Требуется интерактивное подтверждение удаления, но /dev/tty недоступен"
+            hint "Повторите команду с --yes --non-interactive для явного подтверждения"
+            exit 1
+        fi
+        if ! open_interactive_tty_fds tty_read_fd tty_write_fd; then
+            log ERROR "Требуется интерактивное подтверждение удаления, но /dev/tty недоступен"
+            hint "Повторите команду с --yes --non-interactive для явного подтверждения"
+            exit 1
+        fi
+    fi
+
+    uninstall_render_intro
+    uninstall_confirm_if_needed
+
+    if ! validate_destructive_runtime_paths; then
+        log ERROR "Операция uninstall заблокирована: обнаружены небезопасные runtime-пути"
+        exit 1
+    fi
+
+    echo ""
+    set +e
+
+    local manage_systemd_uninstall=true
+    local uninstall_cleanup_failed=false
+    uninstall_detect_systemd_mode
+    uninstall_remove_systemd_artifacts
+    uninstall_remove_runtime_artifacts
+    uninstall_remove_logs_and_auxiliary_artifacts
+    uninstall_remove_accounts_and_reload
+
+    set -e
+
+    uninstall_render_done
 
     if [[ "$uninstall_cleanup_failed" == true ]]; then
         log ERROR "Удаление завершилось с остаточными артефактами пользователей/групп"

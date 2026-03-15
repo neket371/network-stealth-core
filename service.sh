@@ -173,7 +173,7 @@ rollback_from_session() {
     log OK "Откат завершён"
 }
 
-status_flow() {
+status_flow_render_header() {
     local status_title status_box_width
     status_title="NETWORK STEALTH CORE - STATUS"
     status_box_width=$(ui_box_width_for_lines 60 90 "$status_title")
@@ -182,7 +182,9 @@ status_flow() {
     echo -e "${BOLD}${CYAN}$(ui_box_line_string "$status_title" "$status_box_width")${NC}"
     echo -e "${BOLD}${CYAN}$(ui_box_border_string bottom "$status_box_width")${NC}"
     echo ""
+}
 
+status_flow_render_runtime() {
     echo -e "${BOLD}Xray:${NC}"
     if systemctl is-active --quiet xray 2> /dev/null; then
         local xray_uptime
@@ -198,49 +200,54 @@ status_flow() {
         echo -e "  Статус: ${RED}не запущен${NC}"
     fi
     echo ""
+}
 
-    if [[ -f "$XRAY_CONFIG" ]]; then
-        echo -e "${BOLD}Конфигурация:${NC}"
-        local num_inbounds
-        num_inbounds=$(jq '.inbounds | length' "$XRAY_CONFIG" 2> /dev/null || echo "?")
-        echo -e "  Inbounds: ${num_inbounds}"
-        local transport_mode
-        transport_mode=$(jq -r '
-            .inbounds[]
-            | select(.streamSettings.realitySettings != null)
-            | select((.listen // "0.0.0.0") | test(":") | not)
-            | .streamSettings.network // "xhttp"
-            ' "$XRAY_CONFIG" 2> /dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')
-        case "$transport_mode" in
-            h2 | http/2) transport_mode="http2" ;;
-            grpc | xhttp) ;;
-            *) transport_mode="unknown" ;;
-        esac
-        echo -e "  Transport: ${transport_mode}"
-        if [[ "$transport_mode" == "grpc" || "$transport_mode" == "http2" ]]; then
-            echo -e "  Режим: legacy transport (рекомендуется xray-reality.sh migrate-stealth)"
-        fi
+status_flow_render_config_summary() {
+    [[ -f "$XRAY_CONFIG" ]] || return 0
 
-        local ports
-        ports=$(jq -r '.inbounds[] | select(.listen == "0.0.0.0" or .listen == null) | .port' "$XRAY_CONFIG" 2> /dev/null | tr '\n' ' ')
-        if [[ -n "$ports" ]]; then
-            echo -e "  Порты IPv4: ${ports}"
-        fi
+    echo -e "${BOLD}Конфигурация:${NC}"
+    local num_inbounds
+    num_inbounds=$(jq '.inbounds | length' "$XRAY_CONFIG" 2> /dev/null || echo "?")
+    echo -e "  Inbounds: ${num_inbounds}"
 
-        local ports_v6
-        ports_v6=$(jq -r '.inbounds[] | select(.listen == "::") | .port' "$XRAY_CONFIG" 2> /dev/null | tr '\n' ' ')
-        if [[ -n "$ports_v6" ]]; then
-            echo -e "  Порты IPv6: ${ports_v6}"
-        fi
-
-        local domains
-        domains=$(jq -r '.inbounds[] | select(.listen == "0.0.0.0" or .listen == null) | .streamSettings.realitySettings.dest // empty' "$XRAY_CONFIG" 2> /dev/null | sed 's/:.*//' | sort -u | tr '\n' ' ')
-        if [[ -n "$domains" ]]; then
-            echo -e "  Домены: ${domains}"
-        fi
-        echo ""
+    local transport_mode
+    transport_mode=$(jq -r '
+        .inbounds[]
+        | select(.streamSettings.realitySettings != null)
+        | select((.listen // "0.0.0.0") | test(":") | not)
+        | .streamSettings.network // "xhttp"
+        ' "$XRAY_CONFIG" 2> /dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')
+    case "$transport_mode" in
+        h2 | http/2) transport_mode="http2" ;;
+        grpc | xhttp) ;;
+        *) transport_mode="unknown" ;;
+    esac
+    echo -e "  Transport: ${transport_mode}"
+    if [[ "$transport_mode" == "grpc" || "$transport_mode" == "http2" ]]; then
+        echo -e "  Режим: legacy transport (рекомендуется xray-reality.sh migrate-stealth)"
     fi
 
+    local ports
+    ports=$(jq -r '.inbounds[] | select(.listen == "0.0.0.0" or .listen == null) | .port' "$XRAY_CONFIG" 2> /dev/null | tr '\n' ' ')
+    if [[ -n "$ports" ]]; then
+        echo -e "  Порты IPv4: ${ports}"
+    fi
+
+    local ports_v6
+    ports_v6=$(jq -r '.inbounds[] | select(.listen == "::") | .port' "$XRAY_CONFIG" 2> /dev/null | tr '\n' ' ')
+    if [[ -n "$ports_v6" ]]; then
+        echo -e "  Порты IPv6: ${ports_v6}"
+    fi
+
+    local domains
+    domains=$(jq -r '.inbounds[] | select(.listen == "0.0.0.0" or .listen == null) | .streamSettings.realitySettings.dest // empty' "$XRAY_CONFIG" 2> /dev/null | sed 's/:.*//' | sort -u | tr '\n' ' ')
+    if [[ -n "$domains" ]]; then
+        echo -e "  Домены: ${domains}"
+    fi
+    echo ""
+}
+
+status_flow_render_server_info() {
     echo -e "${BOLD}Сервер:${NC}"
     local server_ip="${SERVER_IP:-}"
     [[ -n "$server_ip" ]] || server_ip="недоступен (не задан в config.env)"
@@ -249,7 +256,9 @@ status_flow() {
     [[ -n "$server_ip6" ]] || server_ip6="недоступен"
     echo -e "  IPv6: ${server_ip6}"
     echo ""
+}
 
+status_flow_render_client_artifacts() {
     if [[ -d "$XRAY_KEYS" ]]; then
         echo -e "${BOLD}Клиентские конфиги:${NC}"
         echo -e "  ${XRAY_KEYS}/clients.txt"
@@ -261,140 +270,169 @@ status_flow() {
         fi
     fi
     echo ""
+}
+
+status_flow_render_verbose_config_details() {
+    [[ -f "$XRAY_CONFIG" ]] || return 0
+
+    echo -e "${BOLD}Детали конфигураций:${NC}"
+    local i=0
+    local port dest domain sni fp net service decryption flow
+    while IFS=$'\t' read -r port dest sni fp net service decryption flow; do
+        [[ -z "$port" ]] && continue
+        i=$((i + 1))
+        domain="${dest%%:*}"
+
+        local port_status="${RED}не слушается${NC}"
+        if port_is_listening "$port"; then
+            port_status="${GREEN}активен${NC}"
+        fi
+
+        local transport_label
+        transport_label=$(transport_endpoint_label "$net")
+
+        echo -e "  Config ${i}:"
+        echo -e "    Порт:        ${port} (${port_status})"
+        echo -e "    Домен:       ${domain:-?}"
+        echo -e "    SNI:         ${sni:-?}"
+        echo -e "    Fingerprint: ${fp:-?}"
+        echo -e "    Transport:   $(transport_display_name "${net:-xhttp}")"
+        echo -e "    ${transport_label}: ${service:-?}"
+        echo -e "    Flow:        ${flow:-${XRAY_DIRECT_FLOW:-xtls-rprx-vision}}"
+        echo -e "    Decryption:  ${decryption:-none}"
+        echo ""
+    done < <(jq -r '
+        .inbounds[]
+        | select(.listen == "0.0.0.0" or .listen == null)
+        | [
+            (.port|tostring),
+            (.streamSettings.realitySettings.dest // "?"),
+            (.streamSettings.realitySettings.serverNames[0] // "?"),
+            (.streamSettings.realitySettings.fingerprint // "?"),
+            (.streamSettings.network // "xhttp"),
+            (.streamSettings.xhttpSettings.path // .streamSettings.grpcSettings.serviceName // .streamSettings.httpSettings.path // "?"),
+            (.settings.decryption // "none"),
+            (.settings.clients[0].flow // "xtls-rprx-vision")
+          ] | @tsv
+    ' "$XRAY_CONFIG" 2> /dev/null)
+}
+
+status_flow_render_verbose_monitoring() {
+    echo -e "${BOLD}Мониторинг:${NC}"
+    if systemctl is-active --quiet xray-health.timer 2> /dev/null; then
+        echo -e "  Health Timer: ${GREEN}активен${NC}"
+        local next_run
+        next_run=$(systemctl show xray-health.timer --property=NextElapseUSecRealtime --value 2> /dev/null || echo "unknown")
+        echo -e "  Следующая проверка: ${next_run}"
+    else
+        echo -e "  Health Timer: ${RED}не активен${NC}"
+    fi
+
+    if [[ -f "$HEALTH_LOG" ]]; then
+        local last_health
+        last_health=$(tail -3 "$HEALTH_LOG" 2> /dev/null || echo "нет данных")
+        echo -e "  Последние записи:"
+        echo "    $last_health"
+    fi
+    echo ""
+}
+
+status_flow_render_verbose_self_check() {
+    declare -F self_check_status_summary_tsv > /dev/null 2>&1 || return 0
+
+    local self_check_summary
+    self_check_summary=$(self_check_status_summary_tsv 2> /dev/null || true)
+    echo -e "${BOLD}Self-check:${NC}"
+    if [[ -n "$self_check_summary" ]]; then
+        local verdict action checked_at config_name variant_key variant_mode variant_family latency_ms
+        IFS=$'\t' read -r verdict action checked_at config_name variant_key variant_mode variant_family latency_ms <<< "$self_check_summary"
+        echo -e "  Verdict: ${verdict}"
+        echo -e "  Action: ${action}"
+        echo -e "  Checked: ${checked_at}"
+        echo -e "  Config: ${config_name}"
+        echo -e "  Variant: ${variant_key} (${variant_mode}, ${variant_family}, ${latency_ms}ms)"
+    else
+        echo -e "  Verdict: ${YELLOW}нет данных${NC}"
+    fi
+    echo ""
+}
+
+status_flow_render_verbose_measurements() {
+    declare -F measurement_status_summary_tsv > /dev/null 2>&1 || return 0
+
+    local measurement_summary
+    measurement_summary=$(measurement_status_summary_tsv 2> /dev/null || true)
+    echo -e "${BOLD}Field measurements:${NC}"
+    if [[ -n "$measurement_summary" ]]; then
+        local field_verdict report_count current_primary best_spare recommend_emergency latest_generated
+        IFS=$'\t' read -r field_verdict report_count current_primary best_spare recommend_emergency latest_generated <<< "$measurement_summary"
+        echo -e "  Verdict: ${field_verdict}"
+        echo -e "  Reports: ${report_count}"
+        echo -e "  Current primary: ${current_primary}"
+        echo -e "  Best spare: ${best_spare}"
+        echo -e "  Recommend emergency: ${recommend_emergency}"
+        echo -e "  Latest report: ${latest_generated}"
+    else
+        echo -e "  Verdict: ${YELLOW}нет данных${NC}"
+    fi
+    echo ""
+}
+
+status_flow_render_verbose_auto_update() {
+    echo -e "${BOLD}Авто-обновления:${NC}"
+    if systemctl is-active --quiet xray-auto-update.timer 2> /dev/null; then
+        echo -e "  Статус: ${GREEN}включены${NC}"
+        local next_update
+        next_update=$(systemctl show xray-auto-update.timer --property=NextElapseUSecRealtime --value 2> /dev/null || echo "unknown")
+        echo -e "  Следующее обновление: ${next_update}"
+    else
+        echo -e "  Статус: ${YELLOW}отключены${NC}"
+    fi
+    echo ""
+}
+
+status_flow_render_verbose_system_resources() {
+    echo -e "${BOLD}Ресурсы системы:${NC}"
+    local mem_info
+    mem_info=$(free -m 2> /dev/null | awk 'NR==2{printf "  Память: %sMB / %sMB (%.1f%%)", $3, $2, $3*100/$2}' || true)
+    if [[ -z "$mem_info" ]]; then
+        mem_info="  Память: n/a"
+    fi
+    echo -e "$mem_info"
+
+    local disk_info
+    disk_info=$(df -h / 2> /dev/null | awk 'NR==2{printf "  Диск:   %s / %s (%s)", $3, $2, $5}' || true)
+    if [[ -z "$disk_info" ]]; then
+        disk_info="  Диск:   n/a"
+    fi
+    echo -e "$disk_info"
+    echo ""
+}
+
+status_flow_render_verbose_details() {
+    echo -e "${BOLD}${CYAN}$(ui_section_title_string "Подробная информация")${NC}"
+    echo ""
+    status_flow_render_verbose_config_details
+    status_flow_render_verbose_monitoring
+    status_flow_render_verbose_self_check
+    status_flow_render_verbose_measurements
+    status_flow_render_verbose_auto_update
+    status_flow_render_verbose_system_resources
+    echo ""
+}
+
+status_flow() {
+    status_flow_render_header
+    status_flow_render_runtime
+    status_flow_render_config_summary
+    status_flow_render_server_info
+    status_flow_render_client_artifacts
 
     if [[ "$VERBOSE" == "true" ]]; then
-        echo -e "${BOLD}${CYAN}$(ui_section_title_string "Подробная информация")${NC}"
-        echo ""
-
-        if [[ -f "$XRAY_CONFIG" ]]; then
-            echo -e "${BOLD}Детали конфигураций:${NC}"
-            local i=0
-            local port dest domain sni fp net service decryption flow
-            while IFS=$'\t' read -r port dest sni fp net service decryption flow; do
-                [[ -z "$port" ]] && continue
-                i=$((i + 1))
-                domain="${dest%%:*}"
-
-                local port_status="${RED}не слушается${NC}"
-                if port_is_listening "$port"; then
-                    port_status="${GREEN}активен${NC}"
-                fi
-
-                local transport_label
-                transport_label=$(transport_endpoint_label "$net")
-
-                echo -e "  Config ${i}:"
-                echo -e "    Порт:        ${port} (${port_status})"
-                echo -e "    Домен:       ${domain:-?}"
-                echo -e "    SNI:         ${sni:-?}"
-                echo -e "    Fingerprint: ${fp:-?}"
-                echo -e "    Transport:   $(transport_display_name "${net:-xhttp}")"
-                echo -e "    ${transport_label}: ${service:-?}"
-                echo -e "    Flow:        ${flow:-${XRAY_DIRECT_FLOW:-xtls-rprx-vision}}"
-                echo -e "    Decryption:  ${decryption:-none}"
-                echo ""
-            done < <(jq -r '
-                .inbounds[]
-                | select(.listen == "0.0.0.0" or .listen == null)
-                | [
-                    (.port|tostring),
-                    (.streamSettings.realitySettings.dest // "?"),
-                    (.streamSettings.realitySettings.serverNames[0] // "?"),
-                    (.streamSettings.realitySettings.fingerprint // "?"),
-                    (.streamSettings.network // "xhttp"),
-                    (.streamSettings.xhttpSettings.path // .streamSettings.grpcSettings.serviceName // .streamSettings.httpSettings.path // "?"),
-                    (.settings.decryption // "none"),
-                    (.settings.clients[0].flow // "xtls-rprx-vision")
-                  ] | @tsv
-            ' "$XRAY_CONFIG" 2> /dev/null)
-        fi
-
-        echo -e "${BOLD}Мониторинг:${NC}"
-        if systemctl is-active --quiet xray-health.timer 2> /dev/null; then
-            echo -e "  Health Timer: ${GREEN}активен${NC}"
-            local next_run
-            next_run=$(systemctl show xray-health.timer --property=NextElapseUSecRealtime --value 2> /dev/null || echo "unknown")
-            echo -e "  Следующая проверка: ${next_run}"
-        else
-            echo -e "  Health Timer: ${RED}не активен${NC}"
-        fi
-
-        if [[ -f "$HEALTH_LOG" ]]; then
-            local last_health
-            last_health=$(tail -3 "$HEALTH_LOG" 2> /dev/null || echo "нет данных")
-            echo -e "  Последние записи:"
-            echo "    $last_health"
-        fi
-        echo ""
-
-        if declare -F self_check_status_summary_tsv > /dev/null 2>&1; then
-            local self_check_summary
-            self_check_summary=$(self_check_status_summary_tsv 2> /dev/null || true)
-            echo -e "${BOLD}Self-check:${NC}"
-            if [[ -n "$self_check_summary" ]]; then
-                local verdict action checked_at config_name variant_key variant_mode variant_family latency_ms
-                IFS=$'\t' read -r verdict action checked_at config_name variant_key variant_mode variant_family latency_ms <<< "$self_check_summary"
-                echo -e "  Verdict: ${verdict}"
-                echo -e "  Action: ${action}"
-                echo -e "  Checked: ${checked_at}"
-                echo -e "  Config: ${config_name}"
-                echo -e "  Variant: ${variant_key} (${variant_mode}, ${variant_family}, ${latency_ms}ms)"
-            else
-                echo -e "  Verdict: ${YELLOW}нет данных${NC}"
-            fi
-            echo ""
-        fi
-
-        if declare -F measurement_status_summary_tsv > /dev/null 2>&1; then
-            local measurement_summary
-            measurement_summary=$(measurement_status_summary_tsv 2> /dev/null || true)
-            echo -e "${BOLD}Field measurements:${NC}"
-            if [[ -n "$measurement_summary" ]]; then
-                local field_verdict report_count current_primary best_spare recommend_emergency latest_generated
-                IFS=$'\t' read -r field_verdict report_count current_primary best_spare recommend_emergency latest_generated <<< "$measurement_summary"
-                echo -e "  Verdict: ${field_verdict}"
-                echo -e "  Reports: ${report_count}"
-                echo -e "  Current primary: ${current_primary}"
-                echo -e "  Best spare: ${best_spare}"
-                echo -e "  Recommend emergency: ${recommend_emergency}"
-                echo -e "  Latest report: ${latest_generated}"
-            else
-                echo -e "  Verdict: ${YELLOW}нет данных${NC}"
-            fi
-            echo ""
-        fi
-
-        echo -e "${BOLD}Авто-обновления:${NC}"
-        if systemctl is-active --quiet xray-auto-update.timer 2> /dev/null; then
-            echo -e "  Статус: ${GREEN}включены${NC}"
-            local next_update
-            next_update=$(systemctl show xray-auto-update.timer --property=NextElapseUSecRealtime --value 2> /dev/null || echo "unknown")
-            echo -e "  Следующее обновление: ${next_update}"
-        else
-            echo -e "  Статус: ${YELLOW}отключены${NC}"
-        fi
-        echo ""
-
-        echo -e "${BOLD}Ресурсы системы:${NC}"
-        local mem_info
-        mem_info=$(free -m 2> /dev/null | awk 'NR==2{printf "  Память: %sMB / %sMB (%.1f%%)", $3, $2, $3*100/$2}' || true)
-        if [[ -z "$mem_info" ]]; then
-            mem_info="  Память: n/a"
-        fi
-        echo -e "$mem_info"
-        local disk_info
-        disk_info=$(df -h / 2> /dev/null | awk 'NR==2{printf "  Диск:   %s / %s (%s)", $3, $2, $5}' || true)
-        if [[ -z "$disk_info" ]]; then
-            disk_info="  Диск:   n/a"
-        fi
-        echo -e "$disk_info"
-        echo ""
-
-        echo ""
+        status_flow_render_verbose_details
     else
         echo -e "${DIM}Подсказка: используйте --verbose для подробной информации${NC}"
         echo ""
-
     fi
 }
 
