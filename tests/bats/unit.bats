@@ -236,6 +236,47 @@
     [[ "$output" == *"ok"* ]]
 }
 
+@test "export_capabilities_notes_from_json renders capability rows from json" {
+    run bash -eo pipefail -c '
+    source ./modules/export/capabilities.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    capabilities="$tmp_dir/capabilities.json"
+    notes="$tmp_dir/compatibility-notes.txt"
+    cat > "$capabilities" <<'"'"'JSON'"'"'
+{
+  "formats": [
+    {
+      "name": "raw-xray",
+      "status": "native",
+      "artifact": "/tmp/raw-xray",
+      "xray_min_version": "25.9.5",
+      "requires": ["xhttp", "xtls-rprx-vision"],
+      "reason": "canonical artifact"
+    },
+    {
+      "name": "sing-box",
+      "status": "unsupported",
+      "artifact": null,
+      "xray_min_version": "25.9.5",
+      "requires": ["xhttp"],
+      "reason": "not generated"
+    }
+  ]
+}
+JSON
+    TRANSPORT="xhttp"
+    export_capabilities_notes_from_json "$capabilities" "$notes"
+    grep -Fq "transport: xhttp" "$notes"
+    grep -Fq -- "- raw-xray: native -> /tmp/raw-xray" "$notes"
+    grep -Fq "requires: xhttp, xtls-rprx-vision" "$notes"
+    grep -Fq -- "- sing-box: unsupported" "$notes"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "export_capabilities_json writes xhttp capability matrix" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -2834,6 +2875,111 @@ JSON
     [[ "$output" == *"ok"* ]]
 }
 
+@test "rebuild_config_for_transport rebuilds xhttp config and refreshes runtime metadata" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    TMPDIR="$tmp"
+    XRAY_CONFIG="$tmp/config.json"
+    log() { :; }
+    check_xray_version_for_config_generation() { :; }
+    ensure_xray_feature_contract() { :; }
+    setup_mux_settings() { :; }
+    detect_reality_dest() { printf "443\n"; }
+    domain_provider_family_for() { printf "tier-test\n"; }
+    generate_xhttp_path_for_domain() { printf "/edge/api/rebuilt\n"; }
+    generate_vless_encryption_pair() { printf "decrypt-A\tencrypt-A\n"; }
+    rand_between() { printf "10\n"; }
+    generate_inbound_json() {
+      MSYS_NO_PATHCONV=1 jq -nc --arg transport "${12}" --arg dest "$3" --arg endpoint "$8" --arg payload "${13}" --arg decrypt "${14}" \
+        "{transport:\$transport,dest:\$dest,endpoint:\$endpoint,payload:\$payload,vless_decryption:\$decrypt}"
+    }
+    generate_outbounds_json() { printf "[]\n"; }
+    generate_routing_json() { printf "{}\n"; }
+    backup_file() { :; }
+    set_temp_xray_config_permissions() { :; }
+    apply_validated_config() { mv "$1" "$XRAY_CONFIG"; }
+
+    NUM_CONFIGS=1
+    HAS_IPV6=false
+    TRANSPORT="grpc"
+    PORTS=(24443)
+    PORTS_V6=()
+    UUIDS=("uuid-1")
+    SHORT_IDS=("abcd1234")
+    PRIVATE_KEYS=("private-1")
+    CONFIG_DOMAINS=("example.com")
+    CONFIG_SNIS=("")
+    CONFIG_FPS=("chrome")
+    CONFIG_TRANSPORT_ENDPOINTS=("legacy-endpoint")
+    CONFIG_DESTS=("")
+    CONFIG_PROVIDER_FAMILIES=("")
+    CONFIG_VLESS_ENCRYPTIONS=("none")
+    CONFIG_VLESS_DECRYPTIONS=("none")
+
+    rebuild_config_for_transport xhttp
+
+    [[ "$TRANSPORT" == "xhttp" ]]
+    [[ "${CONFIG_DESTS[0]}" == "example.com:443" ]]
+    [[ "${CONFIG_TRANSPORT_ENDPOINTS[0]}" == "/edge/api/rebuilt" ]]
+    [[ "${CONFIG_PROVIDER_FAMILIES[0]}" == "tier-test" ]]
+    [[ "${CONFIG_VLESS_DECRYPTIONS[0]}" == "decrypt-A" ]]
+    [[ "${CONFIG_VLESS_ENCRYPTIONS[0]}" == "encrypt-A" ]]
+    jq -e ".inbounds[0].transport == \"xhttp\"" "$XRAY_CONFIG" > /dev/null
+    jq -e ".inbounds[0].dest == \"example.com:443\"" "$XRAY_CONFIG" > /dev/null
+    jq -e ".inbounds[0].payload == \"/edge/api/rebuilt\"" "$XRAY_CONFIG" > /dev/null
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "rebuild_config_for_transport fails closed when config domain is missing" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_CONFIG="$tmp/config.json"
+    log() { :; }
+    check_xray_version_for_config_generation() { :; }
+    ensure_xray_feature_contract() { :; }
+    setup_mux_settings() { :; }
+
+    printf "{\"old\":true}\n" > "$XRAY_CONFIG"
+    NUM_CONFIGS=1
+    HAS_IPV6=false
+    TRANSPORT="grpc"
+    PORTS=(24443)
+    PORTS_V6=()
+    UUIDS=("uuid-1")
+    SHORT_IDS=("abcd1234")
+    PRIVATE_KEYS=("private-1")
+    CONFIG_DOMAINS=("")
+    CONFIG_SNIS=("legacy-sni")
+    CONFIG_FPS=("chrome")
+    CONFIG_TRANSPORT_ENDPOINTS=("legacy-endpoint")
+    CONFIG_DESTS=("legacy-dest")
+    CONFIG_PROVIDER_FAMILIES=("legacy-family")
+    CONFIG_VLESS_ENCRYPTIONS=("legacy-encryption")
+    CONFIG_VLESS_DECRYPTIONS=("legacy-decryption")
+
+    if rebuild_config_for_transport xhttp; then
+      echo "unexpected-success"
+      exit 1
+    fi
+
+    [[ "$TRANSPORT" == "grpc" ]]
+    [[ "${CONFIG_DESTS[0]}" == "legacy-dest" ]]
+    jq -e ".old == true" "$XRAY_CONFIG" > /dev/null
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "load_existing_* supports explicit ipv4 listen and filters non-reality inbounds" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -3745,12 +3891,14 @@ EOF
     [[ "$output" == *"ok"* ]]
 }
 
-@test "service and health modules are wired into lint and dead-function coverage" {
+@test "service, health, and export modules are wired into lint and dead-function coverage" {
     run bash -eo pipefail -c '
     grep -Fq "modules/service/*.sh" ./Makefile
     grep -Fq "modules/health/*.sh" ./Makefile
+    grep -Fq "modules/export/*.sh" ./Makefile
     grep -Fq '"'"'$ROOT_DIR"'"'"/modules/service/*.sh' ./scripts/check-dead-functions.sh
     grep -Fq '"'"'$ROOT_DIR"'"'"/modules/health/*.sh' ./scripts/check-dead-functions.sh
+    grep -Fq '"'"'$ROOT_DIR"'"'"/modules/export/*.sh' ./scripts/check-dead-functions.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3876,7 +4024,7 @@ EOF
     set -euo pipefail
     tmp="$(mktemp -d)"
     trap "rm -rf \"$tmp\"" EXIT
-    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health" "$tmp/modules/export"
 
     cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
     chmod +x "$tmp/scripts/check-dead-functions.sh"
@@ -3919,7 +4067,7 @@ EOF
     set -euo pipefail
     tmp="$(mktemp -d)"
     trap "rm -rf \"$tmp\"" EXIT
-    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health" "$tmp/modules/export"
 
     cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
     chmod +x "$tmp/scripts/check-dead-functions.sh"
@@ -3952,7 +4100,7 @@ EOF
     set -euo pipefail
     tmp="$(mktemp -d)"
     trap "rm -rf \"$tmp\"" EXIT
-    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health" "$tmp/modules/export"
 
     cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
     chmod +x "$tmp/scripts/check-dead-functions.sh"
@@ -3989,7 +4137,7 @@ EOF
     set -euo pipefail
     tmp="$(mktemp -d)"
     trap "rm -rf \"$tmp\"" EXIT
-    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health"
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health" "$tmp/modules/export"
 
     cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
     chmod +x "$tmp/scripts/check-dead-functions.sh"
@@ -4006,6 +4154,75 @@ EOF
 health_live() { :; }
 health_bridge() { health_live; }
 health_bridge
+EOF
+
+    (cd "$tmp/scripts" && bash ./check-dead-functions.sh > "$tmp/out.txt" 2>&1)
+    grep -q "dead-function-check: ok" "$tmp/out.txt"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "dead-function checker catches unused helper inside modules export" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health" "$tmp/modules/export"
+
+    cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
+    chmod +x "$tmp/scripts/check-dead-functions.sh"
+
+    for f in xray-reality.sh install.sh config.sh service.sh health.sh export.sh lib.sh; do
+      cat > "$tmp/$f" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+:
+EOF
+    done
+
+    cat > "$tmp/modules/export/capabilities.sh" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+export_live() { :; }
+export_dead() { :; }
+export_live
+EOF
+
+    if (cd "$tmp/scripts" && bash ./check-dead-functions.sh > "$tmp/out.txt" 2>&1); then
+      echo "unexpected-success"
+      cat "$tmp/out.txt"
+      exit 1
+    fi
+
+    grep -q "export_dead" "$tmp/out.txt"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "dead-function checker accepts live helper inside modules export" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    mkdir -p "$tmp/scripts" "$tmp/modules/lib" "$tmp/modules/config" "$tmp/modules/install" "$tmp/modules/health" "$tmp/modules/export"
+
+    cp ./scripts/check-dead-functions.sh "$tmp/scripts/check-dead-functions.sh"
+    chmod +x "$tmp/scripts/check-dead-functions.sh"
+
+    for f in xray-reality.sh install.sh config.sh service.sh health.sh export.sh lib.sh; do
+      cat > "$tmp/$f" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+:
+EOF
+    done
+
+    cat > "$tmp/modules/export/capabilities.sh" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+export_live() { :; }
+export_bridge() { export_live; }
+export_bridge
 EOF
 
     (cd "$tmp/scripts" && bash ./check-dead-functions.sh > "$tmp/out.txt" 2>&1)

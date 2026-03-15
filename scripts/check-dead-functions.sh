@@ -23,6 +23,7 @@ FILES=(
     "$ROOT_DIR"/modules/service/*.sh
     "$ROOT_DIR"/modules/install/*.sh
     "$ROOT_DIR"/modules/health/*.sh
+    "$ROOT_DIR"/modules/export/*.sh
 )
 
 IGNORED_FUNCTIONS=(
