@@ -35,7 +35,7 @@ install_guest_dependencies() {
 }
 
 wait_for_systemd_settle() {
-    local attempts="${1:-30}"
+    local attempts=30
     local state=""
     local i
 

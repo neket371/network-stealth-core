@@ -62,8 +62,12 @@ capture_failure_proof() {
         "${XRAY_LOGS:-/var/log/xray}/error.log" \
         > "${proof_dir}/log-path-stats.txt" 2>&1 || true
 
-    [[ -f /etc/systemd/system/xray.service ]] && cp -a /etc/systemd/system/xray.service "${proof_dir}/xray.service" 2> /dev/null || true
-    [[ -f /etc/logrotate.d/xray ]] && cp -a /etc/logrotate.d/xray "${proof_dir}/logrotate-xray.conf" 2> /dev/null || true
+    if [[ -f /etc/systemd/system/xray.service ]]; then
+        cp -a /etc/systemd/system/xray.service "${proof_dir}/xray.service" 2> /dev/null || true
+    fi
+    if [[ -f /etc/logrotate.d/xray ]]; then
+        cp -a /etc/logrotate.d/xray "${proof_dir}/logrotate-xray.conf" 2> /dev/null || true
+    fi
 }
 
 ensure_backup_session() {
