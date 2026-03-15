@@ -253,7 +253,6 @@ ${safe_logs_dir%/}/access.log ${safe_logs_dir%/}/error.log {
     notifempty
     compress
     delaycompress
-    su xray xray
     copytruncate
     create 0640 xray xray
 }

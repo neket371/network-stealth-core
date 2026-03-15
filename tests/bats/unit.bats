@@ -1070,7 +1070,6 @@ EOF
     grep -q '\''safe_logs_dir='\'' ./modules/install/bootstrap.sh
     grep -q '\''safe_health_log='\'' ./modules/install/bootstrap.sh
     grep -Fq '\''${safe_logs_dir%/}/access.log ${safe_logs_dir%/}/error.log {'\'' ./modules/install/bootstrap.sh
-    grep -Fq '\''su xray xray'\'' ./modules/install/bootstrap.sh
     grep -Fq '\''create 0640 xray xray'\'' ./modules/install/bootstrap.sh
     grep -Fq '\''${safe_health_log} ${safe_install_log} ${safe_update_log} ${safe_diag_log} ${safe_repair_log} {'\'' ./modules/install/bootstrap.sh
     grep -Fq '\''su root root'\'' ./modules/install/bootstrap.sh
