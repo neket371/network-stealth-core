@@ -13,6 +13,7 @@ STATUS_BEFORE="/tmp/xru-migrate-before.txt"
 STATUS_AFTER="/tmp/xru-migrate-after.txt"
 STATUS_REPAIR="/tmp/xru-migrate-repair.txt"
 LEGACY_BOOTSTRAP="/tmp/xru-legacy-bootstrap.sh"
+LEGACY_LOGS="${LEGACY_LOGS:-/var/lib/xray/legacy-logs}"
 
 cleanup() {
     cleanup_installation "$SCRIPT_PATH"
@@ -35,6 +36,7 @@ run_root env \
     XRAY_NUM_CONFIGS="$INITIAL_CONFIGS" \
     XRAY_TRANSPORT=grpc \
     XRAY_REPO_REF=v5.1.0 \
+    XRAY_LOGS="$LEGACY_LOGS" \
     START_PORT="$START_PORT" \
     SERVER_IP=127.0.0.1 \
     DOMAIN_CHECK=false \
