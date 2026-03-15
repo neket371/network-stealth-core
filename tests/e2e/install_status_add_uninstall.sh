@@ -31,6 +31,9 @@ run_root env \
     ALLOW_INSECURE_SHA256=true \
     bash "$SCRIPT_PATH" install
 assert_service_active xray
+assert_xray_runtime_logs_contract
+restart_xray_and_assert_healthy
+force_rotate_xray_logs_and_assert_healthy
 
 echo "==> status"
 run_root bash "$SCRIPT_PATH" status --verbose | run_root tee /tmp/xru-status-before.txt > /dev/null
@@ -49,6 +52,8 @@ done
 echo "==> add-clients"
 run_root env NON_INTERACTIVE=true ASSUME_YES=true bash "$SCRIPT_PATH" add-clients "$ADD_CONFIGS"
 assert_service_active xray
+assert_xray_runtime_logs_contract
+restart_xray_and_assert_healthy
 
 after_count="$(run_root jq '.inbounds | length' /etc/xray/config.json)"
 expected_after=$((before_count + ADD_CONFIGS))

@@ -32,6 +32,55 @@ assert_service_active() {
     fi
 }
 
+assert_path_mode_owner() {
+    local path="$1"
+    local expected_owner="$2"
+    local expected_group="$3"
+    local expected_mode="$4"
+
+    if ! run_root test -e "$path"; then
+        echo "expected path is missing: ${path}" >&2
+        exit 1
+    fi
+
+    local actual
+    actual="$(run_root stat -c '%U:%G:%a' "$path")"
+    if [[ "$actual" != "${expected_owner}:${expected_group}:${expected_mode}" ]]; then
+        echo "unexpected ownership or mode for ${path}: got ${actual}, expected ${expected_owner}:${expected_group}:${expected_mode}" >&2
+        exit 1
+    fi
+}
+
+assert_unit_journal_lacks() {
+    local unit="$1"
+    local pattern="$2"
+    if run_root journalctl -u "$unit" --no-pager -n 200 2> /dev/null | grep -Eqi "$pattern"; then
+        echo "unexpected journal pattern for ${unit}: ${pattern}" >&2
+        run_root journalctl -u "$unit" --no-pager -n 200 >&2 || true
+        exit 1
+    fi
+}
+
+assert_xray_runtime_logs_contract() {
+    local logs_dir="${XRAY_LOGS:-/var/log/xray}"
+    assert_path_mode_owner "$logs_dir" xray xray 750
+    assert_path_mode_owner "${logs_dir%/}/access.log" xray xray 640
+    assert_path_mode_owner "${logs_dir%/}/error.log" xray xray 640
+}
+
+restart_xray_and_assert_healthy() {
+    run_root systemctl restart xray
+    assert_service_active xray
+    run_root "${XRAY_BIN:-/usr/local/bin/xray}" run -test -config "${XRAY_CONFIG:-/etc/xray/config.json}" > /dev/null
+    assert_xray_runtime_logs_contract
+    assert_unit_journal_lacks xray 'permission denied|failed to initialize access logger'
+}
+
+force_rotate_xray_logs_and_assert_healthy() {
+    run_root logrotate -f /etc/logrotate.d/xray
+    restart_xray_and_assert_healthy
+}
+
 assert_path_absent() {
     local path="$1"
     if [[ -e "$path" ]]; then

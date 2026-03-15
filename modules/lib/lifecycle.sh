@@ -16,6 +16,56 @@ BACKUP_STACK=()
 declare -A LOCAL_BACKUP_MAP=()
 BACKUP_SESSION_DIR=""
 
+capture_failure_proof() {
+    local proof_dir="${XRAY_FAILURE_PROOF_DIR:-}"
+    [[ -n "$proof_dir" ]] || return 0
+
+    mkdir -p "$proof_dir" 2> /dev/null || return 0
+
+    {
+        printf 'action=%s\n' "${ACTION:-unknown}"
+        printf 'timestamp=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf 'script_version=%s\n' "${SCRIPT_VERSION:-unknown}"
+        printf 'xray_user=%s\n' "${XRAY_USER:-xray}"
+        printf 'xray_group=%s\n' "${XRAY_GROUP:-xray}"
+        printf 'xray_logs=%s\n' "${XRAY_LOGS:-/var/log/xray}"
+        printf 'xray_bin=%s\n' "${XRAY_BIN:-/usr/local/bin/xray}"
+        printf 'xray_config=%s\n' "${XRAY_CONFIG:-/etc/xray/config.json}"
+    } > "${proof_dir}/meta.env" 2> /dev/null || true
+
+    if command -v systemctl > /dev/null 2>&1; then
+        systemctl cat xray > "${proof_dir}/systemctl-cat-xray.txt" 2>&1 || true
+        systemctl show xray \
+            -p User \
+            -p Group \
+            -p SupplementaryGroups \
+            -p LogsDirectory \
+            -p ReadWritePaths \
+            -p FragmentPath \
+            -p DropInPaths \
+            -p MainPID \
+            > "${proof_dir}/systemctl-show-xray.txt" 2>&1 || true
+        systemctl status xray --no-pager -l > "${proof_dir}/systemctl-status-xray.txt" 2>&1 || true
+        journalctl -u xray --no-pager -n 200 > "${proof_dir}/journal-xray.txt" 2>&1 || true
+        journalctl -u xray-health --no-pager -n 200 > "${proof_dir}/journal-xray-health.txt" 2>&1 || true
+    fi
+
+    id "${XRAY_USER:-xray}" > "${proof_dir}/id-xray.txt" 2>&1 || true
+    getent passwd "${XRAY_USER:-xray}" > "${proof_dir}/getent-passwd-xray.txt" 2>&1 || true
+    getent group "${XRAY_GROUP:-xray}" > "${proof_dir}/getent-group-xray.txt" 2>&1 || true
+    getent group syslog > "${proof_dir}/getent-group-syslog.txt" 2>&1 || true
+    namei -l "${XRAY_LOGS:-/var/log/xray}/access.log" > "${proof_dir}/namei-access-log.txt" 2>&1 || true
+    stat -c '%U:%G:%a %n' \
+        /var/log \
+        "${XRAY_LOGS:-/var/log/xray}" \
+        "${XRAY_LOGS:-/var/log/xray}/access.log" \
+        "${XRAY_LOGS:-/var/log/xray}/error.log" \
+        > "${proof_dir}/log-path-stats.txt" 2>&1 || true
+
+    [[ -f /etc/systemd/system/xray.service ]] && cp -a /etc/systemd/system/xray.service "${proof_dir}/xray.service" 2> /dev/null || true
+    [[ -f /etc/logrotate.d/xray ]] && cp -a /etc/logrotate.d/xray "${proof_dir}/logrotate-xray.conf" 2> /dev/null || true
+}
+
 ensure_backup_session() {
     if [[ -z "$BACKUP_SESSION_DIR" ]]; then
         mkdir -p "$XRAY_BACKUP"
@@ -140,6 +190,7 @@ cleanup_on_error() {
     if [[ $exit_code -ne 0 ]]; then
         echo ""
         log ERROR "Операция прервана с ошибкой (код: ${exit_code})"
+        capture_failure_proof || true
 
         if [[ ${#FIREWALL_ROLLBACK_ENTRIES[@]} -gt 0 ]]; then
             rollback_firewall_changes || true

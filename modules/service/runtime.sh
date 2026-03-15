@@ -55,6 +55,69 @@ validate_systemd_path_value() {
     return 0
 }
 
+mode_digit_allows_execute() {
+    local digit="${1:-0}"
+    [[ "$digit" =~ ^[0-7]$ ]] || return 1
+    (((8#${digit} & 1) != 0))
+}
+
+systemd_log_supplementary_groups() {
+    local logs_path="${1:-/var/log/xray}"
+    local primary_user="${2:-$XRAY_USER}"
+    local primary_group="${3:-$XRAY_GROUP}"
+    local target_dir
+    target_dir=$(dirname "${logs_path%/}")
+    [[ -n "$target_dir" && "$target_dir" == /* ]] || return 0
+
+    local current=""
+    local rel_path="${target_dir#/}"
+    local -a components=()
+    IFS='/' read -r -a components <<< "$rel_path"
+
+    local -a required_groups=()
+    declare -A seen_groups=()
+    local component stats owner group mode user_digit group_digit other_digit
+    local preserve_var_log_parent_group=false
+    for component in "${components[@]}"; do
+        [[ -n "$component" ]] || continue
+        current="${current}/${component}"
+
+        stats=$(stat -c '%U:%G:%a' "$current" 2> /dev/null) || return 0
+        IFS=':' read -r owner group mode <<< "$stats"
+        mode="${mode: -3}"
+        user_digit="${mode:0:1}"
+        group_digit="${mode:1:1}"
+        other_digit="${mode:2:1}"
+
+        if [[ "$owner" == "$primary_user" ]] && mode_digit_allows_execute "$user_digit"; then
+            continue
+        fi
+        if [[ "$group" == "$primary_group" ]] && mode_digit_allows_execute "$group_digit"; then
+            continue
+        fi
+        preserve_var_log_parent_group=false
+        if [[ "$logs_path" == /var/log/* && "$current" == "/var/log" && "$group" != "root" ]]; then
+            preserve_var_log_parent_group=true
+        fi
+        if mode_digit_allows_execute "$other_digit" && [[ "$preserve_var_log_parent_group" != true ]]; then
+            continue
+        fi
+        if ! mode_digit_allows_execute "$group_digit"; then
+            continue
+        fi
+        if ! validate_systemd_user_group_value "$group" "логового group-parent"; then
+            continue
+        fi
+        if [[ -z "${seen_groups[$group]:-}" ]]; then
+            seen_groups["$group"]=1
+            required_groups+=("$group")
+        fi
+    done
+
+    ((${#required_groups[@]} > 0)) || return 0
+    printf '%s\n' "${required_groups[*]}"
+}
+
 is_nonfatal_systemctl_error() {
     local err="${1:-}"
     [[ -n "$err" ]] || return 1
@@ -85,6 +148,28 @@ ensure_xray_runtime_logs_ready() {
         chown "${XRAY_USER}:${XRAY_GROUP}" "$log_file"
         chmod 640 "$log_file"
     done
+}
+
+systemd_log_access_directives() {
+    local logs_path="${1:-/var/log/xray}"
+    local primary_user="${2:-$XRAY_USER}"
+    local primary_group="${3:-$XRAY_GROUP}"
+    local supplementary_groups=""
+
+    supplementary_groups="$(systemd_log_supplementary_groups "$logs_path" "$primary_user" "$primary_group")"
+    if [[ -n "$supplementary_groups" ]]; then
+        printf 'SupplementaryGroups=%s\n' "$supplementary_groups"
+    fi
+
+    if [[ "$logs_path" == "/var/log/xray" ]]; then
+        cat << 'EOF'
+LogsDirectory=xray
+LogsDirectoryMode=0750
+EOF
+        return 0
+    fi
+
+    printf 'ReadWritePaths=%s\n' "$logs_path"
 }
 
 systemctl_uninstall_bounded() {
@@ -205,7 +290,7 @@ create_systemd_service() {
         fi
     fi
 
-    local _sd_user _sd_group _sd_logs _sd_bin _sd_config
+    local _sd_user _sd_group _sd_logs _sd_bin _sd_config _sd_log_directives
     sanitize_systemd_value_into _sd_user "$XRAY_USER"
     sanitize_systemd_value_into _sd_group "$XRAY_GROUP"
     sanitize_systemd_value_into _sd_logs "$XRAY_LOGS"
@@ -216,6 +301,7 @@ create_systemd_service() {
     validate_systemd_path_value "$_sd_logs" "XRAY_LOGS" || return 1
     validate_systemd_path_value "$_sd_bin" "XRAY_BIN" || return 1
     validate_systemd_path_value "$_sd_config" "XRAY_CONFIG" || return 1
+    _sd_log_directives="$(systemd_log_access_directives "$_sd_logs" "$_sd_user" "$_sd_group")"
 
     cleanup_conflicting_xray_service_dropins || return 1
 
@@ -255,7 +341,8 @@ LockPersonality=true
 SystemCallFilter=@system-service @network-io
 SystemCallFilter=~@privileged @mount @swap @reboot @raw-io @cpu-emulation @debug @obsolete
 PrivateTmp=true
-ReadWritePaths=${_sd_logs} ${_sd_logs}/access.log ${_sd_logs}/error.log
+UMask=0027
+${_sd_log_directives}
 ExecStart=${_sd_bin} run -config ${_sd_config}
 Restart=on-failure
 RestartSec=5s

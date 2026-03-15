@@ -6,6 +6,8 @@ branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
 total repo-tracked files reviewed: **146**
 
+> historical snapshot only: this matrix records coverage for the audited tree on `2026-03-13`. it is not an automatic claim that later commits or local modifications were reviewed.
+
 review depth meanings:
 - `manual semantic` — file behavior and contracts were traced manually.
 - `contract consistency` — file was reviewed against current runtime/docs/workflow contracts.

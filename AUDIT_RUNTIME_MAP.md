@@ -5,6 +5,8 @@ repository: `neket371/network-stealth-core`
 branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
+> historical snapshot only: this runtime map describes the audited tree on `2026-03-13`. workflow and runtime verification notes below are not live guarantees for later commits or uncommitted changes.
+
 ## top-level execution chain
 
 1. `xray-reality.sh` resolves a trusted module root, prints bootstrap pin warnings when mutating actions are run from a floating ref, and bootstraps the local/runtime tree.

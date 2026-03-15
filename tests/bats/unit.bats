@@ -3127,6 +3127,78 @@ EOF
     [[ "$output" == *"ok"* ]]
 }
 
+@test "systemd_log_supplementary_groups derives parent traversal group for restricted log paths" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+
+    tmpbin="$(mktemp -d)"
+    trap "rm -rf \"$tmpbin\"" EXIT
+    cat > "$tmpbin/stat" <<'\''EOF'\''
+#!/usr/bin/env bash
+target="${@: -1}"
+case "$target" in
+    /)
+        printf "%s\n" "root:root:755"
+        ;;
+    /var)
+        printf "%s\n" "root:root:755"
+        ;;
+    /var/log)
+        printf "%s\n" "root:syslog:750"
+        ;;
+    *)
+        exit 1
+        ;;
+esac
+EOF
+    chmod 755 "$tmpbin/stat"
+    PATH="$tmpbin:$PATH"
+
+    XRAY_USER="xray"
+    XRAY_GROUP="xray"
+    derived="$(systemd_log_supplementary_groups "/var/log/xray" "$XRAY_USER" "$XRAY_GROUP")"
+    [[ "$derived" == "syslog" ]]
+    [[ "$(systemd_log_access_directives "/var/log/xray" "$XRAY_USER" "$XRAY_GROUP")" == *"SupplementaryGroups=syslog"* ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "systemd_log_supplementary_groups preserves /var/log parent group for default log path even if others can traverse" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+
+    tmpbin="$(mktemp -d)"
+    cat > "$tmpbin/stat" <<'\''EOF'\''
+#!/usr/bin/env bash
+case "$*" in
+    "-c %U:%G:%a /var")
+        printf '\''%s\n'\'' '\''root:root:755'\''
+        ;;
+    "-c %U:%G:%a /var/log")
+        printf '\''%s\n'\'' '\''root:syslog:775'\''
+        ;;
+    *)
+        exit 1
+        ;;
+esac
+EOF
+    chmod 755 "$tmpbin/stat"
+    PATH="$tmpbin:$PATH"
+
+    XRAY_USER="xray"
+    XRAY_GROUP="xray"
+    derived="$(systemd_log_supplementary_groups "/var/log/xray" "$XRAY_USER" "$XRAY_GROUP")"
+    [[ "$derived" == "syslog" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "create_systemd_service handles missing systemd dir in non-systemd mode" {
     run bash -eo pipefail -c '
     grep -q '\''local systemd_dir="/etc/systemd/system"'\'' ./modules/service/runtime.sh
@@ -3153,12 +3225,18 @@ EOF
     [ "$output" = "ok" ]
 }
 
-@test "create_systemd_service hardens writable log paths for xray" {
+@test "create_systemd_service uses systemd-native log dirs and fallback writable paths" {
     run bash -eo pipefail -c '
     grep -Fq '\''ensure_xray_runtime_logs_ready || {'\'' ./modules/service/runtime.sh
     grep -Fq '\''chown "${XRAY_USER}:${XRAY_GROUP}" "$logs_dir"'\'' ./modules/service/runtime.sh
     grep -Fq '\''chmod 750 "$logs_dir"'\'' ./modules/service/runtime.sh
-    grep -Fq '\''ReadWritePaths=${_sd_logs} ${_sd_logs}/access.log ${_sd_logs}/error.log'\'' ./modules/service/runtime.sh
+    grep -Fq '\''systemd_log_access_directives()'\'' ./modules/service/runtime.sh
+    grep -Fq '\''systemd_log_supplementary_groups()'\'' ./modules/service/runtime.sh
+    grep -Fq '\''SupplementaryGroups=%s\n'\'' ./modules/service/runtime.sh
+    grep -Fq '\''LogsDirectory=xray'\'' ./modules/service/runtime.sh
+    grep -Fq '\''LogsDirectoryMode=0750'\'' ./modules/service/runtime.sh
+    grep -Fq '\''printf '\''"'\''ReadWritePaths=%s\n'\''"'\'' "$logs_path"'\'' ./modules/service/runtime.sh
+    grep -Fq '\''UMask=0027'\'' ./modules/service/runtime.sh
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -3385,9 +3463,9 @@ EOF
 @test "ci workflow includes stability and audit gates" {
     run bash -eo pipefail -c '
     grep -q '\''name: stability smoke (double bats)'\'' ./.github/workflows/ci.yml
-    grep -q '\''bash scripts/check-workflow-pinning.sh'\'' ./.github/workflows/ci.yml
-    grep -q '\''bash scripts/check-security-baseline.sh'\'' ./.github/workflows/ci.yml
-    grep -q '\''bash scripts/check-docs-commands.sh'\'' ./.github/workflows/ci.yml
+    grep -q '\''run: make lint'\'' ./.github/workflows/ci.yml
+    grep -q '\''run: make test'\'' ./.github/workflows/ci.yml
+    grep -q '\''COMPLEXITY_STAGE=3 bash scripts/check-shell-complexity.sh'\'' ./.github/workflows/ci.yml
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3501,7 +3579,6 @@ EOF
     run bash -eo pipefail -c '
     grep -q '\''scripts/lab/\*.sh'\'' ./Makefile
     grep -q '\''scripts/lab/\*.sh'\'' ./tests/lint.sh
-    grep -q '\''scripts/lab/\*.sh'\'' ./.github/workflows/ci.yml
     grep -q '\''make vm-lab-smoke'\'' ./.github/workflows/self-hosted-smoke.yml
     grep -q '\''make lab-smoke'\'' ./.github/workflows/self-hosted-smoke.yml
     grep -q '\''make vm-lab-smoke'\'' ./.github/workflows/nightly-smoke.yml

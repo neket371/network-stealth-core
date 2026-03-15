@@ -34,6 +34,29 @@ install_guest_dependencies() {
         uuid-runtime > /dev/null
 }
 
+wait_for_systemd_settle() {
+    local attempts="${1:-30}"
+    local state=""
+    local i
+
+    for ((i = 1; i <= attempts; i++)); do
+        state="$(systemctl is-system-running 2> /dev/null || true)"
+        case "$state" in
+            running | degraded)
+                sudo systemctl reset-failed > /dev/null 2>&1 || true
+                return 0
+                ;;
+            *)
+                sleep 2
+                ;;
+        esac
+    done
+
+    echo "systemd did not fully settle before vm-lab lifecycle run (state=${state:-unknown}); continuing with best effort" >&2
+    sudo systemctl reset-failed > /dev/null 2>&1 || true
+    return 0
+}
+
 resolve_latest_stable_xray_version() {
     local api_url="${XRAY_RELEASES_API:-https://api.github.com/repos/XTLS/Xray-core/releases?per_page=5}"
     local releases_json latest_tag
@@ -156,6 +179,7 @@ EOF
 
 main() {
     install_guest_dependencies
+    wait_for_systemd_settle
 
     local guest_ip
     guest_ip="$(guest_primary_ipv4)"

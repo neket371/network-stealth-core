@@ -163,6 +163,34 @@ dst.write_text(json.dumps(items, indent=2) + "\n", encoding="utf-8")
 PY
 }
 
+proof_capture_failure_evidence() {
+    proof_enabled || return 0
+
+    mkdir -p "$E2E_PROOF_DIR"
+
+    run_root systemctl cat xray > "${E2E_PROOF_DIR}/failure-systemctl-cat-xray.txt" 2>&1 || true
+    run_root systemctl show xray \
+        -p User \
+        -p Group \
+        -p SupplementaryGroups \
+        -p LogsDirectory \
+        -p ReadWritePaths \
+        -p FragmentPath \
+        -p DropInPaths \
+        > "${E2E_PROOF_DIR}/failure-systemctl-show-xray.txt" 2>&1 || true
+    run_root systemctl status xray --no-pager -l > "${E2E_PROOF_DIR}/failure-systemctl-status-xray.txt" 2>&1 || true
+    run_root journalctl -u xray --no-pager -n 200 > "${E2E_PROOF_DIR}/failure-journal-xray.txt" 2>&1 || true
+    run_root journalctl -u xray-health --no-pager -n 200 > "${E2E_PROOF_DIR}/failure-journal-xray-health.txt" 2>&1 || true
+    run_root bash -lc 'id xray' > "${E2E_PROOF_DIR}/failure-id-xray.txt" 2>&1 || true
+    run_root bash -lc 'namei -l /var/log/xray/access.log' > "${E2E_PROOF_DIR}/failure-namei-access-log.txt" 2>&1 || true
+    run_root bash -lc "stat -c '%U:%G:%a %n' /var/log /var/log/xray /var/log/xray/access.log /var/log/xray/error.log" \
+        > "${E2E_PROOF_DIR}/failure-log-path-stats.txt" 2>&1 || true
+    run_root bash -lc "test -f /etc/systemd/system/xray.service && cat /etc/systemd/system/xray.service" \
+        > "${E2E_PROOF_DIR}/failure-unit-file.txt" 2>&1 || true
+    run_root bash -lc "test -f /etc/logrotate.d/xray && cat /etc/logrotate.d/xray" \
+        > "${E2E_PROOF_DIR}/failure-logrotate-xray.txt" 2>&1 || true
+}
+
 proof_write_lifecycle_manifest() {
     proof_enabled || return 0
 
@@ -217,6 +245,9 @@ cleanup_state() {
 
 cleanup_on_exit() {
     local exit_code=$?
+    if ((exit_code != 0)); then
+        proof_capture_failure_evidence || true
+    fi
     if ((exit_code != 0)) && [[ "$E2E_KEEP_FAILURE_STATE" == "true" ]]; then
         echo "==> keeping failed lifecycle state for inspection"
         rm -f "$STATUS_FILE"
@@ -257,6 +288,7 @@ install_env=(
     DOMAIN_CHECK="$E2E_DOMAIN_CHECK"
     SKIP_REALITY_CHECK="$E2E_SKIP_REALITY_CHECK"
     ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256"
+    XRAY_FAILURE_PROOF_DIR="${E2E_PROOF_DIR:+${E2E_PROOF_DIR}/install-failure}"
 )
 if [[ -n "$INSTALL_VERSION" ]]; then
     install_env+=(XRAY_VERSION="$INSTALL_VERSION")
@@ -265,26 +297,35 @@ run_root env \
     "${install_env[@]}" \
     bash "$SCRIPT_PATH" install
 proof_record_step install
+assert_xray_runtime_logs_contract
+restart_xray_and_assert_healthy
+force_rotate_xray_logs_and_assert_healthy
 
 echo "==> add-clients"
 run_root env \
     NON_INTERACTIVE=true \
     ASSUME_YES=true \
     ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256" \
+    XRAY_FAILURE_PROOF_DIR="${E2E_PROOF_DIR:+${E2E_PROOF_DIR}/add-clients-failure}" \
     bash "$SCRIPT_PATH" add-clients "$ADD_CONFIGS"
 proof_record_step add-clients
 
 assert_service_active xray
+assert_xray_runtime_logs_contract
+restart_xray_and_assert_healthy
 
 echo "==> repair"
 run_root env \
     NON_INTERACTIVE=true \
     ASSUME_YES=true \
     ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256" \
+    XRAY_FAILURE_PROOF_DIR="${E2E_PROOF_DIR:+${E2E_PROOF_DIR}/repair-failure}" \
     bash "$SCRIPT_PATH" repair
 proof_record_step repair
 
 assert_service_active xray
+assert_xray_runtime_logs_contract
+restart_xray_and_assert_healthy
 
 for file in "$XRAY_CONFIG" "$KEYS_FILE" "$CLIENTS_FILE" "$CLIENTS_JSON"; do
     if ! run_root test -f "$file"; then
@@ -305,6 +346,7 @@ update_env=(
     NON_INTERACTIVE=true
     ASSUME_YES=true
     ALLOW_INSECURE_SHA256="$E2E_ALLOW_INSECURE_SHA256"
+    XRAY_FAILURE_PROOF_DIR="${E2E_PROOF_DIR:+${E2E_PROOF_DIR}/update-failure}"
 )
 if [[ -n "$UPDATE_VERSION" ]]; then
     update_env+=(
@@ -318,6 +360,8 @@ run_root env \
 proof_record_step update
 
 assert_service_active xray
+assert_xray_runtime_logs_contract
+restart_xray_and_assert_healthy
 version_after="$(xray_version)"
 if [[ -n "$INSTALL_VERSION" && -n "$UPDATE_VERSION" && "$INSTALL_VERSION" != "$UPDATE_VERSION" ]]; then
     if [[ "$version_after" != "$UPDATE_VERSION" ]]; then
@@ -355,9 +399,12 @@ echo "==> rollback from update backup"
 run_root env \
     NON_INTERACTIVE=true \
     ASSUME_YES=true \
+    XRAY_FAILURE_PROOF_DIR="${E2E_PROOF_DIR:+${E2E_PROOF_DIR}/rollback-failure}" \
     bash "$SCRIPT_PATH" rollback "$backup_dir"
 assert_service_active xray
 proof_record_step rollback
+assert_xray_runtime_logs_contract
+restart_xray_and_assert_healthy
 
 echo "==> verify rollback restored original artifacts"
 for file in "$XRAY_CONFIG" "$KEYS_FILE" "$CLIENTS_FILE" "$CLIENTS_JSON"; do

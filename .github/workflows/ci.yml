@@ -51,41 +51,6 @@ jobs:
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "20"
-      - name: Actionlint
-        run: actionlint -oneline .github/workflows/*.yml
-      - name: Markdown lint
-        run: |
-          set -euo pipefail
-          md_runner=()
-          if command -v markdownlint >/dev/null 2>&1; then
-            md_runner=(markdownlint)
-          else
-            export NPM_CONFIG_REGISTRY="https://registry.npmjs.org"
-            for attempt in 1 2 3; do
-              if npm install -g markdownlint-cli@0.41.0 --no-audit --no-fund; then
-                break
-              fi
-              echo "markdownlint-cli install attempt ${attempt}/3 failed" >&2
-              npm cache clean --force >/dev/null 2>&1 || true
-              sleep $((attempt * 2))
-            done
-            if command -v markdownlint >/dev/null 2>&1; then
-              md_runner=(markdownlint)
-            else
-              echo "Global markdownlint-cli install unavailable, using npx fallback" >&2
-              md_runner=(npx --yes markdownlint-cli@0.41.0)
-            fi
-          fi
-
-          NODE_OPTIONS=--no-deprecation "${md_runner[@]}" --config .markdownlint.json \
-            README.md \
-            README.ru.md \
-            .github/CONTRIBUTING.md \
-            .github/CONTRIBUTING.ru.md \
-            .github/SECURITY.md \
-            .github/SECURITY.ru.md \
-            docs/en/*.md \
-            docs/ru/*.md
       - name: Markdown links
         uses: lycheeverse/lychee-action@a8c4c7cb88f0c7386610c35eb25108e448569cb0 # v2
         with:
@@ -94,98 +59,14 @@ jobs:
           fail: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Shellcheck
-        run: |
-          shellcheck -x -e SC1091 \
-            xray-reality.sh \
-            lib.sh \
-            install.sh \
-            config.sh \
-            service.sh \
-            health.sh \
-            export.sh \
-            scripts/measure-stealth.sh \
-            scripts/release.sh \
-            scripts/check-release-consistency.sh \
-            scripts/release-policy-gate.sh \
-            scripts/check-dead-functions.sh \
-            scripts/check-workflow-pinning.sh \
-            scripts/check-security-baseline.sh \
-            scripts/check-docs-commands.sh \
-            scripts/lab/*.sh \
-            modules/lib/*.sh \
-            modules/config/*.sh \
-            modules/install/*.sh \
-            tests/e2e/*.sh \
-            tests/*.sh
-      - name: shfmt
-        run: |
-          shfmt -d -i 4 -ci -sr \
-            xray-reality.sh \
-            lib.sh \
-            install.sh \
-            config.sh \
-            service.sh \
-            health.sh \
-            export.sh \
-            scripts/measure-stealth.sh \
-            scripts/release.sh \
-            scripts/check-release-consistency.sh \
-            scripts/release-policy-gate.sh \
-            scripts/check-dead-functions.sh \
-            scripts/check-workflow-pinning.sh \
-            scripts/check-security-baseline.sh \
-            scripts/check-docs-commands.sh \
-            scripts/lab/*.sh \
-            modules/lib/*.sh \
-            modules/config/*.sh \
-            modules/install/*.sh \
-            tests/e2e/*.sh \
-            tests/*.sh
-      - name: Bashate
-        run: |
-          bashate -i E003,E006,E042,E043 \
-            xray-reality.sh \
-            lib.sh \
-            install.sh \
-            config.sh \
-            service.sh \
-            health.sh \
-            export.sh \
-            scripts/measure-stealth.sh \
-            scripts/release.sh \
-            scripts/check-release-consistency.sh \
-            scripts/release-policy-gate.sh \
-            scripts/check-dead-functions.sh \
-            scripts/check-workflow-pinning.sh \
-            scripts/check-security-baseline.sh \
-            scripts/check-docs-commands.sh \
-            scripts/lab/*.sh \
-            modules/lib/*.sh \
-            modules/config/*.sh \
-            modules/install/*.sh \
-            tests/e2e/*.sh \
-            tests/*.sh
-      - name: Dead function check
-        run: bash scripts/check-dead-functions.sh
-      - name: Workflow pinning check
-        run: bash scripts/check-workflow-pinning.sh
-      - name: Security baseline check
-        run: bash scripts/check-security-baseline.sh
-      - name: Docs command contract check
-        run: bash scripts/check-docs-commands.sh
+      - name: Lint suite
+        run: make lint
       - name: Complexity trend gate (stage 3)
         run: |
           set -euo pipefail
           COMPLEXITY_STAGE=3 bash scripts/check-shell-complexity.sh
       - name: BATS
-        run: |
-          set -euo pipefail
-          if bats --help | grep -q -- '--print-output-on-failure'; then
-            bats --print-output-on-failure tests/bats
-          else
-            bats tests/bats
-          fi
+        run: make test
 
   packages-tag-scenario:
     name: packages tag scenario

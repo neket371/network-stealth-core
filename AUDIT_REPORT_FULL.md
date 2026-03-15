@@ -5,6 +5,8 @@ repository: `neket371/network-stealth-core`
 branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
+> historical snapshot only: this document is a point-in-time audit record, not a live branch status page. any ci, runtime, or release claims here apply only to the audited tree on `2026-03-13` and must be revalidated for later commits or uncommitted changes.
+
 ## scope
 
 this audit refresh covers the current `v7.1.0` baseline, not the old `4.2.x` shell-only snapshot.
