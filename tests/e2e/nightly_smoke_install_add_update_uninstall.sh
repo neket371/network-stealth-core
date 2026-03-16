@@ -23,7 +23,7 @@ KEYS_FILE="${XRAY_KEYS_DIR}/keys.txt"
 CLIENTS_FILE="${XRAY_KEYS_DIR}/clients.txt"
 CLIENTS_LINKS_FILE="${XRAY_KEYS_DIR}/clients-links.txt"
 CLIENTS_JSON="${XRAY_KEYS_DIR}/clients.json"
-STATUS_FILE="/tmp/xru-nightly-status.txt"
+STATUS_FILE="$(mktemp /tmp/xru-nightly-status.XXXXXX)"
 E2E_PROOF_DIR="${E2E_PROOF_DIR:-}"
 declare -a PROOF_STEPS=()
 
