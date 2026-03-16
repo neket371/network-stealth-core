@@ -7,6 +7,18 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.0] - 2026-03-16
+
+### changed
+
+- persisted managed custom domain sources into `/etc/xray-reality/custom-domains.txt` so custom installs remain manageable across `add-clients`, `add-keys`, and later lifecycle actions
+- added a deterministic vm-lab tagged release validation path via `nsc-vm-install-release` and `make vm-lab-release-smoke`
+
+### fixed
+
+- fail-closed custom-profile validation now reports missing managed custom-domain state early instead of failing later with an empty domain list
+- release-facing docs and consistency checks now enforce an explicit tag-pinned bootstrap path and generic issue-template placeholders
+
 ## [7.3.8] - 2026-03-16
 
 ### changed

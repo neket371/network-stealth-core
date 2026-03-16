@@ -7,6 +7,18 @@
 
 ## [unreleased]
 
+## [7.5.0] - 2026-03-16
+
+### changed
+
+- source of truth для custom-domain install теперь сохраняется в `/etc/xray-reality/custom-domains.txt`, поэтому такие установки переживают `add-clients`, `add-keys` и следующие lifecycle-действия
+- добавлен детерминированный vm-lab путь проверки tagged release через `nsc-vm-install-release` и `make vm-lab-release-smoke`
+
+### fixed
+
+- fail-closed валидация custom-профиля теперь рано и явно сообщает об отсутствии managed custom-domain state вместо позднего падения с пустым списком доменов
+- release-facing docs и consistency-checks теперь жёстко требуют явный tag-pinned bootstrap path и generic placeholders в issue templates
+
 ## [7.3.8] - 2026-03-16
 
 ### changed
