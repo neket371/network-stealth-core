@@ -408,7 +408,7 @@ restart_xray_bounded() {
 FAIL_COUNT=$(read_count "$FAIL_COUNT_FILE")
 
 if ! check_xray_health; then
-    ((FAIL_COUNT++))
+    FAIL_COUNT=$((FAIL_COUNT + 1))
     write_count "$FAIL_COUNT_FILE" "$FAIL_COUNT"
     echo "[$(date)] Xray health check failed ($FAIL_COUNT/$MAX_FAILS)" >> "$LOG"
 

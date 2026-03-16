@@ -16,7 +16,7 @@
 : "${INSTALL_LOG:=/var/log/xray-install.log}"
 : "${UPDATE_LOG:=/var/log/xray-update.log}"
 : "${DIAG_LOG:=/var/log/xray-diagnose.log}"
-: "${HEALTH_LOG:=/var/log/xray-health.log}"
+: "${HEALTH_LOG:=/var/log/xray/xray-health.log}"
 : "${SELF_CHECK_STATE_FILE:=/var/lib/xray/self-check.json}"
 : "${SELF_CHECK_HISTORY_FILE:=/var/lib/xray/self-check-history.ndjson}"
 : "${MEASUREMENTS_SUMMARY_FILE:=/var/lib/xray/measurements/latest-summary.json}"

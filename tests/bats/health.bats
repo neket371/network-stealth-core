@@ -156,6 +156,107 @@
     [ "$output" = "ok" ]
 }
 
+@test "setup_health_monitoring uses nested xray health log path by default" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./modules/service/uninstall.sh
+    source ./health.sh
+
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    HEALTH_SCRIPT_OUT="$tmp_dir/xray-health.sh"
+    HEALTH_SERVICE_OUT="$tmp_dir/xray-health.service"
+    HEALTH_TIMER_OUT="$tmp_dir/xray-health.timer"
+
+    log() { :; }
+    backup_file() { :; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl() { return 0; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      local out="$target"
+      case "$target" in
+        /usr/local/bin/xray-health.sh) out="$HEALTH_SCRIPT_OUT" ;;
+        /etc/systemd/system/xray-health.service) out="$HEALTH_SERVICE_OUT" ;;
+        /etc/systemd/system/xray-health.timer) out="$HEALTH_TIMER_OUT" ;;
+      esac
+      cat > "$out"
+      [[ -n "$mode" ]] && chmod "$mode" "$out"
+    }
+
+    PORTS=(443)
+    HAS_IPV6=false
+    XRAY_LOGS="/var/log/xray"
+    HEALTH_LOG=""
+    LOG_RETENTION_DAYS=30
+    LOG_MAX_SIZE_MB=10
+    HEALTH_CHECK_INTERVAL=120
+    DOMAIN_HEALTH_FILE="/var/lib/xray/domain-health.json"
+    REALITY_TEST_PORTS="443,8443"
+    DOMAIN_HEALTH_PROBE_TIMEOUT=2
+    DOMAIN_HEALTH_RATE_LIMIT_MS=250
+    DOMAIN_HEALTH_MAX_PROBES=20
+
+    setup_health_monitoring
+    grep -q "^LOG=/var/log/xray/xray-health.log$" "$HEALTH_SCRIPT_OUT"
+    grep -q "^LOG_DIR=/var/log/xray$" "$HEALTH_SCRIPT_OUT"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "setup_health_monitoring uses safe fail-count increment under set -e" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    HEALTH_SCRIPT_OUT="$tmp_dir/xray-health.sh"
+    HEALTH_SERVICE_OUT="$tmp_dir/xray-health.service"
+    HEALTH_TIMER_OUT="$tmp_dir/xray-health.timer"
+
+    log() { :; }
+    backup_file() { :; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl() { return 0; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      local out="$target"
+      case "$target" in
+        /usr/local/bin/xray-health.sh) out="$HEALTH_SCRIPT_OUT" ;;
+        /etc/systemd/system/xray-health.service) out="$HEALTH_SERVICE_OUT" ;;
+        /etc/systemd/system/xray-health.timer) out="$HEALTH_TIMER_OUT" ;;
+      esac
+      cat > "$out"
+      [[ -n "$mode" ]] && chmod "$mode" "$out"
+    }
+
+    PORTS=(443)
+    HAS_IPV6=false
+    LOG_RETENTION_DAYS=30
+    LOG_MAX_SIZE_MB=10
+    HEALTH_CHECK_INTERVAL=120
+    DOMAIN_HEALTH_FILE="/var/lib/xray/domain-health.json"
+    REALITY_TEST_PORTS="443,8443"
+    DOMAIN_HEALTH_PROBE_TIMEOUT=2
+    DOMAIN_HEALTH_RATE_LIMIT_MS=250
+    DOMAIN_HEALTH_MAX_PROBES=20
+
+    setup_health_monitoring
+    grep -Fq "FAIL_COUNT=\$((FAIL_COUNT + 1))" "$HEALTH_SCRIPT_OUT"
+    ! grep -q "\\(\\(FAIL_COUNT\\+\\+\\)\\)" "$HEALTH_SCRIPT_OUT"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "setup_health_monitoring embeds runtime xray config path into health script" {
     run bash -eo pipefail -c '
     source ./lib.sh
