@@ -3623,10 +3623,14 @@ EOF
 
 @test "release script enforces non-empty notes and no TODO in target release section" {
     run bash -eo pipefail -c '
-    grep -q '\''validate_generated_release_notes()'\'' ./scripts/release.sh
-    grep -q '\''ensure_release_section_has_no_todo()'\'' ./scripts/release.sh
-    grep -q '\''Generated release notes are empty; refusing release.'\'' ./scripts/release.sh
-    grep -q '\''still contains TODO placeholder'\'' ./scripts/release.sh
+    grep -Fq '\''validate_generated_release_notes()'\'' ./scripts/release.sh
+    grep -Fq '\''ensure_release_section_has_no_todo()'\'' ./scripts/release.sh
+    grep -Fq '\''CHANGELOG_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"'\'' ./scripts/release.sh
+    grep -Fq '\''BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"'\'' ./scripts/release.sh
+    grep -Fq '\''SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"'\'' ./scripts/release.sh
+    grep -Fq '\''tolower($0) ~ /^## \[unreleased\]/'\'' ./scripts/release.sh
+    grep -Fq '\''Generated release notes are empty; refusing release.'\'' ./scripts/release.sh
+    grep -Fq '\''still contains TODO placeholder'\'' ./scripts/release.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3635,11 +3639,17 @@ EOF
 
 @test "release consistency check enforces changelog bullets and blocks TODO in released sections" {
     run bash -eo pipefail -c '
-    grep -q '\''CHANGELOG_FILE_RU=.*docs/ru/CHANGELOG.md'\'' ./scripts/check-release-consistency.sh
-    grep -q '\''docs/ru/CHANGELOG.md section'\'' ./scripts/check-release-consistency.sh
-    grep -q '\''RU CHANGELOG section \[\${script_version}\] does not contain release bullet notes'\'' ./scripts/check-release-consistency.sh
-    grep -q '\''CHANGELOG contains TODO placeholder inside a released section'\'' ./scripts/check-release-consistency.sh
-    grep -q '\''does not contain release bullet notes'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''CHANGELOG_FILE_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''docs/ru/CHANGELOG.md section'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''README.md release-tag bootstrap url'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''README.ru.md release-tag bootstrap ref'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''bug template placeholder'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''support template placeholder'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''RU CHANGELOG section [${script_version}] does not contain release bullet notes'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''CHANGELOG contains TODO placeholder inside a released section'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''does not contain release bullet notes'\'' ./scripts/check-release-consistency.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3722,11 +3732,17 @@ EOF
     grep -q '\''check_pinned_bootstrap_order README.md'\'' ./scripts/check-docs-commands.sh
     grep -q '\''check_pinned_bootstrap_order README.ru.md'\'' ./scripts/check-docs-commands.sh
     pinned_en="$(grep -n '\''XRAY_REPO_COMMIT=<full_commit_sha>'\'' ./README.md | head -n1 | cut -d: -f1)"
+    tag_en="$(grep -nE '\''XRAY_REPO_REF=v[0-9]+\.[0-9]+\.[0-9]+'\'' ./README.md | head -n1 | cut -d: -f1)"
     floating_en="$(grep -n '\''^sudo bash /tmp/xray-reality.sh install$'\'' ./README.md | head -n1 | cut -d: -f1)"
     pinned_ru="$(grep -n '\''XRAY_REPO_COMMIT=<full_commit_sha>'\'' ./README.ru.md | head -n1 | cut -d: -f1)"
+    tag_ru="$(grep -nE '\''XRAY_REPO_REF=v[0-9]+\.[0-9]+\.[0-9]+'\'' ./README.ru.md | head -n1 | cut -d: -f1)"
     floating_ru="$(grep -n '\''^sudo bash /tmp/xray-reality.sh install$'\'' ./README.ru.md | head -n1 | cut -d: -f1)"
-    test -n "$pinned_en" -a -n "$floating_en" -a "$pinned_en" -lt "$floating_en"
-    test -n "$pinned_ru" -a -n "$floating_ru" -a "$pinned_ru" -lt "$floating_ru"
+    test -n "$pinned_en" -a -n "$tag_en" -a -n "$floating_en" -a "$pinned_en" -lt "$tag_en" -a "$tag_en" -lt "$floating_en"
+    test -n "$pinned_ru" -a -n "$tag_ru" -a -n "$floating_ru" -a "$pinned_ru" -lt "$tag_ru" -a "$tag_ru" -lt "$floating_ru"
+    grep -q '\''XRAY_REPO_REF=v<release-tag>'\'' ./docs/en/FAQ.md
+    grep -q '\''XRAY_REPO_REF=v<release-tag>'\'' ./docs/ru/FAQ.md
+    grep -q '\''XRAY_REPO_REF=v<release-tag>'\'' ./docs/en/OPERATIONS.md
+    grep -q '\''XRAY_REPO_REF=v<release-tag>'\'' ./docs/ru/OPERATIONS.md
     echo "ok"
   '
     [ "$status" -eq 0 ]

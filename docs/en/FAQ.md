@@ -12,6 +12,8 @@ that is why the normal path avoids transport and profile prompts.
 ## which bootstrap path should i use on a real server?
 
 prefer the pinned bootstrap path with `XRAY_REPO_COMMIT=<full_commit_sha>`.
+if you need the exact published release rather than the current floating branch, use the tag-pinned path from the readme with `XRAY_REPO_REF=v<release-tag>`.
+fetching the wrapper from a tag url alone does not pin the bootstrap clone.
 the floating raw bootstrap stays available for convenience, but it should not be your first production-like path.
 
 ## when should i use `install --advanced`?

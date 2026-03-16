@@ -49,6 +49,16 @@ sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install
 
 для production-like установки лучше сразу pin'ить bootstrap wrapper на точный commit репозитория.
 
+### bootstrap конкретного релиза по тегу
+
+```bash
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.3.8/xray-reality.sh -o /tmp/xray-reality.sh
+sudo XRAY_REPO_REF=v7.3.8 bash /tmp/xray-reality.sh install
+```
+
+этот путь удобен, когда нужен ровно опубликованный релиз без ручного поиска полного commit.
+одного tag url для wrapper недостаточно: bootstrap clone всё равно пойдёт по default branch, пока явно не заданы `XRAY_REPO_REF` или `XRAY_REPO_COMMIT`.
+
 ### convenience-путь с плавающей веткой
 
 floating bootstrap оставлен для удобства, но это уже не visually preferred путь для реального сервера:

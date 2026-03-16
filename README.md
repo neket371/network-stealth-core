@@ -49,6 +49,16 @@ sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install
 
 for production-like installs, pin the bootstrap wrapper to an exact repo commit.
 
+### pinned bootstrap by release tag
+
+```bash
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.3.8/xray-reality.sh -o /tmp/xray-reality.sh
+sudo XRAY_REPO_REF=v7.3.8 bash /tmp/xray-reality.sh install
+```
+
+use this when you want the exact published release without looking up the full commit first.
+fetching `xray-reality.sh` from a tag url alone is not enough: the bootstrap clone still follows its default branch unless `XRAY_REPO_REF` or `XRAY_REPO_COMMIT` is set explicitly.
+
 ### convenience floating bootstrap
 
 the floating branch bootstrap stays available for convenience, but it is not the visually preferred production path:

@@ -13,8 +13,9 @@ Examples:
 What it does:
   1. Updates SCRIPT_VERSION and header version in lib.sh
   2. Updates wrapper header version in xray-reality.sh
-  3. Updates release badge versions in README.md and README.ru.md
-  4. Ensures docs/en/CHANGELOG.md has a section for the target version and auto-generates notes from git log
+  3. Updates release badge versions and release-tag bootstrap examples in README.md and README.ru.md
+  4. Updates release-facing issue template placeholders
+  5. Ensures docs/en/CHANGELOG.md and docs/ru/CHANGELOG.md have sections for the target version and auto-generates notes from git log
   5. Runs shared release consistency checks
   6. Optionally commits, tags and pushes
      (push target: current branch, or RELEASE_PUSH_BRANCH override)
@@ -67,7 +68,10 @@ LIB_FILE="$ROOT_DIR/lib.sh"
 WRAPPER_FILE="$ROOT_DIR/xray-reality.sh"
 README_EN="$ROOT_DIR/README.md"
 README_RU="$ROOT_DIR/README.ru.md"
-CHANGELOG="$ROOT_DIR/docs/en/CHANGELOG.md"
+CHANGELOG_EN="$ROOT_DIR/docs/en/CHANGELOG.md"
+CHANGELOG_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"
+BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"
+SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"
 TAG="v$VERSION"
 TODAY="$(date +%Y-%m-%d)"
 NOTES_TMP="$(mktemp)"
@@ -75,7 +79,7 @@ trap 'rm -f "$NOTES_TMP"' EXIT
 
 cd "$ROOT_DIR"
 
-for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG"; do
+for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG_EN" "$CHANGELOG_RU" "$BUG_TEMPLATE" "$SUPPORT_TEMPLATE"; do
     [[ -f "$file" ]] || {
         echo "Missing required file: $file" >&2
         exit 1
@@ -106,13 +110,14 @@ validate_generated_release_notes() {
 }
 
 insert_changelog_section() {
+    local changelog_file="$1"
     local tmp_file
-    tmp_file="$(mktemp "${CHANGELOG}.tmp.XXXXXX")"
+    tmp_file="$(mktemp "${changelog_file}.tmp.XXXXXX")"
     awk -v ver="$VERSION" -v day="$TODAY" -v notes_file="$NOTES_TMP" '
         BEGIN { inserted = 0 }
         {
             print
-            if (!inserted && $0 ~ /^## \[Unreleased\]/) {
+            if (!inserted && tolower($0) ~ /^## \[unreleased\]/) {
                 print ""
                 print "## [" ver "] - " day
                 print ""
@@ -130,20 +135,21 @@ insert_changelog_section() {
                 exit 2
             }
         }
-    ' "$CHANGELOG" > "$tmp_file" || {
+    ' "$changelog_file" > "$tmp_file" || {
         rm -f "$tmp_file"
-        echo "Failed to update docs/en/CHANGELOG.md (missing ## [Unreleased]?)" >&2
+        echo "Failed to update ${changelog_file#"$ROOT_DIR"/} (missing ## [unreleased]?)" >&2
         exit 1
     }
-    mv "$tmp_file" "$CHANGELOG"
+    mv "$tmp_file" "$changelog_file"
 }
 
 replace_release_todo() {
-    if ! grep -q "^- TODO: summarize release changes$" "$CHANGELOG"; then
+    local changelog_file="$1"
+    if ! grep -q "^- TODO: summarize release changes$" "$changelog_file"; then
         return 0
     fi
     local tmp_file
-    tmp_file="$(mktemp "${CHANGELOG}.tmp.XXXXXX")"
+    tmp_file="$(mktemp "${changelog_file}.tmp.XXXXXX")"
     awk -v notes_file="$NOTES_TMP" '
         function emit_notes( line ) {
             for (; (getline line < notes_file) > 0; ) {
@@ -158,11 +164,12 @@ replace_release_todo() {
             }
             print
         }
-    ' "$CHANGELOG" > "$tmp_file"
-    mv "$tmp_file" "$CHANGELOG"
+    ' "$changelog_file" > "$tmp_file"
+    mv "$tmp_file" "$changelog_file"
 }
 
 ensure_release_section_has_no_todo() {
+    local changelog_file="$1"
     if awk -v ver="$VERSION" '
         BEGIN { in_target = 0; found = 0 }
         $0 ~ "^## \\[" ver "\\]" { in_target = 1; next }
@@ -177,8 +184,8 @@ ensure_release_section_has_no_todo() {
         END {
             exit found ? 0 : 1
         }
-    ' "$CHANGELOG"; then
-        echo "CHANGELOG section [$VERSION] still contains TODO placeholder" >&2
+    ' "$changelog_file"; then
+        echo "${changelog_file#"$ROOT_DIR"/} section [$VERSION] still contains TODO placeholder" >&2
         exit 1
     fi
 }
@@ -200,13 +207,20 @@ replace_with_sed 's/^# Network Stealth Core [0-9]+\.[0-9]+\.[0-9]+ - /# Network 
 replace_with_sed 's/^# Network Stealth Core [0-9]+\.[0-9]+\.[0-9]+ - Wrapper/# Network Stealth Core '"$VERSION"' - Wrapper/' "$WRAPPER_FILE"
 replace_with_sed 's/release-v[0-9]+\.[0-9]+\.[0-9]+/release-v'"$VERSION"'/g' "$README_EN"
 replace_with_sed 's/release-v[0-9]+\.[0-9]+\.[0-9]+/release-v'"$VERSION"'/g' "$README_RU"
+replace_with_sed 's#raw.githubusercontent.com/neket371/network-stealth-core/v[0-9]+\.[0-9]+\.[0-9]+/xray-reality\.sh#raw.githubusercontent.com/neket371/network-stealth-core/v'"$VERSION"'/xray-reality.sh#g' "$README_EN"
+replace_with_sed 's#raw.githubusercontent.com/neket371/network-stealth-core/v[0-9]+\.[0-9]+\.[0-9]+/xray-reality\.sh#raw.githubusercontent.com/neket371/network-stealth-core/v'"$VERSION"'/xray-reality.sh#g' "$README_RU"
+replace_with_sed 's/XRAY_REPO_REF=v[0-9]+\.[0-9]+\.[0-9]+/XRAY_REPO_REF=v'"$VERSION"'/g' "$README_EN"
+replace_with_sed 's/XRAY_REPO_REF=v[0-9]+\.[0-9]+\.[0-9]+/XRAY_REPO_REF=v'"$VERSION"'/g' "$README_RU"
+replace_with_sed 's#placeholder: v[0-9]+\.[0-9]+\.[0-9]+ / .*#placeholder: v'"$VERSION"' / <full_commit_sha> / ubuntu@<sha>#' "$BUG_TEMPLATE"
+replace_with_sed 's#placeholder: v[0-9]+\.[0-9]+\.[0-9]+ / .*#placeholder: v'"$VERSION"' / <full_commit_sha> / ubuntu@<sha>#' "$SUPPORT_TEMPLATE"
 
-if ! grep -q "^## \[$VERSION\]" "$CHANGELOG"; then
-    insert_changelog_section
-fi
-
-replace_release_todo
-ensure_release_section_has_no_todo
+for changelog_file in "$CHANGELOG_EN" "$CHANGELOG_RU"; do
+    if ! grep -q "^## \[$VERSION\]" "$changelog_file"; then
+        insert_changelog_section "$changelog_file"
+    fi
+    replace_release_todo "$changelog_file"
+    ensure_release_section_has_no_todo "$changelog_file"
+done
 
 bash "$ROOT_DIR/scripts/check-release-consistency.sh"
 
@@ -216,9 +230,13 @@ echo "  - xray-reality.sh"
 echo "  - README.md"
 echo "  - README.ru.md"
 echo "  - docs/en/CHANGELOG.md"
+echo "  - docs/ru/CHANGELOG.md"
+echo "  - .github/ISSUE_TEMPLATE/bug_report.yml"
+echo "  - .github/ISSUE_TEMPLATE/support_request.yml"
 
 if [[ "$DO_COMMIT" == true ]]; then
-    git add lib.sh xray-reality.sh README.md README.ru.md docs/en/CHANGELOG.md
+    git add lib.sh xray-reality.sh README.md README.ru.md docs/en/CHANGELOG.md docs/ru/CHANGELOG.md \
+        .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/support_request.yml
     if git diff --cached --quiet; then
         echo "No staged changes to commit."
     else

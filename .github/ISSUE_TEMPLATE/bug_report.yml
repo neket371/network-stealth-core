@@ -15,7 +15,7 @@ body:
     attributes:
       label: version or commit
       description: release version or exact repo commit
-      placeholder: v7.3.8 / d11dd64 / ubuntu@<sha>
+      placeholder: v7.3.8 / <full_commit_sha> / ubuntu@<sha>
     validations:
       required: true
 

@@ -10,8 +10,10 @@ Checks release metadata consistency across:
   - lib.sh header version
   - xray-reality.sh wrapper header version
   - README.md / README.ru.md release badges
+  - README.md / README.ru.md exact release-tag bootstrap example
   - docs/en/CHANGELOG.md version section
   - docs/ru/CHANGELOG.md version section
+  - issue template placeholders for version/commit reporting
 
 Optional:
   --tag TAG   additionally requires TAG == vSCRIPT_VERSION
@@ -50,8 +52,10 @@ README_EN="$ROOT_DIR/README.md"
 README_RU="$ROOT_DIR/README.ru.md"
 CHANGELOG_FILE="$ROOT_DIR/docs/en/CHANGELOG.md"
 CHANGELOG_FILE_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"
+BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"
+SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"
 
-for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG_FILE" "$CHANGELOG_FILE_RU"; do
+for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG_FILE" "$CHANGELOG_FILE_RU" "$BUG_TEMPLATE" "$SUPPORT_TEMPLATE"; do
     [[ -f "$file" ]] || {
         echo "Missing required file: $file" >&2
         exit 1
@@ -82,8 +86,14 @@ require_pattern "$LIB_FILE" "^# Network Stealth Core ${script_version} - " "lib.
 require_pattern "$WRAPPER_FILE" "^# Network Stealth Core ${script_version} - Wrapper" "wrapper header version"
 require_pattern "$README_EN" "release-v${script_version}" "README.md release badge version"
 require_pattern "$README_RU" "release-v${script_version}" "README.ru.md release badge version"
+require_pattern "$README_EN" "raw.githubusercontent.com/neket371/network-stealth-core/v${script_version}/xray-reality.sh" "README.md release-tag bootstrap url"
+require_pattern "$README_RU" "raw.githubusercontent.com/neket371/network-stealth-core/v${script_version}/xray-reality.sh" "README.ru.md release-tag bootstrap url"
+require_pattern "$README_EN" "XRAY_REPO_REF=v${script_version}" "README.md release-tag bootstrap ref"
+require_pattern "$README_RU" "XRAY_REPO_REF=v${script_version}" "README.ru.md release-tag bootstrap ref"
 require_pattern "$CHANGELOG_FILE" "^## \\[${script_version}\\]" "docs/en/CHANGELOG.md section"
 require_pattern "$CHANGELOG_FILE_RU" "^## \\[${script_version}\\]" "docs/ru/CHANGELOG.md section"
+require_pattern "$BUG_TEMPLATE" "^      placeholder: v${script_version} / <full_commit_sha> / ubuntu@<sha>$" "bug template placeholder"
+require_pattern "$SUPPORT_TEMPLATE" "^      placeholder: v${script_version} / <full_commit_sha> / ubuntu@<sha>$" "support template placeholder"
 
 if awk '
     BEGIN { in_released = 0; bad = 0 }

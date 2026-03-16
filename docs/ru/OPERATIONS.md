@@ -17,6 +17,8 @@ strongest-direct defaults:
 ## установка
 
 для первого bootstrap на реальном сервере предпочитай pinned bootstrap path из readme (`XRAY_REPO_COMMIT=<full_commit_sha>`).
+если нужен именно опубликованный релиз, а не текущая плавающая ветка, используй tag-pinned bootstrap path из readme (`XRAY_REPO_REF=v<release-tag>`).
+одного tag url для wrapper недостаточно: bootstrap clone сам по себе не становится pinned.
 
 ### normal path
 

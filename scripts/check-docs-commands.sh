@@ -66,24 +66,37 @@ fi
 
 check_pinned_bootstrap_order() {
     local file="$1"
-    local pinned_line floating_line
+    local pinned_line tag_line floating_line
     pinned_line="$(grep -n 'XRAY_REPO_COMMIT=<full_commit_sha>' "$file" | head -n1 | cut -d: -f1 || true)"
+    tag_line="$(grep -nE 'XRAY_REPO_REF=v[0-9]+\.[0-9]+\.[0-9]+' "$file" | head -n1 | cut -d: -f1 || true)"
     floating_line="$(grep -n '^sudo bash /tmp/xray-reality.sh install$' "$file" | head -n1 | cut -d: -f1 || true)"
 
-    if [[ -z "$pinned_line" || -z "$floating_line" ]]; then
+    if [[ -z "$pinned_line" || -z "$tag_line" || -z "$floating_line" ]]; then
         echo "docs command contract fail: missing bootstrap examples in ${file}" >&2
         fail=1
         return 0
     fi
 
-    if ((pinned_line > floating_line)); then
-        echo "docs command contract fail: pinned bootstrap must appear before floating bootstrap in ${file}" >&2
+    if ((pinned_line > tag_line)); then
+        echo "docs command contract fail: commit-pinned bootstrap must appear before tag-pinned bootstrap in ${file}" >&2
+        fail=1
+    fi
+
+    if ((tag_line > floating_line)); then
+        echo "docs command contract fail: tag-pinned bootstrap must appear before floating bootstrap in ${file}" >&2
         fail=1
     fi
 }
 
 check_pinned_bootstrap_order README.md
 check_pinned_bootstrap_order README.ru.md
+
+for file in docs/en/FAQ.md docs/ru/FAQ.md docs/en/OPERATIONS.md docs/ru/OPERATIONS.md; do
+    if ! grep -q 'XRAY_REPO_REF=v<release-tag>' "$file"; then
+        echo "docs command contract fail: missing tag-pinned bootstrap guidance in ${file}" >&2
+        fail=1
+    fi
+done
 
 if ((fail != 0)); then
     exit 1

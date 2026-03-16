@@ -113,7 +113,7 @@ when a lifecycle bug is reproduced through vm-lab, also attach:
 if behavior changed:
 
 1. bump `SCRIPT_VERSION`
-2. update both readmes and both changelogs
+2. update both readmes, both changelogs, and release-facing issue templates
 3. update the affected docs in `docs/en` and `docs/ru`
 4. ensure tests cover the new contract
 5. cut a tag only from a green `ubuntu` head

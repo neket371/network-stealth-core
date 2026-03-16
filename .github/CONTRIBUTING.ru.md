@@ -113,7 +113,7 @@ pwsh ./scripts/windows/run-validation.ps1 -SkipRemote
 если поведение изменилось:
 
 1. подними `SCRIPT_VERSION`
-2. обнови оба readme и оба changelog
+2. обнови оба readme, оба changelog и release-facing issue templates
 3. обнови затронутые docs в `docs/en` и `docs/ru`
 4. убедись, что тесты покрывают новый контракт
 5. режь тег только с зелёного `ubuntu` head
