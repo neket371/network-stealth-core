@@ -162,6 +162,6 @@ review depth meanings:
 | `modules/lib/ui_logging.sh` | 591 | runtime module | log rendering, progress, tty-safe output, and logging backend helpers | manual semantic | reviewed | extracted from `lib.sh` to narrow orchestration ui/logging |
 | `scripts/lab/generate-vm-proof-pack.sh` | 194 | lab script | sanitized vm proof-pack generator | manual semantic | reviewed | packages vm-lab lifecycle evidence without shipping secrets |
 
-## current audit-level watch items referenced by matrix
+## audit-level watch items referenced by this snapshot
 
 - `w-002` — the remaining config-side watch items are focused modules like `modules/config/client_formats.sh`, not the root `config.sh` entrypoint anymore.

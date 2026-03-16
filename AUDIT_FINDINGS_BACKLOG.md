@@ -3,11 +3,11 @@
 date: 2026-03-13
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
-> historical snapshot only: this backlog reflects the audited tree on `2026-03-13`. do not treat it as an evergreen claim about later commits, unreleased work, or the current working tree without a fresh verification pass.
+> historical snapshot only: this backlog reflects the audited tree on `2026-03-13`. do not treat it as an evergreen claim about later commits, unreleased work, or the current working tree without a fresh verification pass. later fixes after this snapshot are intentionally not folded back into the archived backlog below.
 
-## active backlog
+## snapshot backlog
 
-there is no confirmed open `p0`–`p3` runtime or release-blocking finding in this audit pass.
+at the close of this `2026-03-13` pass, there was no confirmed open `p0`–`p3` runtime or release-blocking finding.
 
 ## watch items
 

@@ -11,7 +11,7 @@ default install-контракт: минимум prompt’ов, strongest safe d
 ## stealth contract version
 
 версия managed runtime-контракта, которая записывается в policy и client artifacts.
-в `v7.1.0` она обозначает strongest-direct baseline.
+в текущей strongest-direct линии `v7` она обозначает managed strongest-direct baseline.
 
 ## policy.json
 

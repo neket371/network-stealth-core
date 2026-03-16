@@ -11,7 +11,7 @@ this repository optimizes for a very strict product contract:
 
 ## current public baseline
 
-before changing behavior, assume these contracts are public in `v7.1.0`:
+before changing behavior, assume these contracts are public in the current `v7` strongest-direct line:
 
 - `install` = minimal strongest-direct path
 - `install --advanced` = explicit manual compatibility flow

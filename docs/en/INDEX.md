@@ -4,7 +4,7 @@ this is the entrypoint for the english docs set.
 
 ## current product contract
 
-`v7.1.0` keeps the normal install path opinionated and minimal.
+the current `v7` strongest-direct line keeps the normal install path opinionated and minimal.
 managed installs now target the strongest-direct baseline:
 
 - `vless + reality + xhttp + vless encryption + xtls-rprx-vision`
@@ -33,7 +33,7 @@ managed installs now target the strongest-direct baseline:
 | [MAINTAINER-LAB.md](MAINTAINER-LAB.md) | maintainer-only isolated smoke, vm-lab flows, and proof-pack generation |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | failure analysis and next-step commands |
 | [COMMUNITY.md](COMMUNITY.md) | how to ask for help or contribute |
-| [ROADMAP.md](ROADMAP.md) | post-v7.1.0 direction |
+| [ROADMAP.md](ROADMAP.md) | next-release direction |
 | [GLOSSARY.md](GLOSSARY.md) | shared terms |
 | [CHANGELOG.md](CHANGELOG.md) | release history |
 

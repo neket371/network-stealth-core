@@ -5,11 +5,11 @@ repository: `neket371/network-stealth-core`
 branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
-> historical snapshot only: this document is a point-in-time audit record, not a live branch status page. any ci, runtime, or release claims here apply only to the audited tree on `2026-03-13` and must be revalidated for later commits or uncommitted changes.
+> historical snapshot only: this document is a point-in-time audit record, not a live branch status page. any ci, runtime, or release claims here apply only to the audited tree on `2026-03-13` and must be revalidated for later commits or uncommitted changes. later fixes such as node24-ready workflow pins, export coverage wiring, and additional bats growth are intentionally out of scope here.
 
 ## scope
 
-this audit refresh covers the current `v7.1.0` baseline, not the old `4.2.x` shell-only snapshot.
+this audit refresh covers the then-current `v7` strongest-direct baseline, not the old `4.2.x` shell-only snapshot.
 
 reviewed surfaces:
 
@@ -46,13 +46,11 @@ companion docs for this pass:
 
 ### hosted verification
 
-latest verified `ubuntu` branch runs before closing this audit pass were green for:
+latest verified github runs for the audited tree before closing this pass were green for:
 
 - `ubuntu smoke / ubuntu / push`
 - `packages / ubuntu / push`
 - `ci / ubuntu / push`
-
-the workflow set was also refreshed to node24-safe pinned action shas, removing the previous node 20 deprecation maintenance noise.
 
 ### remote isolated verification
 
@@ -174,8 +172,6 @@ status: **good**
 - docs are broadly aligned
 - maintainer-only lab docs are correctly separated from user readmes
 - workflow/actionlint coverage is aligned with local qa
-- official workflow pins were refreshed to node24-safe revisions
-
 ## findings
 
 no active `p0`–`p3` finding remains from this audit pass.
@@ -195,7 +191,7 @@ remaining concerns are now watch items, not active defects:
 
 ## closed in this audit refresh
 
-the previous audit docs themselves were stale. this pass closes that documentation gap by replacing the old baseline with a current maturity-hardened audit set.
+the previous audit docs themselves were stale. this pass closes that documentation gap by replacing the old baseline with a maturity-hardened audit set for the audited tree.
 
 in addition, this refresh closes the older follow-up items by evidence rather than by promise:
 
@@ -206,11 +202,9 @@ in addition, this refresh closes the older follow-up items by evidence rather th
 - pinned bootstrap is now first-class in user-facing docs
 - vm proof-pack exists as a reproducible public evidence artifact
 - public issue/pr intake templates exist
-- workflow pins were refreshed away from node 20 deprecation noise
-
 ## conclusion
 
-current product verdict:
+snapshot verdict:
 
 - runtime correctness: **good**
 - safety/rollback behavior: **good**

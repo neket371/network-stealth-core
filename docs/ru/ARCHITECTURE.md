@@ -2,7 +2,7 @@
 
 ## strongest-direct runtime контракт
 
-`v7.1.0` задаёт один managed direct baseline:
+текущая strongest-direct линия `v7` задаёт один managed direct baseline:
 
 - protocol: `vless`
 - security: `reality`

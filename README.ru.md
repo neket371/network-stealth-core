@@ -195,7 +195,7 @@ sudo bash scripts/measure-stealth.sh prune \
 | `docs/ru/MAINTAINER-LAB.md` | только для сопровождающих: изолированные smoke и vm-lab flow |
 | `docs/ru/TROUBLESHOOTING.md` | диагностика по симптомам |
 | `docs/ru/COMMUNITY.md` | правила взаимодействия и поддержки |
-| `docs/ru/ROADMAP.md` | направление после v7.1.0 |
+| `docs/ru/ROADMAP.md` | направление следующего релиза |
 | `docs/ru/GLOSSARY.md` | общие термины |
 | `docs/ru/CHANGELOG.md` | история релизов |
 | `.github/CONTRIBUTING.ru.md` | правила контрибьюта |

@@ -4,7 +4,7 @@ this roadmap is a directional public plan, not a strict delivery promise.
 
 ## current baseline
 
-`v7.1.0` establishes:
+the current `v7` strongest-direct line establishes:
 
 - minimal strongest-direct install
 - policy-driven managed state via `policy.json`

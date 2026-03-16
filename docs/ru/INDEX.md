@@ -4,7 +4,7 @@
 
 ## текущий продуктовый контракт
 
-`v7.1.0` держит normal install path opinionated и минимальным.
+текущая strongest-direct линия `v7` держит normal install path opinionated и минимальным.
 managed install теперь целится в strongest-direct baseline:
 
 - `vless + reality + xhttp + vless encryption + xtls-rprx-vision`
@@ -33,7 +33,7 @@ managed install теперь целится в strongest-direct baseline:
 | [MAINTAINER-LAB.md](MAINTAINER-LAB.md) | только для сопровождающих: изолированные smoke, vm-lab flow и proof-pack |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | анализ сбоев и точные next-step команды |
 | [COMMUNITY.md](COMMUNITY.md) | как просить помощь и контрибьютить |
-| [ROADMAP.md](ROADMAP.md) | направление после v7.1.0 |
+| [ROADMAP.md](ROADMAP.md) | направление следующего релиза |
 | [GLOSSARY.md](GLOSSARY.md) | общие термины |
 | [CHANGELOG.md](CHANGELOG.md) | история релизов |
 

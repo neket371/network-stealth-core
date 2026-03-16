@@ -11,7 +11,7 @@ the default install contract: minimal prompts, strongest safe direct stack, and 
 ## stealth contract version
 
 the managed runtime contract version recorded in policy and client artifacts.
-in `v7.1.0` it represents the strongest-direct baseline.
+in the current `v7` strongest-direct line it represents the managed strongest-direct baseline.
 
 ## policy.json
 

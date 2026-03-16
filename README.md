@@ -195,7 +195,7 @@ notes:
 | `docs/en/MAINTAINER-LAB.md` | maintainer-only isolated smoke and vm-lab flows |
 | `docs/en/TROUBLESHOOTING.md` | symptom-driven troubleshooting |
 | `docs/en/COMMUNITY.md` | collaboration and support guidance |
-| `docs/en/ROADMAP.md` | post-v7.1.0 direction |
+| `docs/en/ROADMAP.md` | next-release direction |
 | `docs/en/GLOSSARY.md` | shared terms |
 | `docs/en/CHANGELOG.md` | release history |
 | `.github/CONTRIBUTING.md` | contribution rules |

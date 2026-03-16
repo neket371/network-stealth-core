@@ -2,7 +2,7 @@
 
 ## strongest-direct runtime contract
 
-`v7.1.0` defines one managed direct baseline:
+the current `v7` strongest-direct line defines one managed direct baseline:
 
 - protocol: `vless`
 - security: `reality`

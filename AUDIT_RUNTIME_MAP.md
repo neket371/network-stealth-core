@@ -5,7 +5,7 @@ repository: `neket371/network-stealth-core`
 branch: `ubuntu`
 baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
-> historical snapshot only: this runtime map describes the audited tree on `2026-03-13`. workflow and runtime verification notes below are not live guarantees for later commits or uncommitted changes.
+> historical snapshot only: this runtime map describes the audited tree on `2026-03-13`. workflow and runtime verification notes below are not live guarantees for later commits or uncommitted changes. later fixes such as node24-ready workflow pins and expanded export coverage are intentionally outside this archived snapshot.
 
 ## top-level execution chain
 
@@ -22,12 +22,12 @@ baseline snapshot: `ubuntu` working tree after maturity hardening wave
 4. `config.sh`, `service.sh`, `health.sh`, `export.sh`, and `modules/*` implement the shared runtime work.
 5. artifacts and state land mainly in `/etc/xray`, `/etc/xray-reality`, `/etc/xray/private/keys`, `/var/lib/xray`, `/var/backups/xray`.
 
-## current verification bundle
+## verification bundle for audited snapshot
 
 - local: `make ci-full` — pass
 - local: `bash tests/lint.sh` — pass
 - local: `pwsh scripts/windows/run-validation.ps1 -SkipRemote` — pass
-- github: latest green `ci`, `packages`, and `ubuntu smoke` runs on `ubuntu` — success
+- github: latest green `ci`, `packages`, and `ubuntu smoke` runs for the audited tree on `ubuntu` — success
 - remote vm-lab lifecycle smoke on `185.218.204.206` — pass
 - remote interactive raw install inside vm guest — one minisign prompt only (`prompt_count=1`, `logged_prompts=1`), `self-check=ok`, uninstall cleanup verified
 - remote host production `xray` after vm-lab checks — still `active`
@@ -103,20 +103,20 @@ baseline snapshot: `ubuntu` working tree after maturity hardening wave
 
 ## workflows and ci surface
 
-| workflow | role | current verdict |
+| workflow | role | audited verdict |
 |---|---|---|
-| `ci.yml` | main lint/test/release-check/audit path | green on current head |
-| `packages.yml` | build/package pipeline | green on current head |
-| `release.yml` | tagged release pipeline | stable; pins refreshed to node24-safe upstream revisions |
+| `ci.yml` | main lint/test/release-check/audit path | green on the audited tree |
+| `packages.yml` | build/package pipeline | green on the audited tree |
+| `release.yml` | tagged release pipeline | stable for the audited tree |
 | `nightly-smoke.yml` | deeper smoke schedule | now capable of generating and uploading vm proof-pack artifacts |
 | `os-matrix-smoke.yml` | supported os smoke path | contract is still documented and tested |
 | `self-hosted-smoke.yml` | isolated self-hosted smoke path | works; can now generate and upload vm proof-pack artifacts when `/dev/kvm` is present |
 
 ## test surface
 
-| suite | role | current verdict |
+| suite | role | audited verdict |
 |---|---|---|
-| `tests/bats/*.bats` | unit/integration/validation/health/runtime contract suites | strong coverage: current `bats` total is 442 passing tests inside `make ci-full` |
+| `tests/bats/*.bats` | unit/integration/validation/health/runtime contract suites | strong coverage: audited `bats` total was 442 passing tests inside `make ci-full` |
 | `tests/e2e/*.sh` | install/add/update/rollback/migrate contract scenarios | strong coverage for product paths and regressions |
 | `tests/lint.sh` | broader standalone lint harness | passes and currently covers all workflows, including self-hosted |
 
@@ -163,7 +163,7 @@ that means:
 - rollback and safety posture: **good**
 - test and smoke coverage: **strong**
 - public contract consistency: **good**
-- confirmed dead code: **none found in current active path**
+- confirmed dead code: **none found in the audited active path**
 - biggest remaining watch items:
   1. broad-but-contained focused modules such as `modules/config/client_formats.sh`
   2. intentionally narrow support matrix centered on ubuntu 24.04

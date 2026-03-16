@@ -11,7 +11,7 @@
 
 ## текущий публичный baseline
 
-до изменения поведения считай публичными такие контракты `v7.1.0`:
+до изменения поведения считай публичными такие контракты текущей strongest-direct линии `v7`:
 
 - `install` = минимальный strongest-direct путь
 - `install --advanced` = явный manual compatibility flow

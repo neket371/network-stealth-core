@@ -4,7 +4,7 @@
 
 ## текущий baseline
 
-`v7.1.0` закрепляет:
+текущая strongest-direct линия `v7` закрепляет:
 
 - минимальный strongest-direct install
 - policy-driven managed state через `policy.json`
