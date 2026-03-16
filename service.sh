@@ -117,13 +117,8 @@ rollback_from_session() {
         exit 1
     fi
 
-    if systemd_running && systemctl list-unit-files --type=service 2> /dev/null | grep -q "^xray.service"; then
-        if systemctl is-active --quiet xray 2> /dev/null; then
-            if ! systemctl_uninstall_bounded stop xray; then
-                log ERROR "Не удалось остановить xray перед откатом"
-                exit 1
-            fi
-        fi
+    if declare -F runtime_quiesce_for_restore > /dev/null 2>&1; then
+        runtime_quiesce_for_restore || true
     fi
 
     (
@@ -152,21 +147,19 @@ rollback_from_session() {
                 continue
             fi
 
-            mkdir -p "$(dirname "$dest")"
-            cp -a "$session_dir/$rel" "$dest"
+            if declare -F restore_file_from_snapshot > /dev/null 2>&1; then
+                restore_file_from_snapshot "$session_dir/$rel" "$dest" || exit 1
+            else
+                mkdir -p "$(dirname "$dest")"
+                cp -a "$session_dir/$rel" "$dest"
+            fi
             log INFO "Восстановлен: $dest"
         done
     )
 
-    if systemd_running; then
-        if ! systemctl_uninstall_bounded daemon-reload; then
-            log WARN "Не удалось выполнить systemctl daemon-reload после отката"
-        fi
-        local restart_err=""
-        if ! systemctl_restart_xray_bounded restart_err; then
-            log WARN "Не удалось перезапустить xray после отката"
-        fi
-    else
+    if declare -F reconcile_runtime_after_restore > /dev/null 2>&1; then
+        reconcile_runtime_after_restore || true
+    elif ! systemd_running; then
         log WARN "systemd не запущен; перезапуск сервисов пропущен"
     fi
 

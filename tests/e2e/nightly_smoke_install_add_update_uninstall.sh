@@ -395,7 +395,6 @@ run_root bash -c "printf '%s\n' 'tampered-keys' > '$KEYS_FILE'"
 run_root bash -c "printf '%s\n' 'tampered-clients' > '$CLIENTS_FILE'"
 run_root bash -c "printf '%s\n' '{\"tampered\":true}' > '$CLIENTS_JSON'"
 run_root bash -c "printf '%s\n' '{\"log\":{\"loglevel\":\"warning\"},\"inbounds\":[],\"outbounds\":[{\"protocol\":\"freedom\"}],\"routing\":{\"rules\":[]}}' > '$XRAY_CONFIG'"
-run_root systemctl stop xray > /dev/null 2>&1 || true
 
 echo "==> rollback from update backup"
 run_root env \

@@ -3587,8 +3587,13 @@ EOF
 
 @test "rollback uses bounded systemctl operations" {
     run bash -eo pipefail -c '
-    grep -q '\''if ! systemctl_uninstall_bounded stop xray; then'\'' ./service.sh
-    grep -q '\''if ! systemctl_uninstall_bounded daemon-reload; then'\'' ./service.sh
+    grep -q '\''runtime_quiesce_for_restore'\'' ./service.sh
+    grep -q '\''restore_file_from_snapshot'\'' ./service.sh
+    grep -q '\''reconcile_runtime_after_restore'\'' ./service.sh
+    grep -q '\''systemctl_uninstall_bounded stop xray-health.timer'\'' ./modules/lib/lifecycle.sh
+    grep -q '\''systemctl_uninstall_bounded stop xray-auto-update.timer'\'' ./modules/lib/lifecycle.sh
+    grep -q '\''systemctl_uninstall_bounded stop xray'\'' ./modules/lib/lifecycle.sh
+    grep -q '\''mv -f "$tmp_path" "$dest_path"'\'' ./modules/lib/lifecycle.sh
     ! grep -q '\''if ! systemctl stop xray > /dev/null 2>&1; then'\'' ./service.sh
     echo "ok"
   '

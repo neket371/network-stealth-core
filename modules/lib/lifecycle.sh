@@ -15,6 +15,9 @@ source "$GLOBAL_CONTRACT_MODULE"
 BACKUP_STACK=()
 declare -A LOCAL_BACKUP_MAP=()
 BACKUP_SESSION_DIR=""
+RUNTIME_RESTORE_RESUME_XRAY=false
+RUNTIME_RESTORE_RESUME_HEALTH_TIMER=false
+RUNTIME_RESTORE_RESUME_AUTO_UPDATE_TIMER=false
 
 capture_failure_proof() {
     local proof_dir="${XRAY_FAILURE_PROOF_DIR:-}"
@@ -136,6 +139,87 @@ is_runtime_critical_path() {
     esac
 }
 
+systemctl_unit_loaded() {
+    local unit="${1:-}"
+    [[ -n "$unit" ]] || return 1
+    [[ "$(systemctl show "$unit" -p LoadState --value 2> /dev/null || true)" == "loaded" ]]
+}
+
+wait_for_xray_process_exit() {
+    local attempts="${1:-50}"
+    local delay_s="${2:-0.2}"
+    local try
+    for ((try = 0; try < attempts; try++)); do
+        if ! pgrep -x xray > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep "$delay_s"
+    done
+    return 1
+}
+
+runtime_quiesce_for_restore() {
+    if ! systemd_running; then
+        return 0
+    fi
+
+    if systemctl_unit_loaded xray-health.timer && systemctl is-active --quiet xray-health.timer 2> /dev/null; then
+        RUNTIME_RESTORE_RESUME_HEALTH_TIMER=true
+        if ! systemctl_uninstall_bounded stop xray-health.timer; then
+            log WARN "Не удалось остановить xray-health.timer перед восстановлением"
+        fi
+    fi
+
+    if systemctl_unit_loaded xray-auto-update.timer && systemctl is-active --quiet xray-auto-update.timer 2> /dev/null; then
+        RUNTIME_RESTORE_RESUME_AUTO_UPDATE_TIMER=true
+        if ! systemctl_uninstall_bounded stop xray-auto-update.timer; then
+            log WARN "Не удалось остановить xray-auto-update.timer перед восстановлением"
+        fi
+    fi
+
+    if systemctl_unit_loaded xray-health.service && systemctl is-active --quiet xray-health.service 2> /dev/null; then
+        if ! systemctl_uninstall_bounded stop xray-health.service; then
+            log WARN "Не удалось остановить xray-health.service перед восстановлением"
+        fi
+    fi
+
+    if systemctl_unit_loaded xray-auto-update.service && systemctl is-active --quiet xray-auto-update.service 2> /dev/null; then
+        if ! systemctl_uninstall_bounded stop xray-auto-update.service; then
+            log WARN "Не удалось остановить xray-auto-update.service перед восстановлением"
+        fi
+    fi
+
+    if systemctl_unit_loaded xray.service && systemctl is-active --quiet xray 2> /dev/null; then
+        RUNTIME_RESTORE_RESUME_XRAY=true
+        if ! systemctl_uninstall_bounded stop xray; then
+            log WARN "Не удалось остановить xray перед восстановлением"
+        fi
+    fi
+
+    if ! wait_for_xray_process_exit; then
+        log WARN "Процессы xray ещё видны после stop; продолжаем через atomic restore"
+    fi
+}
+
+restore_file_from_snapshot() {
+    local source_path="$1"
+    local dest_path="$2"
+    local dest_dir tmp_path
+
+    dest_dir="$(dirname "$dest_path")"
+    mkdir -p "$dest_dir"
+    tmp_path="$(mktemp "${dest_dir}/.$(basename "$dest_path").restore.XXXXXX")"
+    if ! cp -a "$source_path" "$tmp_path"; then
+        rm -f "$tmp_path"
+        return 1
+    fi
+    if ! mv -f "$tmp_path" "$dest_path"; then
+        rm -f "$tmp_path"
+        return 1
+    fi
+    return 0
+}
+
 reconcile_runtime_after_restore() {
     if ! systemctl_available || ! systemd_running; then
         return 0
@@ -158,6 +242,11 @@ reconcile_runtime_after_restore() {
         done
     fi
     if [[ "$need_reconcile" != true ]]; then
+        if [[ "$RUNTIME_RESTORE_RESUME_XRAY" == true || "$RUNTIME_RESTORE_RESUME_HEALTH_TIMER" == true || "$RUNTIME_RESTORE_RESUME_AUTO_UPDATE_TIMER" == true ]]; then
+            need_reconcile=true
+        fi
+    fi
+    if [[ "$need_reconcile" != true ]]; then
         return 0
     fi
 
@@ -166,26 +255,37 @@ reconcile_runtime_after_restore() {
         log WARN "Не удалось выполнить systemctl daemon-reload после rollback"
     fi
 
-    if ! systemctl list-unit-files --type=service 2> /dev/null | grep -q "^xray.service"; then
-        return 0
-    fi
-    if [[ ! -x "$XRAY_BIN" || ! -f "$XRAY_CONFIG" ]]; then
-        log WARN "Пропускаем restart xray после rollback: бинарник или конфиг отсутствуют"
-        return 0
-    fi
-    if ! "$XRAY_BIN" -test -c "$XRAY_CONFIG" > /dev/null 2>&1; then
-        log WARN "Пропускаем restart xray после rollback: восстановленный конфиг не прошёл xray -test"
-        return 0
-    fi
-    if declare -F systemctl_restart_xray_bounded > /dev/null; then
-        if systemctl_restart_xray_bounded; then
-            log INFO "Runtime синхронизирован: xray перезапущен после rollback"
+    if systemctl_unit_loaded xray.service; then
+        if [[ ! -x "$XRAY_BIN" || ! -f "$XRAY_CONFIG" ]]; then
+            log WARN "Пропускаем restart xray после rollback: бинарник или конфиг отсутствуют"
+        elif ! "$XRAY_BIN" -test -c "$XRAY_CONFIG" > /dev/null 2>&1; then
+            log WARN "Пропускаем restart xray после rollback: восстановленный конфиг не прошёл xray -test"
+        elif declare -F systemctl_restart_xray_bounded > /dev/null; then
+            if systemctl_restart_xray_bounded; then
+                log INFO "Runtime синхронизирован: xray перезапущен после rollback"
+            else
+                log WARN "Не удалось перезапустить xray после rollback"
+            fi
         else
-            log WARN "Не удалось перезапустить xray после rollback"
+            log WARN "Пропускаем restart xray после rollback: helper systemctl_restart_xray_bounded недоступен"
         fi
-    else
-        log WARN "Пропускаем restart xray после rollback: helper systemctl_restart_xray_bounded недоступен"
     fi
+
+    if [[ "$RUNTIME_RESTORE_RESUME_HEALTH_TIMER" == true ]] && systemctl_unit_loaded xray-health.timer; then
+        if ! systemctl_run_bounded start xray-health.timer; then
+            log WARN "Не удалось заново запустить xray-health.timer после rollback"
+        fi
+    fi
+
+    if [[ "$RUNTIME_RESTORE_RESUME_AUTO_UPDATE_TIMER" == true ]] && systemctl_unit_loaded xray-auto-update.timer; then
+        if ! systemctl_run_bounded start xray-auto-update.timer; then
+            log WARN "Не удалось заново запустить xray-auto-update.timer после rollback"
+        fi
+    fi
+
+    RUNTIME_RESTORE_RESUME_XRAY=false
+    RUNTIME_RESTORE_RESUME_HEALTH_TIMER=false
+    RUNTIME_RESTORE_RESUME_AUTO_UPDATE_TIMER=false
 }
 
 cleanup_on_error() {
@@ -201,6 +301,26 @@ cleanup_on_error() {
         fi
 
         if [[ ${#BACKUP_STACK[@]} -gt 0 ]]; then
+            local need_runtime_quiesce=false
+            local restore_candidate
+            for restore_candidate in "${BACKUP_STACK[@]}"; do
+                if is_runtime_critical_path "$restore_candidate"; then
+                    need_runtime_quiesce=true
+                    break
+                fi
+            done
+            if [[ "$need_runtime_quiesce" != true ]]; then
+                for restore_candidate in "${CREATED_PATHS[@]}"; do
+                    if is_runtime_critical_path "$restore_candidate"; then
+                        need_runtime_quiesce=true
+                        break
+                    fi
+                done
+            fi
+            if [[ "$need_runtime_quiesce" == true ]]; then
+                runtime_quiesce_for_restore || true
+            fi
+
             log WARN "Откатываем изменения..."
             local _i
             for ((_i = ${#BACKUP_STACK[@]} - 1; _i >= 0; _i--)); do
@@ -211,10 +331,10 @@ cleanup_on_error() {
                     restored=true
                     log INFO "Восстановлен: $backup"
                 elif [[ -n "$BACKUP_SESSION_DIR" ]] && [[ -f "${BACKUP_SESSION_DIR}${backup}" ]]; then
-                    mkdir -p "$(dirname "$backup")"
-                    cp -a "${BACKUP_SESSION_DIR}${backup}" "$backup"
-                    restored=true
-                    log INFO "Восстановлен из сессии: $backup"
+                    if restore_file_from_snapshot "${BACKUP_SESSION_DIR}${backup}" "$backup"; then
+                        restored=true
+                        log INFO "Восстановлен из сессии: $backup"
+                    fi
                 fi
                 [[ "$restored" == true ]] || log WARN "Нет бэкапа для: $backup"
             done
