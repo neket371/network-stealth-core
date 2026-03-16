@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.1.0 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
+# Network Stealth Core 7.3.8 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.1.0"
+readonly SCRIPT_VERSION="7.3.8"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
@@ -108,7 +108,7 @@ PRIMARY_ADAPTIVE_TOP_N="${PRIMARY_ADAPTIVE_TOP_N:-5}"
 MEASUREMENTS_DIR="${MEASUREMENTS_DIR:-/var/lib/xray/measurements}"
 MEASUREMENTS_SUMMARY_FILE="${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}"
 SELF_CHECK_HISTORY_FILE="${SELF_CHECK_HISTORY_FILE:-/var/lib/xray/self-check-history.ndjson}"
-STEALTH_CONTRACT_VERSION="${STEALTH_CONTRACT_VERSION:-7.1.0}"
+STEALTH_CONTRACT_VERSION="${STEALTH_CONTRACT_VERSION:-7.3.8}"
 XRAY_CLIENT_MIN_VERSION="${XRAY_CLIENT_MIN_VERSION:-25.9.5}"
 XRAY_DIRECT_FLOW="${XRAY_DIRECT_FLOW:-xtls-rprx-vision}"
 BROWSER_DIALER_ENV_NAME="${BROWSER_DIALER_ENV_NAME:-xray.browser.dialer}"

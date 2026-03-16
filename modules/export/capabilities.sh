@@ -22,7 +22,7 @@ export_capabilities_json() {
         --arg generated "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
         --arg transport "${TRANSPORT:-xhttp}" \
         --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
-        --arg contract_version "${STEALTH_CONTRACT_VERSION:-7.1.0}" \
+        --arg contract_version "${STEALTH_CONTRACT_VERSION:-7.3.8}" \
         --arg clients_txt "${XRAY_KEYS}/clients.txt" \
         --arg clients_links "${XRAY_KEYS}/clients-links.txt" \
         --arg clients_json "${XRAY_KEYS}/clients.json" \

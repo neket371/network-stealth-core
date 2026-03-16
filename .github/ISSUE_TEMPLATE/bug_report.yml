@@ -15,7 +15,7 @@ body:
     attributes:
       label: version or commit
       description: release version or exact repo commit
-      placeholder: v7.1.0 / ee34247 / ubuntu@<sha>
+      placeholder: v7.3.8 / d11dd64 / ubuntu@<sha>
     validations:
       required: true
 
@@ -93,4 +93,3 @@ body:
     attributes:
       label: proof-pack or lab evidence (optional)
       description: link or summarize `make vm-proof-pack` output if this came from vm-lab
-

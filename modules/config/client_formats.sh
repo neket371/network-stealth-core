@@ -831,7 +831,7 @@ EOF
         --arg transport "$TRANSPORT" \
         --arg spider "${SPIDER_MODE:-false}" \
         --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
-        --arg contract_version "${STEALTH_CONTRACT_VERSION:-7.1.0}" \
+        --arg contract_version "${STEALTH_CONTRACT_VERSION:-7.3.8}" \
         --argjson configs "$json_configs" \
         '{
             schema_version: 3,

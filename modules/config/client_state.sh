@@ -85,7 +85,7 @@ JQ
 
     normalized_json=$(printf '%s\n' "$normalized_json" | jq '
         .schema_version = 3
-        | .stealth_contract_version = (.stealth_contract_version // "7.1.0")
+        | .stealth_contract_version = (.stealth_contract_version // "7.3.8")
         | .transport = (.transport // "xhttp")
         | .xray_min_version = (.xray_min_version // "25.9.5")
         | .configs = (

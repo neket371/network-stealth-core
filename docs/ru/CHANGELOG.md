@@ -7,20 +7,21 @@
 
 ## [unreleased]
 
+## [7.3.8] - 2026-03-16
+
 ### changed
 
-- интерактивный `install` теперь всегда требует явный ввод числа конфигов на обычном пути; `--num-configs` остаётся scripted-override
-- ручной потолок для `global-50` поднят до `15`, а non-interactive auto default оставлен на `5`
-- рендеринг и пересборка client artifacts разделены на focused-модули `client_formats` и `client_state`, а `client_artifacts.sh` стал тонким loader’ом
-- `config.sh` дополнительно разделён на focused-модули runtime-contract и runtime-apply; root-скрипт теперь в основном оркестрирует сборку конфига и артефактов
-- pinned bootstrap по commit теперь вынесен в visually first-class quick start для реальных серверов, а wrapper печатает более жёсткую подсказку при floating mutating bootstrap
-- wrapper bootstrap верификация сохранена совместимой с историческими pinned tag, которые используются в `migrate-stealth`, и больше не требует новые split lib modules
-- активные canonical xhttp tier теперь читают metadata из catalog в первую очередь, а `domains.tiers`/`sni_pools.map` стали fallback/compatibility-источниками; значения catalog при этом нормально нормализуются и на windows line endings
-- runtime profile, выделение портов и генерация ключей вынесены из `modules/config/domain_planner.sh` в отдельный `modules/config/runtime_profiles.sh`
-- `lib.sh` дополнительно декомпозирован на focused-модули ui/logging, system-runtime, downloads, config-loading, path-safety и runtime-inputs
-- добавлен санитизированный `make vm-proof-pack` / `scripts/lab/generate-vm-proof-pack.sh` для evidence bundle из vm-lab lifecycle run
-- добавлены public issue templates и pull request template для более чистого bug/support/feature intake
-- pinned github actions обновлены до node24-safe upstream shas, а self-hosted/nightly vm-lab workflow теперь выгружает proof-pack artifacts
+- оркестрация config, install, service и client-artifact путей разнесена по focused-модулям (`runtime_contract`, `runtime_apply`, `runtime_profiles`, `client_formats`, `client_state`, install output/selection/runtime и service runtime/uninstall helpers)
+- активный xhttp planner переведён на catalog-first модель, при этом bootstrap остался совместимым с историческими pinned tag для `migrate-stealth`
+- pinned bootstrap, генерация vm-lab proof-pack и host-safe lab workflows оформлены как основной maintainer-grade validation path
+- issue templates, support metadata и двуязычные docs выровнены под текущую strongest-direct линию релиза `v7`
+
+### fixed
+
+- усилен lifecycle логов xray на `ubuntu-24.04`: startup, restart и `logrotate` больше не ломаются на hosted runner’ах
+- стабилизированы legacy migration fixtures и lifecycle validation для чистых hosted окружений `ubuntu-24.04`
+- audit/lint coverage расширен на `modules/export/*`, а для export capability notes и `rebuild_config_for_transport()` добавлены прямые unit-контракты
+- pinned docker actions обновлены до node24-ready revisions, и hosted package builds больше не шумят из-за deprecation `Node 20`
 
 ## [7.1.0] - 2026-03-07
 

@@ -43,7 +43,7 @@ policy_json_from_runtime() {
 
     jq -n \
         --arg generated "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-        --arg contract "${STEALTH_CONTRACT_VERSION:-7.1.0}" \
+        --arg contract "${STEALTH_CONTRACT_VERSION:-7.3.8}" \
         --arg transport "${TRANSPORT:-xhttp}" \
         --arg flow "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}" \
         --arg xray_min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \

@@ -7,20 +7,21 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.3.8] - 2026-03-16
+
 ### changed
 
-- interactive `install` now always requires an explicit config count on the normal path; `--num-configs` remains the scripted override
-- raised the manual `global-50` config-count ceiling to `15` while keeping non-interactive auto defaults at `5`
-- split client-artifact rendering/rebuild responsibilities into focused `client_formats` and `client_state` modules, leaving `client_artifacts.sh` as a thin loader
-- split `config.sh` into focused runtime-contract and runtime-apply modules, leaving the root script as orchestration over config builders and artifact modules
-- made pinned bootstrap by commit the visually first-class quick-start path for real servers and added stronger wrapper hints for floating mutating bootstrap usage
-- kept wrapper bootstrap validation compatible with historical pinned tags used by `migrate-stealth` coverage instead of requiring newer split lib modules
-- made active canonical xhttp tiers load catalog metadata first, reducing dependence on `domains.tiers`/`sni_pools.map` and normalizing catalog values cleanly on windows line endings
-- split runtime profile, port-allocation, and key-generation helpers out of `modules/config/domain_planner.sh` into a focused `modules/config/runtime_profiles.sh` module
-- decomposed `lib.sh` into focused ui/logging, system-runtime, downloads, config-loading, path-safety, and runtime-input modules
-- added sanitized `make vm-proof-pack` / `scripts/lab/generate-vm-proof-pack.sh` evidence bundles for vm-lab lifecycle runs
-- added public issue templates and a pull request template for cleaner bug/support/feature intake
-- refreshed pinned github action revisions to node24-safe upstream shas and taught self-hosted/nightly vm-lab workflows to upload proof-pack artifacts
+- split config, install, service, and client-artifact orchestration into focused modules (`runtime_contract`, `runtime_apply`, `runtime_profiles`, `client_formats`, `client_state`, install output/selection/runtime, and service runtime/uninstall helpers)
+- made the active xhttp planner catalog-first while keeping bootstrap compatibility with historical pinned tags used by `migrate-stealth`
+- promoted pinned bootstrap, vm-lab proof-pack generation, and host-safe lab workflows as the maintainer-grade validation path
+- refreshed issue templates, support metadata, and bilingual docs to the current `v7` strongest-direct release line
+
+### fixed
+
+- hardened xray log lifecycle behavior on `ubuntu-24.04`, including service startup, restart, and `logrotate` handling on hosted runners
+- stabilized legacy migration fixtures and lifecycle validation for clean hosted `ubuntu-24.04` environments
+- expanded audit/lint coverage to `modules/export/*` and added direct unit contracts for export capability notes and `rebuild_config_for_transport()`
+- refreshed pinned docker actions to node24-ready revisions and removed the previous node 20 deprecation noise from hosted package builds
 
 ## [7.1.0] - 2026-03-07
 

@@ -27,7 +27,7 @@ body:
     id: version
     attributes:
       label: version or commit
-      placeholder: v7.1.0 / ubuntu@<sha>
+      placeholder: v7.3.8 / ubuntu@<sha>
     validations:
       required: true
 
@@ -60,4 +60,3 @@ body:
     attributes:
       label: evidence bundle (optional)
       description: include a proof-pack manifest path, canary summary, or vm-lab artifact summary when available
-
