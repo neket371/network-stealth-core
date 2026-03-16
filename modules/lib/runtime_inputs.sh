@@ -16,6 +16,7 @@
 : "${XRAY_CONFIG:=/etc/xray/config.json}"
 : "${XRAY_ENV:=/etc/xray-reality/config.env}"
 : "${XRAY_POLICY:=/etc/xray-reality/policy.json}"
+: "${XRAY_MANAGED_CUSTOM_DOMAINS_FILE:=/etc/xray-reality/custom-domains.txt}"
 : "${XRAY_SCRIPT_PATH:=/usr/local/bin/xray-reality.sh}"
 : "${XRAY_UPDATE_SCRIPT:=/usr/local/bin/xray-reality-update.sh}"
 : "${MINISIGN_KEY:=/etc/xray/minisign.pub}"
@@ -343,7 +344,7 @@ strict_validate_runtime_inputs() {
     local action="${1:-$ACTION}"
     local var
     local -a safe_vars=(
-        XRAY_BIN XRAY_CONFIG XRAY_ENV XRAY_KEYS XRAY_BACKUP XRAY_LOGS XRAY_HOME
+        XRAY_BIN XRAY_CONFIG XRAY_ENV XRAY_MANAGED_CUSTOM_DOMAINS_FILE XRAY_KEYS XRAY_BACKUP XRAY_LOGS XRAY_HOME
         XRAY_DATA_DIR XRAY_GEO_DIR XRAY_SCRIPT_PATH XRAY_UPDATE_SCRIPT MINISIGN_KEY
         XRAY_CONFIG_FILE DOWNLOAD_HOST_ALLOWLIST XRAY_MIRRORS MINISIGN_MIRRORS
         GH_PROXY_BASE
@@ -528,6 +529,22 @@ strict_validate_runtime_inputs() {
     case "$action" in
         install | add-clients | add-keys)
             validate_install_config || return 1
+            local effective_domain_source_tier="${DOMAIN_TIER:-}"
+            local normalized_effective_domain_source_tier=""
+            if [[ -z "$effective_domain_source_tier" && -n "${DOMAIN_PROFILE:-}" ]]; then
+                effective_domain_source_tier="$DOMAIN_PROFILE"
+            fi
+            if [[ -z "$effective_domain_source_tier" && -n "${XRAY_DOMAIN_PROFILE:-}" ]]; then
+                effective_domain_source_tier="$XRAY_DOMAIN_PROFILE"
+            fi
+            if [[ -z "$effective_domain_source_tier" && -n "${XRAY_DOMAIN_TIER:-}" ]]; then
+                effective_domain_source_tier="$XRAY_DOMAIN_TIER"
+            fi
+            normalized_effective_domain_source_tier="$(normalize_domain_tier "${effective_domain_source_tier:-tier_ru}" 2> /dev/null || echo "")"
+            if [[ -z "$XRAY_CUSTOM_DOMAINS" && -z "$XRAY_DOMAINS_FILE" && "$normalized_effective_domain_source_tier" == "custom" ]]; then
+                log ERROR "Custom-профиль требует managed source доменов: восстановите ${XRAY_MANAGED_CUSTOM_DOMAINS_FILE} или повторно задайте XRAY_CUSTOM_DOMAINS/XRAY_DOMAINS_FILE."
+                return 1
+            fi
             ;;
         *) ;;
     esac

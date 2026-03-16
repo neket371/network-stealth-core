@@ -226,6 +226,13 @@ status_flow_render_config_summary() {
     if [[ "$transport_mode" == "grpc" || "$transport_mode" == "http2" ]]; then
         echo -e "  Режим: legacy transport (рекомендуется xray-reality.sh migrate-stealth)"
     fi
+    if [[ "$(normalize_domain_tier "${DOMAIN_TIER:-${DOMAIN_PROFILE:-tier_ru}}" 2> /dev/null || echo "")" == "custom" ]]; then
+        if [[ -n "${XRAY_DOMAINS_FILE:-}" ]]; then
+            echo -e "  Источник доменов: managed custom list (${XRAY_DOMAINS_FILE})"
+        else
+            echo -e "  Источник доменов: ${YELLOW}custom profile без managed source${NC}"
+        fi
+    fi
 
     local ports
     ports=$(jq -r '.inbounds[] | select(.listen == "0.0.0.0" or .listen == null) | .port' "$XRAY_CONFIG" 2> /dev/null | tr '\n' ' ')

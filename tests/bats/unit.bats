@@ -472,12 +472,14 @@ EOF
     bash ./scripts/lab/collect-container-artifacts.sh --help
     bash ./scripts/lab/prepare-vm-smoke.sh --help
     bash ./scripts/lab/run-vm-lifecycle-smoke.sh --help
+    bash ./scripts/lab/run-vm-release-smoke.sh --help
     bash ./scripts/lab/collect-vm-artifacts.sh --help
     bash ./scripts/lab/enter-vm-smoke.sh --help
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"scripts/lab/run-container-smoke.sh"* ]]
     [[ "$output" == *"scripts/lab/run-vm-lifecycle-smoke.sh"* ]]
+    [[ "$output" == *"scripts/lab/run-vm-release-smoke.sh"* ]]
 }
 
 @test "lab smoke runs artifact collector through bash" {
@@ -489,6 +491,7 @@ EOF
     grep -Fq '\''result_json="$(bash "$SCRIPT_DIR/collect-vm-artifacts.sh" --timestamp "$timestamp" --guest-ip "$(lab_vm_guest_ipv4)" --smoke-status "$smoke_status")"'\'' \
       ./scripts/lab/run-vm-lifecycle-smoke.sh
     grep -Fq '\''bash scripts/lab/guest-vm-lifecycle.sh'\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
+    grep -Fq '\''guest-vm-release-smoke.sh'\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -507,8 +510,11 @@ EOF
 
 @test "vm lab guest defaults pin a deterministic custom domain shortlist" {
     run bash -eo pipefail -c '
-    grep -Fq '\''XRAY_CUSTOM_DOMAINS="${XRAY_CUSTOM_DOMAINS:-vk.com,yoomoney.ru,cdek.ru}"'\'' ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq '\''vm_lab_default_custom_domains() {'\'' ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq '\''XRAY_CUSTOM_DOMAINS="$(vm_lab_default_custom_domains)"'\'' ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq '\''XRAY_CUSTOM_DOMAINS='\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
+    grep -Fq '\''VM_GUEST_MODE=release'\'' ./scripts/lab/run-vm-release-smoke.sh
+    grep -Fq '\''RELEASE_TAG='\'' ./scripts/lab/run-vm-release-smoke.sh
     grep -Fq '\''UPDATE_VERSION="$INSTALL_VERSION"'\'' ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq '\''resolved_version="$(resolve_latest_stable_xray_version || true)"'\'' ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq '\''INSTALL_VERSION='\'' ./scripts/lab/run-vm-lifecycle-smoke.sh
@@ -525,11 +531,26 @@ EOF
     run bash -eo pipefail -c '
     grep -Fq "install_guest_manual_helpers() {" ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq "/usr/local/bin/nsc-vm-install-latest" ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq "/usr/local/bin/nsc-vm-install-release" ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq "/usr/local/bin/nsc-vm-install-repo" ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq "/usr/local/bin/nsc-vm-guest-ip" ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq "raw curl install внутри этого гостя" ./scripts/lab/guest-vm-lifecycle.sh
+    grep -Fq "release/bootstrap validation path" ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq "ALLOW_INSECURE_SHA256" ./scripts/lab/guest-vm-lifecycle.sh
     grep -Fq "используй nsc-vm-install-latest [--num-configs n|--advanced]" ./scripts/lab/enter-vm-smoke.sh
+    grep -Fq "nsc-vm-install-release <tag>" ./scripts/lab/enter-vm-smoke.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "vm lab release smoke target is wired through make and wrapper script" {
+    run bash -eo pipefail -c '
+    grep -Fq "vm-lab-release-smoke:" ./Makefile
+    grep -Fq "run-vm-release-smoke.sh" ./Makefile
+    grep -Fq "VM_GUEST_MODE=release" ./scripts/lab/run-vm-release-smoke.sh
+    grep -Fq "RELEASE_TAG is required" ./scripts/lab/run-vm-release-smoke.sh
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -1039,6 +1060,33 @@ EOF
     XRAY_DOMAINS_FILE="$tmp"
     strict_validate_runtime_inputs install
     echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "strict_validate_runtime_inputs rejects custom profile without managed source" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    DOMAIN_TIER="custom"
+    XRAY_DOMAIN_PROFILE="custom"
+    XRAY_CUSTOM_DOMAINS=""
+    XRAY_DOMAINS_FILE=""
+    strict_validate_runtime_inputs add-clients
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"custom-domains.txt"* ]]
+}
+
+@test "strict_validate_runtime_inputs accepts custom profile with inline domains" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    DOMAIN_TIER="custom"
+    XRAY_DOMAIN_PROFILE="custom"
+    XRAY_CUSTOM_DOMAINS="vk.com,yoomoney.ru,cdek.ru"
+    XRAY_DOMAINS_FILE=""
+    strict_validate_runtime_inputs install
+    echo ok
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
@@ -3133,6 +3181,117 @@ EOF
     grep -q "^PROGRESS_MODE=" "$XRAY_ENV"
     grep -q "^XRAY_PROGRESS_MODE=" "$XRAY_ENV"
     echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "save_environment persists inline custom domains into managed state" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    log() { :; }
+    backup_file() { :; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      mkdir -p "$(dirname "$target")"
+      cat > "$target"
+      [[ -n "$mode" ]] && chmod "$mode" "$target"
+    }
+
+    tmp_env=$(mktemp)
+    tmp_dir=$(mktemp -d)
+    tmp_bin_dir=$(mktemp -d)
+    trap "rm -f \"$tmp_env\"; rm -rf \"$tmp_dir\" \"$tmp_bin_dir\"" EXIT
+
+    cat > "${tmp_bin_dir}/xray" <<EOF
+#!/usr/bin/env bash
+echo "Xray 1.8.0"
+EOF
+    chmod +x "${tmp_bin_dir}/xray"
+
+    XRAY_BIN="${tmp_bin_dir}/xray"
+    XRAY_ENV="$tmp_env"
+    XRAY_MANAGED_CUSTOM_DOMAINS_FILE="${tmp_dir}/custom-domains.txt"
+    XRAY_CUSTOM_DOMAINS="vk.com, yoomoney.ru ,cdek.ru"
+    XRAY_DOMAINS_FILE=""
+    DOMAIN_TIER="custom"
+    DOMAIN_PROFILE="custom"
+    SERVER_IP="127.0.0.1"
+    SERVER_IP6=""
+    SPIDER_MODE="true"
+
+    save_environment
+
+    ! grep -q "^XRAY_CUSTOM_DOMAINS=" "$XRAY_ENV"
+    grep -q "^XRAY_DOMAINS_FILE=" "$XRAY_ENV"
+    grep -Fxq "vk.com" "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE"
+    grep -Fxq "yoomoney.ru" "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE"
+    grep -Fxq "cdek.ru" "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE"
+
+    XRAY_DOMAINS_FILE=""
+    XRAY_CUSTOM_DOMAINS=""
+    load_config_file "$XRAY_ENV"
+    [[ "$XRAY_DOMAINS_FILE" == "${tmp_dir}/custom-domains.txt" ]]
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "save_environment copies XRAY_DOMAINS_FILE into managed custom state" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    log() { :; }
+    backup_file() { :; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      mkdir -p "$(dirname "$target")"
+      cat > "$target"
+      [[ -n "$mode" ]] && chmod "$mode" "$target"
+    }
+
+    tmp_env=$(mktemp)
+    tmp_dir=$(mktemp -d)
+    tmp_bin_dir=$(mktemp -d)
+    tmp_source=$(mktemp)
+    trap "rm -f \"$tmp_env\" \"$tmp_source\"; rm -rf \"$tmp_dir\" \"$tmp_bin_dir\"" EXIT
+
+    cat > "${tmp_bin_dir}/xray" <<EOF
+#!/usr/bin/env bash
+echo "Xray 1.8.0"
+EOF
+    chmod +x "${tmp_bin_dir}/xray"
+    cat > "$tmp_source" <<EOF
+# comment
+vk.com
+yoomoney.ru
+EOF
+
+    XRAY_BIN="${tmp_bin_dir}/xray"
+    XRAY_ENV="$tmp_env"
+    XRAY_MANAGED_CUSTOM_DOMAINS_FILE="${tmp_dir}/custom-domains.txt"
+    XRAY_CUSTOM_DOMAINS=""
+    XRAY_DOMAINS_FILE="$tmp_source"
+    DOMAIN_TIER="custom"
+    DOMAIN_PROFILE="custom"
+    SERVER_IP="127.0.0.1"
+    SERVER_IP6=""
+    SPIDER_MODE="true"
+
+    save_environment
+    rm -f "$tmp_source"
+
+    grep -Fxq "vk.com" "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE"
+    grep -Fxq "yoomoney.ru" "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE"
+    ! grep -q "^# comment$" "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE"
+    XRAY_DOMAINS_FILE=""
+    load_config_file "$XRAY_ENV"
+    [[ "$XRAY_DOMAINS_FILE" == "${tmp_dir}/custom-domains.txt" ]]
+    echo ok
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]

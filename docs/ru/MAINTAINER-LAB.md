@@ -37,6 +37,7 @@ bash scripts/lab/collect-container-artifacts.sh
 ```bash
 make vm-lab-prepare
 make vm-lab-smoke
+make vm-lab-release-smoke RELEASE_TAG=v7.3.8
 make vm-proof-pack
 ```
 
@@ -45,6 +46,7 @@ make vm-proof-pack
 ```bash
 bash scripts/lab/prepare-vm-smoke.sh
 bash scripts/lab/run-vm-lifecycle-smoke.sh
+bash scripts/lab/run-vm-release-smoke.sh
 bash scripts/lab/enter-vm-smoke.sh
 bash scripts/lab/generate-vm-proof-pack.sh
 ```
@@ -57,6 +59,7 @@ bash scripts/lab/generate-vm-proof-pack.sh
 - пробрасывает на loopback хоста только гостевой ssh
 - копирует текущий репозиторий в гостя
 - гоняет там полный nightly lifecycle smoke: `install`, `add-clients`, `repair`, `update`, `rollback`, `status`, `uninstall`
+- даёт отдельный release-bootstrap smoke path, где tagged bootstrap install валидируется через guest helper, а не через raw `curl`
 - возвращает guest-логи обратно в vm-lab log directory
 - копирует обратно в vm-lab artifacts directory санитизированный proof source bundle
 
@@ -78,16 +81,19 @@ bash scripts/lab/generate-vm-proof-pack.sh
 
 ```bash
 nsc-vm-install-latest --num-configs 3
+nsc-vm-install-release v7.3.8 --num-configs 1
 nsc-vm-install-repo --advanced
 ```
 
-raw `curl ... xray-reality.sh` install внутри гостя не используй.
+raw `curl ... xray-reality.sh` install внутри гостя не используй как evidence path.
 в nat-backed vm-lab такой путь может автоопределить public ip хоста вместо guest ip и завалить финальный self-check.
+для release/bootstrap validation используй `nsc-vm-install-release` или `make vm-lab-release-smoke RELEASE_TAG=...`.
 
 что делает каждый helper:
 
 - `nsc-vm-guest-ip` — печатает guest ipv4
 - `nsc-vm-install-latest` — скачивает latest bootstrap script и запускает install с guest ipv4 в `server_ip`
+- `nsc-vm-install-release` — скачивает tagged bootstrap script, фиксирует `xray_repo_ref` и использует vm-lab-safe defaults для `server_ip`, `start_port` и `xray_custom_domains`
 - `nsc-vm-install-repo` — запускает repo-local script из `~/repo` с guest ipv4 в `server_ip`
 
 ## генерация proof-pack
@@ -124,5 +130,6 @@ proof-pack намеренно не включает:
 - `make ci-fast` и `make ci-full` — локальная валидация репозитория
 - `make lab-smoke` — безопасный первый smoke на занятом хосте
 - `make vm-lab-smoke` — полный prod-like lifecycle на том же занятом хосте
+- `make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z` — tagged bootstrap validation в nat-backed guest
 - `make vm-proof-pack` — shareable maintainer/operator evidence bundle из последнего vm-lab run
 - canary bundle exports — проверка с другой машины или другой сети

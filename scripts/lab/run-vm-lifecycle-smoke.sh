@@ -30,6 +30,8 @@ environment:
   XRAY_CUSTOM_DOMAINS       deterministic vm-lab domains (default: vk.com,yoomoney.ru,cdek.ru)
   INSTALL_VERSION           optional xray version for install
   UPDATE_VERSION            optional xray version for update (default: install version)
+  VM_GUEST_MODE             lifecycle|release (default: lifecycle)
+  RELEASE_TAG               required when VM_GUEST_MODE=release
 EOF
 }
 
@@ -123,6 +125,28 @@ copy_repo_to_guest() {
         -p "$ssh_port" \
         "${guest_user}@127.0.0.1" \
         'rm -rf ~/repo && mkdir -p ~/repo && tar -xf - -C ~/repo'
+}
+
+build_guest_command() {
+    local mode="${VM_GUEST_MODE:-lifecycle}"
+    case "$mode" in
+        lifecycle)
+            printf "%s" \
+                "cd ~/repo && START_PORT='${START_PORT:-24440}' INITIAL_CONFIGS='${INITIAL_CONFIGS:-1}' ADD_CONFIGS='${ADD_CONFIGS:-1}' E2E_DOMAIN_CHECK='${E2E_DOMAIN_CHECK:-false}' E2E_SKIP_REALITY_CHECK='${E2E_SKIP_REALITY_CHECK:-false}' E2E_ALLOW_INSECURE_SHA256='${E2E_ALLOW_INSECURE_SHA256:-true}' E2E_KEEP_FAILURE_STATE='${keep_failure_state}' XRAY_CUSTOM_DOMAINS='${XRAY_CUSTOM_DOMAINS:-vk.com,yoomoney.ru,cdek.ru}' INSTALL_VERSION='${INSTALL_VERSION:-}' UPDATE_VERSION='${UPDATE_VERSION:-}' bash scripts/lab/guest-vm-lifecycle.sh"
+            ;;
+        release)
+            if [[ -z "${RELEASE_TAG:-}" ]]; then
+                echo "RELEASE_TAG is required when VM_GUEST_MODE=release" >&2
+                return 1
+            fi
+            printf "%s" \
+                "cd ~/repo && RELEASE_TAG='${RELEASE_TAG}' START_PORT='${START_PORT:-24440}' INITIAL_CONFIGS='${INITIAL_CONFIGS:-1}' ADD_CONFIGS='${ADD_CONFIGS:-1}' E2E_ALLOW_INSECURE_SHA256='${E2E_ALLOW_INSECURE_SHA256:-true}' E2E_KEEP_FAILURE_STATE='${keep_failure_state}' XRAY_CUSTOM_DOMAINS='${XRAY_CUSTOM_DOMAINS:-vk.com,yoomoney.ru,cdek.ru}' bash scripts/lab/guest-vm-release-smoke.sh"
+            ;;
+        *)
+            echo "unsupported VM_GUEST_MODE: ${mode}" >&2
+            return 1
+            ;;
+    esac
 }
 
 collect_guest_logs() {
@@ -292,6 +316,8 @@ fi
 
 copy_repo_to_guest
 
+guest_command="$(build_guest_command)"
+
 set +e
 ssh \
     -i "$ssh_key" \
@@ -300,7 +326,7 @@ ssh \
     -o LogLevel=ERROR \
     -p "$ssh_port" \
     "${guest_user}@127.0.0.1" \
-    "cd ~/repo && START_PORT='${START_PORT:-24440}' INITIAL_CONFIGS='${INITIAL_CONFIGS:-1}' ADD_CONFIGS='${ADD_CONFIGS:-1}' E2E_DOMAIN_CHECK='${E2E_DOMAIN_CHECK:-false}' E2E_SKIP_REALITY_CHECK='${E2E_SKIP_REALITY_CHECK:-false}' E2E_ALLOW_INSECURE_SHA256='${E2E_ALLOW_INSECURE_SHA256:-true}' E2E_KEEP_FAILURE_STATE='${keep_failure_state}' XRAY_CUSTOM_DOMAINS='${XRAY_CUSTOM_DOMAINS:-vk.com,yoomoney.ru,cdek.ru}' INSTALL_VERSION='${INSTALL_VERSION:-}' UPDATE_VERSION='${UPDATE_VERSION:-}' bash scripts/lab/guest-vm-lifecycle.sh" | tee "$run_log"
+    "$guest_command" | tee "$run_log"
 smoke_status=$?
 set -e
 
@@ -342,5 +368,6 @@ proof dir: ${proof_dir:-none}
 guest tips:
   bash scripts/lab/enter-vm-smoke.sh
   nsc-vm-install-latest --num-configs 3
+  nsc-vm-install-release ${RELEASE_TAG:-v7.3.8} --num-configs 1
   nsc-vm-install-repo --advanced
 EOF

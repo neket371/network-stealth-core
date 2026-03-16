@@ -16,6 +16,7 @@
 : "${XRAY_CONFIG:=/etc/xray/config.json}"
 : "${XRAY_ENV:=/etc/xray-reality/config.env}"
 : "${XRAY_POLICY:=/etc/xray-reality/policy.json}"
+: "${XRAY_MANAGED_CUSTOM_DOMAINS_FILE:=/etc/xray-reality/custom-domains.txt}"
 : "${XRAY_KEYS:=/etc/xray/private/keys}"
 : "${XRAY_BACKUP:=/var/backups/xray}"
 : "${XRAY_LOGS:=/var/log/xray}"

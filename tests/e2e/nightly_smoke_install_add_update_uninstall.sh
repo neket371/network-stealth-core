@@ -103,6 +103,7 @@ proof_capture_runtime_evidence() {
     proof_capture_optional_file "/var/lib/xray/measurements/latest-summary.json" "${E2E_PROOF_DIR}/measurement-summary.json"
     proof_capture_optional_file "${XRAY_KEYS_DIR}/export/capabilities.json" "${E2E_PROOF_DIR}/capabilities.json"
     proof_capture_optional_file "${XRAY_KEYS_DIR}/export/canary/manifest.json" "${E2E_PROOF_DIR}/canary-manifest.json"
+    proof_capture_optional_file "/etc/xray-reality/custom-domains.txt" "${E2E_PROOF_DIR}/custom-domains.txt"
 
     local inventory_tsv="${E2E_PROOF_DIR}/artifact-inventory.tsv"
     : > "$inventory_tsv"
@@ -111,6 +112,7 @@ proof_capture_runtime_evidence() {
     for path in \
         "$XRAY_CONFIG" \
         "/etc/xray-reality/config.env" \
+        "/etc/xray-reality/custom-domains.txt" \
         "/etc/xray-reality/policy.json" \
         "$KEYS_FILE" \
         "$CLIENTS_FILE" \

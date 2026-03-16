@@ -190,6 +190,13 @@ validate_destructive_path_scope() {
                 return 1
             fi
             ;;
+        XRAY_MANAGED_CUSTOM_DOMAINS_FILE)
+            base=$(basename "$resolved")
+            if [[ "$base" != "custom-domains.txt" ]]; then
+                log ERROR "XRAY_MANAGED_CUSTOM_DOMAINS_FILE должен указывать на custom-domains.txt (получено: ${resolved})"
+                return 1
+            fi
+            ;;
         MINISIGN_KEY)
             base=$(basename "$resolved")
             if [[ "$base" != "minisign.pub" ]]; then
@@ -214,7 +221,7 @@ validate_destructive_runtime_paths() {
         XRAY_KEYS XRAY_BACKUP XRAY_LOGS XRAY_HOME XRAY_DATA_DIR XRAY_GEO_DIR MEASUREMENTS_DIR
     )
     local -a destructive_files=(
-        XRAY_BIN XRAY_CONFIG XRAY_ENV XRAY_POLICY XRAY_SCRIPT_PATH XRAY_UPDATE_SCRIPT MINISIGN_KEY SELF_CHECK_STATE_FILE SELF_CHECK_HISTORY_FILE MEASUREMENTS_SUMMARY_FILE
+        XRAY_BIN XRAY_CONFIG XRAY_ENV XRAY_POLICY XRAY_MANAGED_CUSTOM_DOMAINS_FILE XRAY_SCRIPT_PATH XRAY_UPDATE_SCRIPT MINISIGN_KEY SELF_CHECK_STATE_FILE SELF_CHECK_HISTORY_FILE MEASUREMENTS_SUMMARY_FILE
     )
 
     for var in "${destructive_dirs[@]}"; do

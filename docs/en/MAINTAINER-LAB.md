@@ -37,6 +37,7 @@ when you need the real `systemd` lifecycle without touching the busy host namesp
 ```bash
 make vm-lab-prepare
 make vm-lab-smoke
+make vm-lab-release-smoke RELEASE_TAG=v7.3.8
 make vm-proof-pack
 ```
 
@@ -45,6 +46,7 @@ or run the scripts directly:
 ```bash
 bash scripts/lab/prepare-vm-smoke.sh
 bash scripts/lab/run-vm-lifecycle-smoke.sh
+bash scripts/lab/run-vm-release-smoke.sh
 bash scripts/lab/enter-vm-smoke.sh
 bash scripts/lab/generate-vm-proof-pack.sh
 ```
@@ -57,6 +59,7 @@ this flow:
 - forwards only guest ssh to host loopback
 - copies the current repo into the guest
 - runs the full nightly lifecycle smoke there, including `install`, `add-clients`, `repair`, `update`, `rollback`, `status`, and `uninstall`
+- exposes a separate release-bootstrap smoke path that validates a tagged bootstrap install through the guest helper instead of raw `curl`
 - collects guest logs back into the vm-lab log directory
 - copies a sanitized proof source bundle back into the vm-lab artifacts directory
 
@@ -78,16 +81,19 @@ inside the guest, use the helper commands:
 
 ```bash
 nsc-vm-install-latest --num-configs 3
+nsc-vm-install-release v7.3.8 --num-configs 1
 nsc-vm-install-repo --advanced
 ```
 
-do not use a raw `curl ... xray-reality.sh` install inside the guest.
+do not use a raw `curl ... xray-reality.sh` install inside the guest as your evidence path.
 in the nat-backed vm-lab that path can auto-detect the host public ip instead of the guest ip and fail the final self-check.
+for release/bootstrap validation use `nsc-vm-install-release` or `make vm-lab-release-smoke RELEASE_TAG=...`.
 
 helper reference:
 
 - `nsc-vm-guest-ip` — prints the detected guest ipv4
 - `nsc-vm-install-latest` — downloads the latest bootstrap script and runs install with the guest ipv4 pinned into `server_ip`
+- `nsc-vm-install-release` — downloads a tagged bootstrap script, pins `xray_repo_ref`, and uses vm-lab-safe defaults for `server_ip`, `start_port`, and `xray_custom_domains`
 - `nsc-vm-install-repo` — runs the repo-local script from `~/repo` with the guest ipv4 pinned into `server_ip`
 
 ## proof-pack generation
@@ -124,5 +130,6 @@ the proof-pack intentionally excludes:
 - use `make ci-fast` and `make ci-full` for local repo validation
 - use `make lab-smoke` for a safe first smoke on a busy host
 - use `make vm-lab-smoke` for the full prod-like lifecycle on that same busy host
+- use `make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z` for tagged bootstrap validation in the nat-backed guest
 - use `make vm-proof-pack` when you need a shareable maintainer/operator evidence bundle from that vm-lab run
 - use canary bundle exports for testing from another machine or another network

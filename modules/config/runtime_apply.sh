@@ -92,12 +92,40 @@ apply_validated_config() {
     return 0
 }
 
+persist_managed_custom_domains_source() {
+    local target="${XRAY_MANAGED_CUSTOM_DOMAINS_FILE:-/etc/xray-reality/custom-domains.txt}"
+    local -a custom_domains=()
+
+    if [[ -n "${XRAY_CUSTOM_DOMAINS:-}" ]]; then
+        mapfile -t custom_domains < <(load_domain_list "$XRAY_CUSTOM_DOMAINS")
+    elif [[ -n "${XRAY_DOMAINS_FILE:-}" ]]; then
+        mapfile -t custom_domains < <(load_domains_from_file "$XRAY_DOMAINS_FILE")
+    else
+        return 0
+    fi
+
+    if ((${#custom_domains[@]} < 1)); then
+        log ERROR "Не удалось сохранить custom-domains state: список доменов пуст"
+        return 1
+    fi
+
+    backup_file "$target"
+    printf '%s\n' "${custom_domains[@]}" | atomic_write "$target" 0600
+    XRAY_DOMAINS_FILE="$target"
+    XRAY_CUSTOM_DOMAINS=""
+    return 0
+}
+
 save_environment() {
     log STEP "Сохраняем окружение..."
 
     local installed_version install_date
     installed_version=$("$XRAY_BIN" version 2> /dev/null | head -1 | awk '{print $2}' || true)
     install_date=$(date '+%Y-%m-%d %H:%M:%S')
+
+    if [[ -n "${XRAY_CUSTOM_DOMAINS:-}" || -n "${XRAY_DOMAINS_FILE:-}" ]]; then
+        persist_managed_custom_domains_source || return 1
+    fi
 
     backup_file "$XRAY_ENV"
     {
@@ -113,6 +141,9 @@ save_environment() {
         write_env_kv XRAY_ADVANCED "$ADVANCED_MODE"
         write_env_kv PROGRESS_MODE "$PROGRESS_MODE"
         write_env_kv XRAY_PROGRESS_MODE "$PROGRESS_MODE"
+        if [[ -n "${XRAY_DOMAINS_FILE:-}" ]]; then
+            write_env_kv XRAY_DOMAINS_FILE "$XRAY_DOMAINS_FILE"
+        fi
         write_env_kv MUX_ENABLED "$MUX_ENABLED"
         write_env_kv MUX_CONCURRENCY "$MUX_CONCURRENCY"
         write_env_kv SHORT_ID_BYTES_MIN "$SHORT_ID_BYTES_MIN"

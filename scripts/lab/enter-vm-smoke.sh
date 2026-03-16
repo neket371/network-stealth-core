@@ -63,8 +63,10 @@ if [[ -t 1 ]]; then
     cat << 'EOF'
 vm-lab tip:
   используй nsc-vm-install-latest [--num-configs n|--advanced]
+  или nsc-vm-install-release <tag> [--num-configs n|--advanced]
   или nsc-vm-install-repo [--num-configs n|--advanced]
-  raw curl install внутри гостя может автоопределить public ip хоста и завалить self-check.
+  raw curl install внутри гостя не используй как evidence path:
+  он может автоопределить public ip хоста и завалить self-check.
 
 EOF
 fi

@@ -19,7 +19,7 @@ TEST_SOURCES := tests/*.sh
 MARKDOWN_SOURCES := README.md README.ru.md .github/CONTRIBUTING.md .github/CONTRIBUTING.ru.md .github/SECURITY.md .github/SECURITY.ru.md .github/PULL_REQUEST_TEMPLATE.md docs/en/*.md docs/ru/*.md
 WORKFLOWS := .github/workflows/ci.yml .github/workflows/nightly-smoke.yml .github/workflows/os-matrix-smoke.yml .github/workflows/packages.yml .github/workflows/release.yml .github/workflows/self-hosted-smoke.yml
 
-.PHONY: lint test release-check audit audit-deep ci ci-fast ci-full lab-smoke vm-lab-prepare vm-lab-smoke vm-proof-pack
+.PHONY: lint test release-check audit audit-deep ci ci-fast ci-full lab-smoke vm-lab-prepare vm-lab-smoke vm-lab-release-smoke vm-proof-pack
 
 lint:
 	command -v shellcheck >/dev/null
@@ -73,6 +73,9 @@ vm-lab-prepare:
 
 vm-lab-smoke:
 	bash scripts/lab/run-vm-lifecycle-smoke.sh
+
+vm-lab-release-smoke:
+	bash scripts/lab/run-vm-release-smoke.sh
 
 vm-proof-pack:
 	bash scripts/lab/generate-vm-proof-pack.sh
