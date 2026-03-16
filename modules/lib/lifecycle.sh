@@ -146,8 +146,8 @@ systemctl_unit_loaded() {
 }
 
 wait_for_xray_process_exit() {
-    local attempts="${1:-50}"
-    local delay_s="${2:-0.2}"
+    local attempts=50
+    local delay_s=0.2
     local try
     for ((try = 0; try < attempts; try++)); do
         if ! pgrep -x xray > /dev/null 2>&1; then
