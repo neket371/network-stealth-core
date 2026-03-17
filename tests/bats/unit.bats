@@ -3741,6 +3741,16 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "logs_flow falls back to xray-health journal when health log file is absent" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''journalctl -u xray-health.service -n "$lines" --no-pager'\'' ./service.sh
+    grep -Fq '\''journalctl -u xray-health.service -n 10 --no-pager'\'' ./service.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "release workflow avoids curl pipe sh and unpinned release action" {
     run bash -eo pipefail -c '
     grep -q '\''gh release create'\'' ./.github/workflows/release.yml

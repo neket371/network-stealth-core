@@ -456,7 +456,7 @@ logs_flow() {
             if [[ -f "$HEALTH_LOG" ]]; then
                 tail -n "$lines" "$HEALTH_LOG"
             else
-                echo "Логи health check не найдены"
+                journalctl -u xray-health.service -n "$lines" --no-pager 2> /dev/null || echo "Логи health check не найдены"
             fi
             ;;
         all | *)
@@ -467,7 +467,7 @@ logs_flow() {
             if [[ -f "$HEALTH_LOG" ]]; then
                 tail -n 10 "$HEALTH_LOG"
             else
-                echo "Недоступно"
+                journalctl -u xray-health.service -n 10 --no-pager 2> /dev/null || echo "Недоступно"
             fi
             ;;
     esac
