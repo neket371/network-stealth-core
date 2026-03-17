@@ -158,6 +158,24 @@ wait_for_xray_process_exit() {
     return 1
 }
 
+cleanup_empty_runtime_dirs() {
+    local -a dirs=(
+        "${XRAY_KEYS:-/etc/xray/private/keys}"
+        "$(dirname "${XRAY_KEYS:-/etc/xray/private/keys}")"
+        "$(dirname "${XRAY_CONFIG:-/etc/xray/config.json}")"
+        "${XRAY_HOME:-/var/lib/xray}/measurements"
+        "${XRAY_HOME:-/var/lib/xray}"
+        "${XRAY_LOGS:-/var/log/xray}"
+        "${XRAY_BACKUP:-/var/backups/xray}"
+        "$(dirname "${XRAY_ENV:-/etc/xray-reality/config.env}")"
+    )
+    local dir
+    for dir in "${dirs[@]}"; do
+        [[ -n "$dir" && "$dir" == /* ]] || continue
+        rmdir "$dir" 2> /dev/null || true
+    done
+}
+
 runtime_quiesce_for_restore() {
     if ! systemd_running; then
         return 0
@@ -300,27 +318,27 @@ cleanup_on_error() {
             rollback_firewall_changes || true
         fi
 
-        if [[ ${#BACKUP_STACK[@]} -gt 0 ]]; then
-            local need_runtime_quiesce=false
-            local restore_candidate
-            for restore_candidate in "${BACKUP_STACK[@]}"; do
+        local need_runtime_quiesce=false
+        local restore_candidate
+        for restore_candidate in "${BACKUP_STACK[@]}"; do
+            if is_runtime_critical_path "$restore_candidate"; then
+                need_runtime_quiesce=true
+                break
+            fi
+        done
+        if [[ "$need_runtime_quiesce" != true ]]; then
+            for restore_candidate in "${CREATED_PATHS[@]}"; do
                 if is_runtime_critical_path "$restore_candidate"; then
                     need_runtime_quiesce=true
                     break
                 fi
             done
-            if [[ "$need_runtime_quiesce" != true ]]; then
-                for restore_candidate in "${CREATED_PATHS[@]}"; do
-                    if is_runtime_critical_path "$restore_candidate"; then
-                        need_runtime_quiesce=true
-                        break
-                    fi
-                done
-            fi
-            if [[ "$need_runtime_quiesce" == true ]]; then
-                runtime_quiesce_for_restore || true
-            fi
+        fi
+        if [[ "$need_runtime_quiesce" == true ]]; then
+            runtime_quiesce_for_restore || true
+        fi
 
+        if [[ ${#BACKUP_STACK[@]} -gt 0 ]]; then
             log WARN "Откатываем изменения..."
             local _i
             for ((_i = ${#BACKUP_STACK[@]} - 1; _i >= 0; _i--)); do
@@ -355,6 +373,8 @@ cleanup_on_error() {
                 fi
             done
         fi
+
+        cleanup_empty_runtime_dirs || true
 
         reconcile_runtime_after_restore || true
 

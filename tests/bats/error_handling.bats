@@ -112,6 +112,31 @@
     [ ! -e "$created" ]
 }
 
+@test "cleanup_on_error removes symlink paths created in failed session" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    local target="${tmpdir}/target.txt"
+    local link="${tmpdir}/created-link"
+    local log_file="${tmpdir}/install.log"
+
+    printf '%s' "temporary" > "$target"
+    ln -s "$target" "$link"
+
+    run env LINK="$link" LOG_FILE="$log_file" bash -c '
+    source ./lib.sh
+    INSTALL_LOG="$LOG_FILE"
+    BACKUP_STACK=()
+    declare -A LOCAL_BACKUP_MAP=()
+    CREATED_PATHS=("$LINK")
+    declare -A CREATED_PATH_SET=()
+    CREATED_PATH_SET["$LINK"]=1
+    false
+  '
+
+    [ "$status" -ne 0 ]
+    [ ! -L "$link" ]
+}
+
 @test "cleanup_on_error reconciles runtime after restoring critical files" {
     local tmpdir
     tmpdir="$(mktemp -d)"
@@ -139,6 +164,122 @@
     [ "$status" -ne 0 ]
     [[ "$output" == *"runtime_reconcile_called"* ]]
     [ "$(cat "$target")" = "orig" ]
+}
+
+@test "cleanup_on_error quiesces runtime for created runtime-critical paths without backups" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    local log_file="${tmpdir}/install.log"
+
+    run env LOG_FILE="$log_file" bash -c '
+    source ./lib.sh
+    INSTALL_LOG="$LOG_FILE"
+    BACKUP_STACK=()
+    declare -A LOCAL_BACKUP_MAP=()
+    CREATED_PATHS=("/etc/systemd/system/xray.service")
+    declare -A CREATED_PATH_SET=()
+    CREATED_PATH_SET["/etc/systemd/system/xray.service"]=1
+    runtime_quiesce_for_restore() {
+      echo "runtime_quiesced"
+      return 0
+    }
+    reconcile_runtime_after_restore() {
+      echo "runtime_reconcile_called"
+      return 0
+    }
+    false
+  '
+
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"runtime_quiesced"* ]]
+    [[ "$output" == *"runtime_reconcile_called"* ]]
+}
+
+@test "cleanup_empty_runtime_dirs removes empty managed directories" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    local etc_xray="${tmpdir}/etc/xray"
+    local etc_keys="${etc_xray}/private/keys"
+    local etc_reality="${tmpdir}/etc/xray-reality"
+    local var_home="${tmpdir}/var/lib/xray"
+    local var_logs="${tmpdir}/var/log/xray"
+    local var_backups="${tmpdir}/var/backups/xray"
+
+    mkdir -p "$etc_keys" "$etc_reality" "$var_home/measurements" "$var_logs" "$var_backups"
+
+    run env \
+      XRAY_KEYS="$etc_keys" \
+      XRAY_CONFIG="${etc_xray}/config.json" \
+      XRAY_ENV="${etc_reality}/config.env" \
+      XRAY_HOME="$var_home" \
+      XRAY_LOGS="$var_logs" \
+      XRAY_BACKUP="$var_backups" \
+      bash -eo pipefail -c '
+    source ./lib.sh
+    cleanup_empty_runtime_dirs
+    [ ! -d "$XRAY_KEYS" ]
+    [ ! -d "$(dirname "$XRAY_KEYS")" ]
+    [ ! -d "$(dirname "$XRAY_CONFIG")" ]
+    [ ! -d "$(dirname "$XRAY_ENV")" ]
+    [ ! -d "$XRAY_HOME/measurements" ]
+    [ ! -d "$XRAY_HOME" ]
+    [ ! -d "$XRAY_LOGS" ]
+    [ ! -d "$XRAY_BACKUP" ]
+  '
+
+    [ "$status" -eq 0 ]
+}
+
+@test "systemd_enable_symlink_path_for_unit returns known xray targets" {
+    run bash -eo pipefail -c '
+    source ./modules/lib/system_runtime.sh
+    [ "$(systemd_enable_symlink_path_for_unit xray.service)" = "/etc/systemd/system/multi-user.target.wants/xray.service" ]
+    [ "$(systemd_enable_symlink_path_for_unit xray-health.timer)" = "/etc/systemd/system/timers.target.wants/xray-health.timer" ]
+    [ "$(systemd_enable_symlink_path_for_unit xray-auto-update.timer)" = "/etc/systemd/system/timers.target.wants/xray-auto-update.timer" ]
+  '
+
+    [ "$status" -eq 0 ]
+}
+
+@test "record_created_path_literal preserves symlink path instead of resolving target" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    local target="${tmpdir}/target.txt"
+    local link="${tmpdir}/literal-link"
+
+    printf '%s' "target" > "$target"
+    ln -s "$target" "$link"
+
+    run env LINK="$link" bash -eo pipefail -c '
+    source ./lib.sh
+    CREATED_PATHS=()
+    declare -A CREATED_PATH_SET=()
+    record_created_path_literal "$LINK"
+    [ "${#CREATED_PATHS[@]}" -eq 1 ]
+    [ "${CREATED_PATHS[0]}" = "$LINK" ]
+  '
+
+    [ "$status" -eq 0 ]
+}
+
+@test "uninstall_remove_file deletes adjacent backup file" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    local target="${tmpdir}/xray"
+    local backup="${target}.backup"
+
+    printf '%s' "bin" > "$target"
+    printf '%s' "backup" > "$backup"
+
+    run env TARGET="$target" bash -eo pipefail -c '
+    source ./modules/service/uninstall.sh
+    XRAY_BIN="$TARGET"
+    uninstall_remove_file "$XRAY_BIN"
+    [ ! -e "$XRAY_BIN" ]
+    [ ! -e "${XRAY_BIN}.backup" ]
+  '
+
+    [ "$status" -eq 0 ]
 }
 
 @test "atomic_write creates file atomically" {

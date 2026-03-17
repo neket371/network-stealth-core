@@ -40,6 +40,10 @@ uninstall_remove_file() {
         rm -f "$file"
         echo -e "  ${GREEN}✅ Удалён ${file}${NC}"
     fi
+    if [[ -f "${file}.backup" || -L "${file}.backup" ]]; then
+        rm -f "${file}.backup"
+        echo -e "  ${GREEN}✅ Удалён ${file}.backup${NC}"
+    fi
 }
 
 uninstall_is_allowed_file_path() {
@@ -54,7 +58,7 @@ uninstall_is_allowed_file_path() {
     [[ "$resolved_file" == /* ]] || return 1
 
     case "$resolved_file" in
-        /etc/systemd/system/xray.service | /etc/systemd/system/xray-health.service | /etc/systemd/system/xray-health.timer | /etc/systemd/system/xray-auto-update.service | /etc/systemd/system/xray-auto-update.timer | /etc/systemd/system/xray-diagnose@.service | /usr/lib/systemd/system/xray.service | /usr/lib/systemd/system/xray-health.service | /usr/lib/systemd/system/xray-health.timer | /usr/lib/systemd/system/xray-auto-update.service | /usr/lib/systemd/system/xray-auto-update.timer | /usr/lib/systemd/system/xray-diagnose@.service | /lib/systemd/system/xray.service | /lib/systemd/system/xray-health.service | /lib/systemd/system/xray-health.timer | /lib/systemd/system/xray-auto-update.service | /lib/systemd/system/xray-auto-update.timer | /lib/systemd/system/xray-diagnose@.service | /usr/local/bin/xray-health.sh | /etc/cron.d/xray-health | /etc/logrotate.d/xray | /etc/sysctl.d/99-xray.conf | /etc/security/limits.d/99-xray.conf | /var/log/xray-install.log | /var/log/xray-update.log | /var/log/xray-diagnose.log | /var/log/xray-repair.log | /var/log/xray-health.log | /var/log/xray.log | /var/lib/xray/self-check.json | /var/lib/xray/self-check-history.ndjson | /var/lib/xray/measurements/latest-summary.json | /etc/xray-reality/policy.json)
+        /etc/systemd/system/xray.service | /etc/systemd/system/xray-health.service | /etc/systemd/system/xray-health.timer | /etc/systemd/system/xray-auto-update.service | /etc/systemd/system/xray-auto-update.timer | /etc/systemd/system/xray-diagnose@.service | /etc/systemd/system/multi-user.target.wants/xray.service | /etc/systemd/system/timers.target.wants/xray-health.timer | /etc/systemd/system/timers.target.wants/xray-auto-update.timer | /usr/lib/systemd/system/xray.service | /usr/lib/systemd/system/xray-health.service | /usr/lib/systemd/system/xray-health.timer | /usr/lib/systemd/system/xray-auto-update.service | /usr/lib/systemd/system/xray-auto-update.timer | /usr/lib/systemd/system/xray-diagnose@.service | /lib/systemd/system/xray.service | /lib/systemd/system/xray-health.service | /lib/systemd/system/xray-health.timer | /lib/systemd/system/xray-auto-update.service | /lib/systemd/system/xray-auto-update.timer | /lib/systemd/system/xray-diagnose@.service | /usr/local/bin/xray-health.sh | /etc/cron.d/xray-health | /etc/logrotate.d/xray | /etc/sysctl.d/99-xray.conf | /etc/security/limits.d/99-xray.conf | /var/log/xray-install.log | /var/log/xray-update.log | /var/log/xray-diagnose.log | /var/log/xray-repair.log | /var/log/xray-health.log | /var/log/xray.log | /var/lib/xray/self-check.json | /var/lib/xray/self-check-history.ndjson | /var/lib/xray/measurements/latest-summary.json | /etc/xray-reality/policy.json)
             return 0
             ;;
         *) ;;
@@ -304,6 +308,9 @@ uninstall_remove_systemd_artifacts() {
     uninstall_remove_file /etc/systemd/system/xray-auto-update.service
     uninstall_remove_file /etc/systemd/system/xray-auto-update.timer
     uninstall_remove_file /etc/systemd/system/xray-diagnose@.service
+    uninstall_remove_file /etc/systemd/system/multi-user.target.wants/xray.service
+    uninstall_remove_file /etc/systemd/system/timers.target.wants/xray-health.timer
+    uninstall_remove_file /etc/systemd/system/timers.target.wants/xray-auto-update.timer
 }
 
 uninstall_remove_runtime_artifacts() {

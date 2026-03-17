@@ -575,7 +575,19 @@ setup_health_monitoring() {
         log WARN "systemd недоступен; мониторинг пропущен"
         return 0
     fi
+    local health_timer_enable_link=""
+    local health_timer_enable_link_missing=false
+    if health_timer_enable_link=$(systemd_enable_symlink_path_for_unit xray-health.timer 2> /dev/null); then
+        if [[ ! -e "$health_timer_enable_link" && ! -L "$health_timer_enable_link" ]]; then
+            health_timer_enable_link_missing=true
+        fi
+    fi
     if systemctl_run_bounded enable --now xray-health.timer; then
+        if [[ "$health_timer_enable_link_missing" == true && -n "$health_timer_enable_link" ]] && declare -F record_created_path_literal > /dev/null 2>&1; then
+            if [[ -e "$health_timer_enable_link" || -L "$health_timer_enable_link" ]]; then
+                record_created_path_literal "$health_timer_enable_link"
+            fi
+        fi
         log OK "Мониторинг настроен (systemd timer каждые ${safe_health_interval}s)"
     else
         log WARN "Не удалось включить systemd-таймер мониторинга"

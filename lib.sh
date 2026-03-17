@@ -960,3 +960,17 @@ record_created_path() {
     CREATED_PATH_SET["$resolved"]=1
     CREATED_PATHS+=("$resolved")
 }
+
+record_created_path_literal() {
+    local path="${1:-}"
+    [[ -n "$path" ]] || return 0
+    local normalized="$path"
+    if [[ "$normalized" != /* ]]; then
+        normalized=$(realpath -m "$normalized" 2> /dev/null || echo "$normalized")
+    fi
+    if [[ -n "${CREATED_PATH_SET[$normalized]:-}" ]]; then
+        return 0
+    fi
+    CREATED_PATH_SET["$normalized"]=1
+    CREATED_PATHS+=("$normalized")
+}

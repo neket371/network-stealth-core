@@ -425,7 +425,19 @@ EOF
         return 0
     fi
     if [[ "$AUTO_UPDATE" == true ]]; then
+        local auto_update_enable_link=""
+        local auto_update_enable_link_missing=false
+        if auto_update_enable_link=$(systemd_enable_symlink_path_for_unit xray-auto-update.timer 2> /dev/null); then
+            if [[ ! -e "$auto_update_enable_link" && ! -L "$auto_update_enable_link" ]]; then
+                auto_update_enable_link_missing=true
+            fi
+        fi
         if systemctl_run_bounded enable --now xray-auto-update.timer; then
+            if [[ "$auto_update_enable_link_missing" == true && -n "$auto_update_enable_link" ]] && declare -F record_created_path_literal > /dev/null 2>&1; then
+                if [[ -e "$auto_update_enable_link" || -L "$auto_update_enable_link" ]]; then
+                    record_created_path_literal "$auto_update_enable_link"
+                fi
+            fi
             log OK "Авто-обновления включены (${AUTO_UPDATE_ONCALENDAR})"
         else
             log WARN "Не удалось включить авто-обновления"

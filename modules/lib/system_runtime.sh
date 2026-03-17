@@ -137,3 +137,21 @@ systemd_running() {
         *) return 1 ;;
     esac
 }
+
+systemd_enable_symlink_path_for_unit() {
+    local unit="${1:-}"
+    case "$unit" in
+        xray.service)
+            printf '%s\n' "/etc/systemd/system/multi-user.target.wants/xray.service"
+            ;;
+        xray-health.timer)
+            printf '%s\n' "/etc/systemd/system/timers.target.wants/xray-health.timer"
+            ;;
+        xray-auto-update.timer)
+            printf '%s\n' "/etc/systemd/system/timers.target.wants/xray-auto-update.timer"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}

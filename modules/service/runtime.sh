@@ -135,6 +135,9 @@ ensure_xray_runtime_logs_ready() {
     local logs_dir="${XRAY_LOGS%/}"
     [[ -n "$logs_dir" ]] || logs_dir="/var/log/xray"
 
+    if [[ ! -d "$logs_dir" ]] && declare -F record_created_path > /dev/null 2>&1; then
+        record_created_path "$logs_dir"
+    fi
     install -d -m 0750 -o "$XRAY_USER" -g "$XRAY_GROUP" "$logs_dir"
     chown "${XRAY_USER}:${XRAY_GROUP}" "$logs_dir"
     chmod 750 "$logs_dir"
@@ -142,6 +145,9 @@ ensure_xray_runtime_logs_ready() {
     local log_file
     for log_file in "$logs_dir/access.log" "$logs_dir/error.log"; do
         if [[ ! -e "$log_file" ]]; then
+            if declare -F record_created_path > /dev/null 2>&1; then
+                record_created_path "$log_file"
+            fi
             install -m 0640 -o "$XRAY_USER" -g "$XRAY_GROUP" /dev/null "$log_file"
             continue
         fi
@@ -372,6 +378,13 @@ EOF
         if [[ "$manage_systemd" == true ]]; then
             local enable_err=""
             local enable_rc=0
+            local xray_enable_link=""
+            local xray_enable_link_missing=false
+            if xray_enable_link=$(systemd_enable_symlink_path_for_unit xray.service 2> /dev/null); then
+                if [[ ! -e "$xray_enable_link" && ! -L "$xray_enable_link" ]]; then
+                    xray_enable_link_missing=true
+                fi
+            fi
             systemctl_run_bounded --err-var enable_err enable xray || enable_rc=$?
             if ((enable_rc != 0)); then
                 if is_nonfatal_systemctl_error "$enable_err"; then
@@ -383,6 +396,10 @@ EOF
                     log ERROR "Не удалось включить сервис Xray"
                     debug_file "systemctl enable xray failed: ${enable_err}"
                     return 1
+                fi
+            elif [[ "$xray_enable_link_missing" == true && -n "$xray_enable_link" ]] && declare -F record_created_path_literal > /dev/null 2>&1; then
+                if [[ -e "$xray_enable_link" || -L "$xray_enable_link" ]]; then
+                    record_created_path_literal "$xray_enable_link"
                 fi
             fi
         fi

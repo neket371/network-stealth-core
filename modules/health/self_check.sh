@@ -515,6 +515,7 @@ self_check_append_history_json() {
     history_file=$(self_check_history_file_path)
     mkdir -p "$(dirname "$history_file")"
     chmod 750 "$(dirname "$history_file")" 2> /dev/null || true
+    self_check_backup_file "$history_file"
     touch "$history_file"
     chmod 640 "$history_file" 2> /dev/null || true
     printf '%s\n' "$(jq -c '.' <<< "$state_json")" >> "$history_file"

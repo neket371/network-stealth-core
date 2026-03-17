@@ -27,6 +27,9 @@ policy_write_file() {
     local dir tmp
     dir=$(dirname "$file")
     mkdir -p "$dir"
+    if declare -F backup_file > /dev/null 2>&1; then
+        backup_file "$file"
+    fi
     tmp=$(mktemp "${file}.tmp.XXXXXX")
     printf '%s\n' "$content" > "$tmp"
     chmod 600 "$tmp"
