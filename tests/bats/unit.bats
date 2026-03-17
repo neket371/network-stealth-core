@@ -3846,7 +3846,7 @@ EOF
     [ "$output" = "ok" ]
 }
 
-@test "ci workflow includes stability and audit gates" {
+@test "ci workflow includes stability and quality gates" {
     run bash -eo pipefail -c '
     grep -q '\''name: stability smoke (double bats)'\'' ./.github/workflows/ci.yml
     grep -q '\''run: make lint'\'' ./.github/workflows/ci.yml
@@ -3858,7 +3858,7 @@ EOF
     [ "$output" = "ok" ]
 }
 
-@test "audit scripts exist and are wired into lint pipeline" {
+@test "quality scripts exist and are wired into lint pipeline" {
     run bash -eo pipefail -c '
     test -f ./scripts/check-workflow-pinning.sh
     test -f ./scripts/check-security-baseline.sh

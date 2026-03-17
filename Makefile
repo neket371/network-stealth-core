@@ -19,7 +19,7 @@ TEST_SOURCES := tests/*.sh
 MARKDOWN_SOURCES := README.md README.ru.md .github/CONTRIBUTING.md .github/CONTRIBUTING.ru.md .github/SECURITY.md .github/SECURITY.ru.md .github/PULL_REQUEST_TEMPLATE.md docs/en/*.md docs/ru/*.md
 WORKFLOWS := .github/workflows/ci.yml .github/workflows/nightly-smoke.yml .github/workflows/os-matrix-smoke.yml .github/workflows/packages.yml .github/workflows/release.yml .github/workflows/self-hosted-smoke.yml
 
-.PHONY: lint test release-check audit audit-deep ci ci-fast ci-full lab-smoke vm-lab-prepare vm-lab-smoke vm-lab-release-smoke vm-proof-pack
+.PHONY: lint test release-check quality-check quality-check-deep ci ci-fast ci-full lab-smoke vm-lab-prepare vm-lab-smoke vm-lab-release-smoke vm-proof-pack
 
 lint:
 	command -v shellcheck >/dev/null
@@ -51,19 +51,19 @@ test:
 release-check:
 	bash scripts/check-release-consistency.sh
 
-audit:
+quality-check:
 	bash scripts/check-workflow-pinning.sh
 	bash scripts/check-security-baseline.sh
 	bash scripts/check-docs-commands.sh
 
-audit-deep: ci
+quality-check-deep: ci
 	bash scripts/check-shellcheck-advisory.sh
 
 ci-fast: lint test release-check
 
-ci: ci-fast audit
+ci: ci-fast quality-check
 
-ci-full: ci audit-deep
+ci-full: ci quality-check-deep
 
 lab-smoke:
 	bash scripts/lab/run-container-smoke.sh

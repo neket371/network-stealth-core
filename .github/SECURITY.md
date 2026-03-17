@@ -147,6 +147,6 @@ security-sensitive behavior is covered by:
 - rollback and lifecycle tests
 - export schema validation
 - self-check and measurement coverage
-- ci audit gates and docs contract checks
+- ci quality gates and docs contract checks
 
 for operations-side incident response, see [../docs/en/OPERATIONS.md](../docs/en/OPERATIONS.md).

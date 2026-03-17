@@ -147,6 +147,6 @@ security-sensitive поведение покрывается через:
 - rollback и lifecycle tests
 - export schema validation
 - покрытие self-check и measurement
-- ci audit gates и docs contract checks
+- ci quality gates и docs contract checks
 
 для operations-side incident response см. [../docs/ru/OPERATIONS.md](../docs/ru/OPERATIONS.md).

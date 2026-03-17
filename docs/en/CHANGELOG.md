@@ -44,7 +44,7 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 - hardened xray log lifecycle behavior on `ubuntu-24.04`, including service startup, restart, and `logrotate` handling on hosted runners
 - stabilized legacy migration fixtures and lifecycle validation for clean hosted `ubuntu-24.04` environments
-- expanded audit/lint coverage to `modules/export/*` and added direct unit contracts for export capability notes and `rebuild_config_for_transport()`
+- expanded quality/lint coverage to `modules/export/*` and added direct unit contracts for export capability notes and `rebuild_config_for_transport()`
 - refreshed pinned docker actions to node24-ready revisions and removed the previous node 20 deprecation noise from hosted package builds
 
 ## [7.1.0] - 2026-03-07

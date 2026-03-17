@@ -44,7 +44,7 @@
 
 - усилен lifecycle логов xray на `ubuntu-24.04`: startup, restart и `logrotate` больше не ломаются на hosted runner’ах
 - стабилизированы legacy migration fixtures и lifecycle validation для чистых hosted окружений `ubuntu-24.04`
-- audit/lint coverage расширен на `modules/export/*`, а для export capability notes и `rebuild_config_for_transport()` добавлены прямые unit-контракты
+- quality/lint coverage расширен на `modules/export/*`, а для export capability notes и `rebuild_config_for_transport()` добавлены прямые unit-контракты
 - pinned docker actions обновлены до node24-ready revisions, и hosted package builds больше не шумят из-за deprecation `Node 20`
 
 ## [7.1.0] - 2026-03-07
