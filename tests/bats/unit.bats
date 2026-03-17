@@ -4442,6 +4442,7 @@ EOF
     grep -Fq '\''source "$SERVICE_UNINSTALL_MODULE"'\'' ./service.sh
     grep -q '\''uninstall_all() {'\'' ./modules/service/uninstall.sh
     grep -q '\''uninstall_has_managed_artifacts() {'\'' ./modules/service/uninstall.sh
+    grep -Fq '\''systemctl_uninstall_bounded reset-failed xray.service xray-health.service xray-health.timer xray-auto-update.service xray-auto-update.timer'\'' ./modules/service/uninstall.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]

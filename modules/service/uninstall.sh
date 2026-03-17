@@ -386,6 +386,11 @@ uninstall_remove_accounts_and_reload() {
         else
             echo -e "  ${YELLOW}⚠️  Не удалось выполнить systemctl daemon-reload${NC}"
         fi
+        if systemctl_uninstall_bounded reset-failed xray.service xray-health.service xray-health.timer xray-auto-update.service xray-auto-update.timer; then
+            echo -e "  ${GREEN}✅ systemctl reset-failed xray*${NC}"
+        else
+            echo -e "  ${YELLOW}⚠️  Не удалось выполнить systemctl reset-failed для xray unit'ов${NC}"
+        fi
     fi
 }
 
