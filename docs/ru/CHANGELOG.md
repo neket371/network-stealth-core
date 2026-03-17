@@ -7,6 +7,18 @@
 
 ## [unreleased]
 
+## [7.5.1] - 2026-03-17
+
+### Changed
+
+- расширена release-валидация nightly smoke и rollback путей, чтобы опубликованное состояние ветки совпадало с полностью проверенным server-side lifecycle baseline
+
+### Fixed
+
+- исправлен failure-path `xray-health.service`: health timer больше не завершается раньше времени под `set -e` во время обработки счётчика неудач
+- усилен rollback restore flow: связанные systemd unit’ы теперь quiesce’ятся заранее, а runtime-critical файлы восстанавливаются атомарно, без `Text file busy` на `/usr/local/bin/xray`
+- `nightly_smoke_install_add_update_uninstall.sh` сделан идемпотентным за счёт уникального временного status-file на каждый прогон
+
 ## [7.5.0] - 2026-03-16
 
 ### changed

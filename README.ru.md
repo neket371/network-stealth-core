@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.5.0-0f766e"></a>
+  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.5.1-0f766e"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-97ca00"></a>
   <a href="docs/ru/OPERATIONS.md"><img alt="platform" src="https://img.shields.io/badge/platform-ubuntu%2024.04-1d4ed8"></a>
   <a href="Makefile"><img alt="qa" src="https://img.shields.io/badge/qa-make%20ci-334155"></a>
@@ -52,8 +52,8 @@ sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install
 ### bootstrap конкретного релиза по тегу
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.5.0/xray-reality.sh -o /tmp/xray-reality.sh
-sudo XRAY_REPO_REF=v7.5.0 bash /tmp/xray-reality.sh install
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.5.1/xray-reality.sh -o /tmp/xray-reality.sh
+sudo XRAY_REPO_REF=v7.5.1 bash /tmp/xray-reality.sh install
 ```
 
 этот путь удобен, когда нужен ровно опубликованный релиз без ручного поиска полного commit.

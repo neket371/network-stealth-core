@@ -7,6 +7,18 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.1] - 2026-03-17
+
+### Changed
+
+- expanded release validation around nightly smoke and rollback paths so the published branch state matches the full server-validated lifecycle baseline
+
+### Fixed
+
+- fixed the `xray-health.service` failure path so the health timer no longer exits early under `set -e` during fail-count handling
+- hardened rollback restore flow by quiescing related systemd units and restoring runtime-critical files atomically, avoiding `Text file busy` failures on `/usr/local/bin/xray`
+- made `nightly_smoke_install_add_update_uninstall.sh` idempotent by using a unique temporary status file for each run
+
 ## [7.5.0] - 2026-03-16
 
 ### changed
