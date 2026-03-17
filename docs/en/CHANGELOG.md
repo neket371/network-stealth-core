@@ -7,6 +7,11 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.2] - 2026-03-17
+
+### Changed
+- removed archived auxiliary docs from the public repository and aligned internal quality-check naming with the maintainer-facing workflow
+
 ## [7.5.1] - 2026-03-17
 
 ### Changed
