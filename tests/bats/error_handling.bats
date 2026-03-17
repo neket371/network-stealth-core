@@ -282,6 +282,44 @@
     [ "$status" -eq 0 ]
 }
 
+@test "uninstall_remove_accounts_and_reload suppresses reset-failed warning when xray units are already gone" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+    manage_systemd_uninstall=true
+    uninstall_cleanup_failed=false
+    XRAY_HOME="$(mktemp -d)"
+    trap "rm -rf \"$XRAY_HOME\"" EXIT
+
+    id() { return 1; }
+    getent() { return 1; }
+    uninstall_remove_dir() { :; }
+    systemctl_available() { return 0; }
+    systemctl_uninstall_bounded() {
+      if [[ "${1:-}" == "daemon-reload" ]]; then
+        return 0
+      fi
+      if [[ "${1:-}" == "reset-failed" ]]; then
+        return 1
+      fi
+      return 0
+    }
+    systemctl() {
+      if [[ "${1:-}" == "list-units" || "${1:-}" == "list-unit-files" ]]; then
+        return 0
+      fi
+      return 0
+    }
+
+    uninstall_remove_accounts_and_reload
+  '
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"systemctl daemon-reload"* ]]
+    [[ "$output" == *"systemctl reset-failed xray*: не требуется"* ]]
+    [[ "$output" != *"Не удалось выполнить systemctl reset-failed"* ]]
+}
+
 @test "atomic_write creates file atomically" {
     local tmpdir
     tmpdir="$(mktemp -d)"

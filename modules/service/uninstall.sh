@@ -208,6 +208,22 @@ uninstall_remove_group_account() {
     return 1
 }
 
+uninstall_has_xray_systemd_entries() {
+    if ! systemctl_available; then
+        return 1
+    fi
+
+    if systemctl list-units --all --plain --no-legend 'xray*' 2> /dev/null | grep -q .; then
+        return 0
+    fi
+
+    if systemctl list-unit-files --plain --no-legend 'xray*' 2> /dev/null | grep -q .; then
+        return 0
+    fi
+
+    return 1
+}
+
 uninstall_render_intro() {
     if [[ "$require_confirmation" == "true" ]]; then
         tty_print_line "$tty_write_fd" ""
@@ -395,6 +411,8 @@ uninstall_remove_accounts_and_reload() {
         fi
         if systemctl_uninstall_bounded reset-failed xray.service xray-health.service xray-health.timer xray-auto-update.service xray-auto-update.timer; then
             echo -e "  ${GREEN}✅ systemctl reset-failed xray*${NC}"
+        elif ! uninstall_has_xray_systemd_entries; then
+            echo -e "  ${DIM}systemctl reset-failed xray*: не требуется${NC}"
         else
             echo -e "  ${YELLOW}⚠️  Не удалось выполнить systemctl reset-failed для xray unit'ов${NC}"
         fi
