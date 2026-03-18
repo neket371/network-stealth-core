@@ -7,6 +7,16 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.3] - 2026-03-18
+
+### Changed
+- fix: harden release evidence and runtime metadata (b481820)
+- fix: suppress false uninstall reset-failed warning (2469199)
+- fix: harden host cleanup and rollback flows (0e546b3)
+- fix: fall back to health journal in logs flow (1bef109)
+- fix: reset failed xray units after uninstall (f1bcefa)
+
+
 ### Changed
 - persisted source metadata (`kind`, `ref`, `commit`) into managed state and surfaced it in `status --verbose` and `diagnose`
 - made `Nightly Smoke` self-hosted the explicit regular evidence path while leaving the standalone self-hosted workflow manual/on-demand only

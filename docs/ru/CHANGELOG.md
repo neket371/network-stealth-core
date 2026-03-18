@@ -7,6 +7,16 @@
 
 ## [unreleased]
 
+## [7.5.3] - 2026-03-18
+
+### Changed
+- fix: harden release evidence and runtime metadata (b481820)
+- fix: suppress false uninstall reset-failed warning (2469199)
+- fix: harden host cleanup and rollback flows (0e546b3)
+- fix: fall back to health journal in logs flow (1bef109)
+- fix: reset failed xray units after uninstall (f1bcefa)
+
+
 ### Changed
 - source metadata (`kind`, `ref`, `commit`) теперь сохраняется в managed state и показывается в `status --verbose` и `diagnose`
 - `Nightly Smoke` self-hosted зафиксирован как регулярный evidence path, а отдельный self-hosted workflow оставлен только manual/on-demand инструментом
