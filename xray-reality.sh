@@ -3,7 +3,11 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2> /dev/null && pwd 2> /dev/null || true)"
+SCRIPT_DIR="$(
+    if cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2> /dev/null; then
+        pwd 2> /dev/null || true
+    fi
+)"
 if [[ -z "$SCRIPT_DIR" ]]; then
     echo "WARN: could not determine SCRIPT_DIR; local source tree is unavailable, bootstrap clone may be used." >&2
 fi

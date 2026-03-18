@@ -494,7 +494,8 @@ EOF
 
 @test "wrapper warns when SCRIPT_DIR cannot be determined" {
     run bash -eo pipefail -c '
-    grep -Fq '\''SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2> /dev/null && pwd 2> /dev/null || true)"'\'' ./xray-reality.sh
+    grep -Fq '\''SCRIPT_DIR="$('\'' ./xray-reality.sh
+    grep -Fq '\''if cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2> /dev/null; then'\'' ./xray-reality.sh
     grep -Fq '\''WARN: could not determine SCRIPT_DIR; local source tree is unavailable, bootstrap clone may be used.'\'' ./xray-reality.sh
     echo ok
   '
