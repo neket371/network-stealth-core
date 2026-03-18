@@ -15,9 +15,9 @@ What it does:
   2. Updates wrapper header version in xray-reality.sh
   3. Updates release badge versions and release-tag bootstrap examples in README.md and README.ru.md
   4. Updates release-facing issue template placeholders
-  5. Ensures docs/en/CHANGELOG.md and docs/ru/CHANGELOG.md have sections for the target version and auto-generates notes from git log
-  5. Runs shared release consistency checks
-  6. Optionally commits, tags and pushes
+  5. Moves current [unreleased] notes into the target changelog section and falls back to git-log notes when unreleased is empty
+  6. Runs shared release consistency checks
+  7. Optionally commits, tags and pushes
      (push target: current branch, or RELEASE_PUSH_BRANCH override)
 EOF
 }
@@ -114,23 +114,65 @@ insert_changelog_section() {
     local tmp_file
     tmp_file="$(mktemp "${changelog_file}.tmp.XXXXXX")"
     awk -v ver="$VERSION" -v day="$TODAY" -v notes_file="$NOTES_TMP" '
-        BEGIN { inserted = 0 }
-        {
-            print
-            if (!inserted && tolower($0) ~ /^## \[unreleased\]/) {
-                print ""
-                print "## [" ver "] - " day
-                print ""
+        function trim_pending_body( idx ) {
+            for (; pending_body_count > 0 && pending_body[pending_body_count] == ""; pending_body_count--) {
+                delete pending_body[pending_body_count]
+            }
+        }
+        function print_release_section( note_line, idx ) {
+            print "## [" ver "] - " day
+            print ""
+            trim_pending_body()
+            if (pending_body_count > 0) {
+                for (idx = 1; idx <= pending_body_count; idx++) {
+                    print pending_body[idx]
+                }
+            } else {
                 print "### Changed"
                 for (; (getline note_line < notes_file) > 0; ) {
                     print note_line
                 }
                 close(notes_file)
-                print ""
-                inserted = 1
             }
+            print ""
+        }
+        BEGIN {
+            inserted = 0
+            in_unreleased = 0
+            pending_body_count = 0
+        }
+        {
+            if (!inserted && tolower($0) ~ /^## \[unreleased\]/) {
+                print
+                print ""
+                in_unreleased = 1
+                next
+            }
+
+            if (in_unreleased) {
+                if ($0 ~ /^## \[/) {
+                    print_release_section()
+                    print
+                    inserted = 1
+                    in_unreleased = 0
+                    next
+                }
+                if ($0 ~ /^[[:space:]]*$/) {
+                    if (pending_body_count > 0 && pending_body[pending_body_count] != "") {
+                        pending_body[++pending_body_count] = ""
+                    }
+                } else {
+                    pending_body[++pending_body_count] = $0
+                }
+                next
+            }
+            print
         }
         END {
+            if (in_unreleased) {
+                print_release_section()
+                inserted = 1
+            }
             if (!inserted) {
                 exit 2
             }

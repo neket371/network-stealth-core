@@ -7,21 +7,21 @@
 
 ## [unreleased]
 
+### Fixed
+- release automation теперь корректно переносит заметки из `[unreleased]` в tagged section и больше не дублирует секции с висящими bullet’ами
+- layout секции `7.5.3` выровнен, а release docs снова проходят markdownlint после бага в release-script
+
 ## [7.5.3] - 2026-03-18
-
-### Changed
-- fix: harden release evidence and runtime metadata (b481820)
-- fix: suppress false uninstall reset-failed warning (2469199)
-- fix: harden host cleanup and rollback flows (0e546b3)
-- fix: fall back to health journal in logs flow (1bef109)
-- fix: reset failed xray units after uninstall (f1bcefa)
-
 
 ### Changed
 - source metadata (`kind`, `ref`, `commit`) теперь сохраняется в managed state и показывается в `status --verbose` и `diagnose`
 - `Nightly Smoke` self-hosted зафиксирован как регулярный evidence path, а отдельный self-hosted workflow оставлен только manual/on-demand инструментом
 - field validation оформлен как отдельный слой доказательства для реальных сетей вместо подмены anti-dpi proof обычным runtime-green smoke
 - несколько рискованных orchestration-функций разрезаны на phase helpers без изменения публичного CLI-контракта
+
+### Fixed
+- снят ложный uninstall warning про `reset-failed`, когда после cleanup уже не остаётся ни одного `xray*` unit
+- усилены real-host cleanup/rollback residue path и fallback на `xray-health` journal в server lifecycle контуре
 
 ## [7.5.2] - 2026-03-17
 

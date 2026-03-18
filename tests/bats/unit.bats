@@ -3889,6 +3889,7 @@ EOF
     run bash -eo pipefail -c '
     grep -Fq '\''validate_generated_release_notes()'\'' ./scripts/release.sh
     grep -Fq '\''ensure_release_section_has_no_todo()'\'' ./scripts/release.sh
+    grep -Fq '\''print_release_section('\'' ./scripts/release.sh
     grep -Fq '\''CHANGELOG_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"'\'' ./scripts/release.sh
     grep -Fq '\''BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"'\'' ./scripts/release.sh
     grep -Fq '\''SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"'\'' ./scripts/release.sh
@@ -3899,6 +3900,111 @@ EOF
   '
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
+}
+
+@test "release script consumes unreleased changelog notes into target section" {
+    run bash -eo pipefail -c '
+    tmp_repo=$(mktemp -d)
+    trap '\''rm -rf "$tmp_repo"'\'' EXIT
+
+    mkdir -p "$tmp_repo/scripts" "$tmp_repo/docs/en" "$tmp_repo/docs/ru" "$tmp_repo/.github/ISSUE_TEMPLATE"
+    cp ./scripts/release.sh "$tmp_repo/scripts/release.sh"
+    chmod +x "$tmp_repo/scripts/release.sh"
+    cat > "$tmp_repo/scripts/check-release-consistency.sh" <<'\''EOF'\''
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "$tmp_repo/scripts/check-release-consistency.sh"
+
+    cat > "$tmp_repo/lib.sh" <<'\''EOF'\''
+#!/usr/bin/env bash
+# Network Stealth Core 1.0.0 - Example
+readonly SCRIPT_VERSION="1.0.0"
+EOF
+
+    cat > "$tmp_repo/xray-reality.sh" <<'\''EOF'\''
+#!/usr/bin/env bash
+# Network Stealth Core 1.0.0 - Wrapper
+EOF
+
+    cat > "$tmp_repo/README.md" <<'\''EOF'\''
+[![release](https://img.shields.io/badge/release-v1.0.0-blue)](https://example.invalid)
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v1.0.0/xray-reality.sh -o /tmp/xray-reality.sh
+XRAY_REPO_REF=v1.0.0 bash /tmp/xray-reality.sh install
+EOF
+
+    cat > "$tmp_repo/README.ru.md" <<'\''EOF'\''
+[![release](https://img.shields.io/badge/release-v1.0.0-blue)](https://example.invalid)
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v1.0.0/xray-reality.sh -o /tmp/xray-reality.sh
+XRAY_REPO_REF=v1.0.0 bash /tmp/xray-reality.sh install
+EOF
+
+    cat > "$tmp_repo/.github/ISSUE_TEMPLATE/bug_report.yml" <<'\''EOF'\''
+placeholder: v1.0.0 / <full_commit_sha> / ubuntu@<sha>
+EOF
+
+    cat > "$tmp_repo/.github/ISSUE_TEMPLATE/support_request.yml" <<'\''EOF'\''
+placeholder: v1.0.0 / <full_commit_sha> / ubuntu@<sha>
+EOF
+
+    cat > "$tmp_repo/docs/en/CHANGELOG.md" <<'\''EOF'\''
+# changelog
+
+## [unreleased]
+
+### Changed
+- unreleased note one
+- unreleased note two
+
+## [1.0.0] - 2026-03-17
+
+### Changed
+- base release
+EOF
+
+    cat > "$tmp_repo/docs/ru/CHANGELOG.md" <<'\''EOF'\''
+# changelog
+
+## [unreleased]
+
+### Changed
+- unreleased note one
+- unreleased note two
+
+## [1.0.0] - 2026-03-17
+
+### Changed
+- base release
+EOF
+
+    git -C "$tmp_repo" init -q
+    git -C "$tmp_repo" config user.name '\''Test User'\''
+    git -C "$tmp_repo" config user.email '\''test@example.com'\''
+    git -C "$tmp_repo" add .
+    git -C "$tmp_repo" commit -qm '\''base'\''
+    git -C "$tmp_repo" tag -a v1.0.0 -m '\''v1.0.0'\''
+    printf '\''\n# post-tag change\n'\'' >> "$tmp_repo/lib.sh"
+    git -C "$tmp_repo" add lib.sh
+    git -C "$tmp_repo" commit -qm '\''post-tag change'\''
+
+    (cd "$tmp_repo" && bash ./scripts/release.sh 1.0.1)
+
+    awk '\''BEGIN { in_unreleased = 0; saw_body = 0 }
+         /^## \[unreleased\]/ { in_unreleased = 1; next }
+         /^## \[/ { if (in_unreleased) in_unreleased = 0 }
+         in_unreleased && $0 ~ /[^[:space:]]/ { saw_body = 1 }
+         END { exit saw_body ? 1 : 0 }'\'' "$tmp_repo/docs/en/CHANGELOG.md"
+    awk '\''BEGIN { in_target = 0; changed_headers = 0; note1 = 0; note2 = 0 }
+         /^## \[1\.0\.1\]/ { in_target = 1; next }
+         /^## \[/ { if (in_target) in_target = 0 }
+         in_target && /^### Changed$/ { changed_headers++ }
+         in_target && /- unreleased note one/ { note1 = 1 }
+         in_target && /- unreleased note two/ { note2 = 1 }
+         END { exit (changed_headers == 1 && note1 && note2) ? 0 : 1 }'\'' "$tmp_repo/docs/en/CHANGELOG.md"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "release consistency check enforces changelog bullets and blocks TODO in released sections" {
