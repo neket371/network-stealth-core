@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.5] - 2026-03-18
+
 ### Changed
 - явные override-пути для domain-data файлов теперь сохраняются при `resolve_paths()`, а managed default-пути по-прежнему корректно привязываются к разрешённому `data dir`
 - общий root writer для `config.json` вынесен в один helper и теперь одинаково используется в полном build и rebuild flow

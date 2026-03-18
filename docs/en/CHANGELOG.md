@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.5] - 2026-03-18
+
 ### Changed
 - preserved explicit domain-data file overrides during path resolution while still rebinding managed defaults to the resolved data directory
 - unified the shared root `config.json` writer used by both full build and rebuild flows to keep runtime policy and logging structure in sync
