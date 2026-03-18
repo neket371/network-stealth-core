@@ -7,6 +7,16 @@
 
 ## [unreleased]
 
+### Changed
+- явные override-пути для domain-data файлов теперь сохраняются при `resolve_paths()`, а managed default-пути по-прежнему корректно привязываются к разрешённому `data dir`
+- общий root writer для `config.json` вынесен в один helper и теперь одинаково используется в полном build и rebuild flow
+
+### Fixed
+- `atomic_write` теперь режет реальные traversal-сегменты ещё до canonicalization и при этом сохраняет safe-prefix enforcement
+- для `xhttp` rebuild path больше не вычисляются лишние gRPC-only timeout-параметры
+- health domain probe стал строже: приоритет у реальной TLS-проверки, loose-match по одному `CONNECTED` убран, а безусловный стартовый `sleep` в connectivity check заменён на bounded readiness wait
+- fallback-путь shell-рандома расширен для окружений без нормального сильного источника энтропии
+
 ## [7.5.4] - 2026-03-18
 
 ### Fixed
