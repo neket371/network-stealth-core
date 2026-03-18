@@ -72,6 +72,71 @@ require_pattern() {
     fi
 }
 
+changelog_section_has_bullets() {
+    local file="$1"
+    local section="$2"
+    awk -v target="$(printf '%s' "$section" | tr '[:upper:]' '[:lower:]')" '
+        BEGIN { in_target = 0; has_bullet = 0 }
+        /^## \[/ {
+            section_name = $0
+            sub(/^## \[/, "", section_name)
+            sub(/\].*$/, "", section_name)
+            in_target = (tolower(section_name) == target)
+            next
+        }
+        in_target && $0 ~ /^- / {
+            has_bullet = 1
+        }
+        END {
+            exit has_bullet ? 0 : 1
+        }
+    ' "$file"
+}
+
+latest_local_semver_tag() {
+    if ! git -C "$ROOT_DIR" rev-parse --git-dir > /dev/null 2>&1; then
+        return 1
+    fi
+
+    local tags
+    tags="$(git -C "$ROOT_DIR" tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)"
+    if [[ -z "$tags" ]]; then
+        if git -C "$ROOT_DIR" remote get-url origin > /dev/null 2>&1; then
+            git -C "$ROOT_DIR" fetch --quiet --tags origin 2> /dev/null || true
+            tags="$(git -C "$ROOT_DIR" tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)"
+        fi
+    fi
+
+    [[ -n "$tags" ]] || return 1
+    printf '%s\n' "$tags" | sort -V | tail -n 1
+}
+
+check_unreleased_branch_state() {
+    local latest_tag
+    latest_tag="$(latest_local_semver_tag || true)"
+    [[ -n "$latest_tag" ]] || return 0
+
+    if [[ "$latest_tag" != "v${script_version}" ]]; then
+        return 0
+    fi
+
+    local commits_ahead
+    commits_ahead="$(git -C "$ROOT_DIR" rev-list --count "${latest_tag}..HEAD" 2> /dev/null || true)"
+    [[ "$commits_ahead" =~ ^[0-9]+$ ]] || return 0
+    if ((commits_ahead == 0)); then
+        return 0
+    fi
+
+    if ! changelog_section_has_bullets "$CHANGELOG_FILE" "unreleased"; then
+        echo "docs/en/CHANGELOG.md must keep non-empty [unreleased] notes while HEAD is ahead of ${latest_tag}" >&2
+        exit 1
+    fi
+    if ! changelog_section_has_bullets "$CHANGELOG_FILE_RU" "unreleased"; then
+        echo "docs/ru/CHANGELOG.md must keep non-empty [unreleased] notes while HEAD is ahead of ${latest_tag}" >&2
+        exit 1
+    fi
+}
+
 script_version=$(awk -F'"' '/^readonly SCRIPT_VERSION=/{print $2; exit}' "$LIB_FILE")
 if [[ -z "$script_version" ]]; then
     echo "Failed to detect SCRIPT_VERSION from lib.sh" >&2
@@ -152,6 +217,8 @@ if ! awk -v ver="$script_version" '
     echo "RU CHANGELOG section [${script_version}] does not contain release bullet notes" >&2
     exit 1
 fi
+
+check_unreleased_branch_state
 
 if [[ -n "$TAG" && "v${script_version}" != "$TAG" ]]; then
     echo "Tag ${TAG} does not match SCRIPT_VERSION v${script_version}" >&2

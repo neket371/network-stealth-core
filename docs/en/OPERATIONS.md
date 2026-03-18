@@ -121,6 +121,7 @@ sudo xray-reality.sh status --verbose
 verbose status should show:
 
 - strongest-direct contract details
+- source metadata (`kind`, `ref`, `commit`)
 - last self-check verdict
 - latest field measurement verdict
 - current primary config
@@ -134,6 +135,7 @@ sudo xray-reality.sh diagnose
 ```
 
 `diagnose` now includes policy, self-check history, and measurement summary.
+it also prints the managed source metadata used to produce the current node state.
 
 ## measurement workflow
 
@@ -181,6 +183,9 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 plain invocation without a subcommand behaves like `run`.
+
+runtime smoke, hosted CI, and busy-host lifecycle checks do not prove real-network anti-dpi effectiveness by themselves.
+for that layer, use the separate playbook in [FIELD-VALIDATION.md](FIELD-VALIDATION.md).
 
 ## maintainer-only smoke and busy-host validation
 

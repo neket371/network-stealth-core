@@ -556,35 +556,32 @@ secure_clients_json_permissions() {
     fi
 }
 
-save_client_configs() {
-    log STEP "Сохраняем клиентские конфигурации..."
-
-    local keys_file="${XRAY_KEYS}/keys.txt"
-    local client_file="${XRAY_KEYS}/clients.txt"
-    local json_file="${XRAY_KEYS}/clients.json"
-    local rule58
-    rule58="$(ui_rule_string 58)"
-
-    mkdir -p "$(dirname "$keys_file")"
-
-    local required_count="$NUM_CONFIGS"
+save_client_configs_validate_prerequisites() {
+    local required_count="$1"
     if ((required_count < 1)); then
         log WARN "Нет конфигураций для сохранения клиентов"
-        return 0
+        return 2
     fi
 
     if [[ ${#UUIDS[@]} -lt $required_count || ${#PUBLIC_KEYS[@]} -lt $required_count || ${#SHORT_IDS[@]} -lt $required_count ]]; then
         log WARN "Недостаточно данных для генерации клиентских конфигов; файлы оставлены без изменений"
-        return 0
+        return 2
     fi
 
     local i
     for ((i = 0; i < required_count; i++)); do
         if [[ -z "${PUBLIC_KEYS[$i]:-}" ]]; then
             log WARN "Публичные ключи не найдены - пропускаем генерацию clients.txt"
-            return 0
+            return 2
         fi
     done
+    return 0
+}
+
+save_client_configs_write_server_keys() {
+    local keys_file="$1"
+    local rule58="$2"
+    local required_count="$3"
 
     backup_file "$keys_file"
     local tmp_keys
@@ -600,7 +597,8 @@ Generated: $(format_generated_timestamp)
 
 EOF
 
-    for ((i = 0; i < NUM_CONFIGS; i++)); do
+    local i
+    for ((i = 0; i < required_count; i++)); do
         local domain="${CONFIG_DOMAINS[$i]:-unknown}"
         local provider_family="${CONFIG_PROVIDER_FAMILIES[$i]:-}"
         local vless_encryption="${CONFIG_VLESS_ENCRYPTIONS[$i]:-none}"
@@ -630,18 +628,26 @@ EOF
     mv "$tmp_keys" "$keys_file"
     chmod 400 "$keys_file"
     chown root:root "$keys_file" 2> /dev/null || true
+}
 
-    local json_configs
-    json_configs=$(jq -n '[]')
-    local -a qr_links_v4=()
-    local -a qr_links_v6=()
+save_client_configs_build_inventory() {
+    local required_count="$1"
+    local out_json_configs_name="$2"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_qr_links_v4="$3"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_qr_links_v6="$4"
+
+    local json_configs_acc
+    json_configs_acc=$(jq -n '[]')
     local link_prefix
     link_prefix=$(client_link_prefix_for_tier "$DOMAIN_TIER")
     local raw_xray_dir="${XRAY_KEYS}/export/raw-xray"
     mkdir -p "$raw_xray_dir"
     find "$raw_xray_dir" -maxdepth 1 -type f -name 'config-*.json' -delete 2> /dev/null || true
 
-    for ((i = 0; i < NUM_CONFIGS; i++)); do
+    local i
+    for ((i = 0; i < required_count; i++)); do
         local domain="${CONFIG_DOMAINS[$i]:-unknown}"
         local sni="${CONFIG_SNIS[$i]:-$domain}"
         local fp="${CONFIG_FPS[$i]:-chrome}"
@@ -771,11 +777,11 @@ EOF
                 }]')
         done < <(client_variant_catalog "$transport_value")
 
-        qr_links_v4+=("$primary_vless_v4")
-        qr_links_v6+=("$primary_vless_v6")
+        out_qr_links_v4+=("$primary_vless_v4")
+        out_qr_links_v6+=("$primary_vless_v6")
 
-        json_configs=$(jq -n \
-            --argjson arr "$json_configs" \
+        json_configs_acc=$(jq -n \
+            --argjson arr "$json_configs_acc" \
             --arg name "Config $((i + 1))" \
             --arg domain "$domain" \
             --arg sni "$sni" \
@@ -821,6 +827,18 @@ EOF
                 variants: $variants
             }]')
     done
+    printf -v "$out_json_configs_name" '%s' "$json_configs_acc"
+}
+
+save_client_configs_persist_inventory() {
+    local json_file="$1"
+    local client_file="$2"
+    local json_configs="$3"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n qr_links_v4_ref="$4"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n qr_links_v6_ref="$5"
+    local i
 
     backup_file "$json_file"
     local json_output
@@ -854,11 +872,11 @@ EOF
             local qr_dir="${XRAY_KEYS}/qr"
             mkdir -p "$qr_dir"
             for ((i = 0; i < NUM_CONFIGS; i++)); do
-                if [[ -n "${qr_links_v4[$i]:-}" ]]; then
-                    qrencode -o "${qr_dir}/config-${i}-v4.png" -s 6 -m 2 "${qr_links_v4[$i]}" > /dev/null 2>&1 || true
+                if [[ -n "${qr_links_v4_ref[$i]:-}" ]]; then
+                    qrencode -o "${qr_dir}/config-${i}-v4.png" -s 6 -m 2 "${qr_links_v4_ref[$i]}" > /dev/null 2>&1 || true
                 fi
-                if [[ -n "${qr_links_v6[$i]:-}" ]]; then
-                    qrencode -o "${qr_dir}/config-${i}-v6.png" -s 6 -m 2 "${qr_links_v6[$i]}" > /dev/null 2>&1 || true
+                if [[ -n "${qr_links_v6_ref[$i]:-}" ]]; then
+                    qrencode -o "${qr_dir}/config-${i}-v6.png" -s 6 -m 2 "${qr_links_v6_ref[$i]}" > /dev/null 2>&1 || true
                 fi
             done
             log OK "QR-коды сохранены в ${qr_dir}"
@@ -868,4 +886,35 @@ EOF
     fi
 
     log OK "Конфигурации сохранены"
+}
+
+save_client_configs() {
+    log STEP "Сохраняем клиентские конфигурации..."
+
+    local keys_file="${XRAY_KEYS}/keys.txt"
+    local client_file="${XRAY_KEYS}/clients.txt"
+    local json_file="${XRAY_KEYS}/clients.json"
+    local rule58
+    rule58="$(ui_rule_string 58)"
+
+    mkdir -p "$(dirname "$keys_file")"
+
+    local required_count="$NUM_CONFIGS"
+    local validate_rc=0
+    save_client_configs_validate_prerequisites "$required_count" || validate_rc=$?
+    if ((validate_rc == 2)); then
+        return 0
+    elif ((validate_rc != 0)); then
+        return 1
+    fi
+
+    save_client_configs_write_server_keys "$keys_file" "$rule58" "$required_count"
+
+    local json_configs='[]'
+    # shellcheck disable=SC2034 # Used via nameref helper.
+    local -a qr_links_v4=()
+    # shellcheck disable=SC2034 # Used via nameref helper.
+    local -a qr_links_v6=()
+    save_client_configs_build_inventory "$required_count" json_configs qr_links_v4 qr_links_v6
+    save_client_configs_persist_inventory "$json_file" "$client_file" "$json_configs" qr_links_v4 qr_links_v6
 }

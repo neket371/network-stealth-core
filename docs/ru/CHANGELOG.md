@@ -7,6 +7,12 @@
 
 ## [unreleased]
 
+### Changed
+- source metadata (`kind`, `ref`, `commit`) теперь сохраняется в managed state и показывается в `status --verbose` и `diagnose`
+- `Nightly Smoke` self-hosted зафиксирован как регулярный evidence path, а отдельный self-hosted workflow оставлен только manual/on-demand инструментом
+- field validation оформлен как отдельный слой доказательства для реальных сетей вместо подмены anti-dpi proof обычным runtime-green smoke
+- несколько рискованных orchestration-функций разрезаны на phase helpers без изменения публичного CLI-контракта
+
 ## [7.5.2] - 2026-03-17
 
 ### Changed

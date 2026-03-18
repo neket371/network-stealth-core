@@ -1,12 +1,12 @@
-name: Self-hosted Smoke
-run-name: "Self-hosted Smoke / ${{ github.ref_name }} / ${{ github.event_name }}"
+name: Self-hosted Smoke (manual)
+run-name: "Self-hosted Smoke (manual) / ${{ github.ref_name }} / ${{ github.event_name }}"
 
 on:
   workflow_dispatch:
 
 jobs:
   lifecycle-smoke:
-    name: lifecycle smoke (${{ vars.XRAY_ENABLE_SELF_HOSTED_ACTIONS == 'true' && 'self-hosted' || 'ubuntu-24.04' }})
+    name: on-demand lifecycle smoke (${{ vars.XRAY_ENABLE_SELF_HOSTED_ACTIONS == 'true' && 'self-hosted' || 'ubuntu-24.04' }})
     runs-on: ${{ fromJSON(vars.XRAY_ENABLE_SELF_HOSTED_ACTIONS == 'true' && '["self-hosted","linux"]' || '["ubuntu-24.04"]') }}
     timeout-minutes: 90
     steps:
@@ -19,6 +19,7 @@ jobs:
           else
             echo "Self-hosted mode disabled, fallback to ubuntu-24.04"
           fi
+          echo "Regular self-hosted evidence lives in Nightly Smoke; this workflow is manual/on-demand only."
       - name: Install dependencies (best-effort)
         run: |
           set -euo pipefail

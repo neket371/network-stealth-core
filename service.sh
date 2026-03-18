@@ -378,6 +378,14 @@ status_flow_render_verbose_measurements() {
     echo ""
 }
 
+status_flow_render_verbose_source() {
+    echo -e "${BOLD}Source metadata:${NC}"
+    echo -e "  Kind: ${XRAY_SOURCE_KIND:-unknown}"
+    echo -e "  Ref: ${XRAY_SOURCE_REF:-unknown}"
+    echo -e "  Commit: ${XRAY_SOURCE_COMMIT:-unknown}"
+    echo ""
+}
+
 status_flow_render_verbose_auto_update() {
     echo -e "${BOLD}Авто-обновления:${NC}"
     if systemctl is-active --quiet xray-auto-update.timer 2> /dev/null; then
@@ -414,6 +422,7 @@ status_flow_render_verbose_details() {
     echo ""
     status_flow_render_verbose_config_details
     status_flow_render_verbose_monitoring
+    status_flow_render_verbose_source
     status_flow_render_verbose_self_check
     status_flow_render_verbose_measurements
     status_flow_render_verbose_auto_update

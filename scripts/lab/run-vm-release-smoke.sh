@@ -6,10 +6,10 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 usage() {
     cat << 'EOF'
 usage:
-  RELEASE_TAG=v7.3.8 bash scripts/lab/run-vm-release-smoke.sh
+  RELEASE_TAG=vX.Y.Z bash scripts/lab/run-vm-release-smoke.sh
 
 environment:
-  RELEASE_TAG               required release tag or version (for example: v7.3.8 or 7.3.8)
+  RELEASE_TAG               required release tag or version (for example: vX.Y.Z or X.Y.Z)
   LAB_HOST_ROOT             host directory for vm-lab state
   LAB_VM_KEEP_RUNNING       keep vm up after smoke (default: false)
   START_PORT                guest start port for release install (default: 24440)

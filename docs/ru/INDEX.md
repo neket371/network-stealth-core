@@ -22,6 +22,7 @@ managed install теперь целится в strongest-direct baseline:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | runtime-модель, state split и границы модулей |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | исправление проблем по симптомам |
 | [FAQ.md](FAQ.md) | короткие ответы на практические вопросы |
+| [FIELD-VALIDATION.md](FIELD-VALIDATION.md) | playbook для полевой anti-dpi проверки |
 
 ## полная карта
 
@@ -30,6 +31,7 @@ managed install теперь целится в strongest-direct baseline:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | strongest-direct контракт, state files и модульная структура |
 | [OPERATIONS.md](OPERATIONS.md) | runbook для install и day-2 операций |
 | [FAQ.md](FAQ.md) | продуктовый и операторский faq |
+| [FIELD-VALIDATION.md](FIELD-VALIDATION.md) | как валидировать anti-dpi эффективность в реальных сетях |
 | [MAINTAINER-LAB.md](MAINTAINER-LAB.md) | только для сопровождающих: изолированные smoke, vm-lab flow и proof-pack |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | анализ сбоев и точные next-step команды |
 | [COMMUNITY.md](COMMUNITY.md) | как просить помощь и контрибьютить |
@@ -45,6 +47,7 @@ managed install теперь целится в strongest-direct baseline:
 - локальное measurement: `sudo bash scripts/measure-stealth.sh run --save`
 - импорт удалённых field-reports: `sudo bash scripts/measure-stealth.sh import --dir ./remote-canary-reports`
 - replan после новых field data: `sudo xray-reality.sh update --replan --non-interactive --yes`
+- playbook полевой проверки: [FIELD-VALIDATION.md](FIELD-VALIDATION.md)
 - smoke-документация для сопровождающих: [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
 
 ## важные файлы

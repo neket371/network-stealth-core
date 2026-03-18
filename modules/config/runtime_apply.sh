@@ -211,6 +211,9 @@ save_environment() {
         write_env_kv XRAY_START_PORT "$START_PORT"
         write_env_kv INSTALLED_VERSION "$installed_version"
         write_env_kv INSTALL_DATE "$install_date"
+        write_env_kv XRAY_SOURCE_KIND "${XRAY_SOURCE_KIND:-}"
+        write_env_kv XRAY_SOURCE_REF "${XRAY_SOURCE_REF:-}"
+        write_env_kv XRAY_SOURCE_COMMIT "${XRAY_SOURCE_COMMIT:-}"
         write_env_kv SERVER_IP "$SERVER_IP"
         write_env_kv SERVER_IP6 "$SERVER_IP6"
     } | atomic_write "$XRAY_ENV" 0600

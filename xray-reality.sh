@@ -400,6 +400,51 @@ resolve_ref_commit() {
     return 1
 }
 
+git_repo_head_commit() {
+    local repo_dir="${1:-}"
+    [[ -n "$repo_dir" ]] || return 1
+    git -C "$repo_dir" rev-parse HEAD 2> /dev/null | tr '[:upper:]' '[:lower:]'
+}
+
+git_repo_ref_hint() {
+    local repo_dir="${1:-}"
+    local ref=""
+    [[ -n "$repo_dir" ]] || return 1
+
+    ref=$(git -C "$repo_dir" describe --tags --exact-match 2> /dev/null || true)
+    [[ -n "$ref" ]] || ref=$(git -C "$repo_dir" symbolic-ref --quiet --short HEAD 2> /dev/null || true)
+    [[ -n "$ref" ]] || ref=$(git -C "$repo_dir" rev-parse --short HEAD 2> /dev/null || true)
+    [[ -n "$ref" ]] || return 1
+    printf '%s\n' "$ref"
+}
+
+export_wrapper_source_metadata() {
+    local kind="${1:-}"
+    local repo_dir="${2:-}"
+    local ref_hint="${3:-}"
+    local commit_hint="${4:-}"
+    local resolved_ref=""
+    local resolved_commit=""
+
+    [[ -n "$kind" ]] || return 0
+
+    if [[ -n "$repo_dir" && -d "$repo_dir" ]]; then
+        resolved_commit=$(git_repo_head_commit "$repo_dir" || true)
+        resolved_ref=$(git_repo_ref_hint "$repo_dir" || true)
+    fi
+
+    [[ -n "$commit_hint" ]] && resolved_commit="$commit_hint"
+    [[ -n "$ref_hint" ]] && resolved_ref="$ref_hint"
+
+    export XRAY_SOURCE_KIND="$kind"
+    if [[ -n "$resolved_ref" ]]; then
+        export XRAY_SOURCE_REF="$resolved_ref"
+    fi
+    if [[ -n "$resolved_commit" ]]; then
+        export XRAY_SOURCE_COMMIT="$resolved_commit"
+    fi
+}
+
 resolve_latest_release_tag() {
     local repo_url="$1"
     local tags
@@ -545,6 +590,12 @@ source "$MODULE_DIR/health.sh"
 # shellcheck source=/dev/null
 if [[ -f "$MODULE_DIR/export.sh" ]]; then
     source "$MODULE_DIR/export.sh"
+fi
+
+if [[ "$INSTALL_DIR_OWNED" == "true" ]]; then
+    export_wrapper_source_metadata "bootstrap" "$SCRIPT_DIR" "$REPO_REF" "$REPO_COMMIT"
+elif git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    export_wrapper_source_metadata "repo-local" "$SCRIPT_DIR" "" ""
 fi
 
 main "${FORWARD_ARGS[@]}"

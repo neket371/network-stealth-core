@@ -22,6 +22,7 @@ managed installs now target the strongest-direct baseline:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | runtime model, state split, and module boundaries |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | symptom-driven fixes |
 | [FAQ.md](FAQ.md) | short answers to practical questions |
+| [FIELD-VALIDATION.md](FIELD-VALIDATION.md) | real-network anti-dpi validation playbook |
 
 ## full map
 
@@ -30,6 +31,7 @@ managed installs now target the strongest-direct baseline:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | strongest-direct contract, state files, and module layout |
 | [OPERATIONS.md](OPERATIONS.md) | install and day-2 runbook |
 | [FAQ.md](FAQ.md) | product and operator faq |
+| [FIELD-VALIDATION.md](FIELD-VALIDATION.md) | how to validate real-network anti-dpi effectiveness |
 | [MAINTAINER-LAB.md](MAINTAINER-LAB.md) | maintainer-only isolated smoke, vm-lab flows, and proof-pack generation |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | failure analysis and next-step commands |
 | [COMMUNITY.md](COMMUNITY.md) | how to ask for help or contribute |
@@ -45,6 +47,7 @@ managed installs now target the strongest-direct baseline:
 - local measurement: `sudo bash scripts/measure-stealth.sh run --save`
 - import remote field reports: `sudo bash scripts/measure-stealth.sh import --dir ./remote-canary-reports`
 - replan with fresh field data: `sudo xray-reality.sh update --replan --non-interactive --yes`
+- real-network validation playbook: [FIELD-VALIDATION.md](FIELD-VALIDATION.md)
 - maintainer-only smoke docs: [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
 
 ## important files

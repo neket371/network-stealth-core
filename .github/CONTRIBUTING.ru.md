@@ -97,6 +97,9 @@ pwsh ./scripts/windows/run-validation.ps1 -SkipRemote
 
 - `make vm-proof-pack`
 
+регулярное self-hosted evidence должно идти через `Nightly Smoke`.
+`.github/workflows/self-hosted-smoke.yml` — только manual/on-demand workflow, а не scheduled proof-source.
+
 ## coding standards
 
 1. держи скрипты безопасными под `set -euo pipefail`

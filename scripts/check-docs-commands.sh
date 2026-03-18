@@ -7,6 +7,8 @@ cd "$ROOT_DIR"
 DOC_FILES=(
     README.md
     README.ru.md
+    docs/en/FIELD-VALIDATION.md
+    docs/ru/FIELD-VALIDATION.md
     docs/en/MAINTAINER-LAB.md
     docs/ru/MAINTAINER-LAB.md
     docs/en/OPERATIONS.md
@@ -18,6 +20,7 @@ DOC_FILES=(
 )
 
 VALID_ACTIONS='install|add-clients|add-keys|update|repair|migrate-stealth|diagnose|rollback|uninstall|status|logs|check-update'
+SELF_HOSTED_WORKFLOW=".github/workflows/self-hosted-smoke.yml"
 
 fail=0
 
@@ -97,6 +100,33 @@ for file in docs/en/FAQ.md docs/ru/FAQ.md docs/en/OPERATIONS.md docs/ru/OPERATIO
         fail=1
     fi
 done
+
+for file in README.md README.ru.md docs/en/OPERATIONS.md docs/ru/OPERATIONS.md docs/en/INDEX.md docs/ru/INDEX.md; do
+    if ! grep -q 'FIELD-VALIDATION.md' "$file"; then
+        echo "docs command contract fail: missing field-validation link in ${file}" >&2
+        fail=1
+    fi
+done
+
+for file in docs/en/MAINTAINER-LAB.md docs/ru/MAINTAINER-LAB.md .github/CONTRIBUTING.md .github/CONTRIBUTING.ru.md; do
+    if ! grep -q 'Nightly Smoke' "$file"; then
+        echo "docs command contract fail: missing Nightly Smoke regular-evidence wording in ${file}" >&2
+        fail=1
+    fi
+    if ! grep -q 'self-hosted-smoke.yml' "$file"; then
+        echo "docs command contract fail: missing manual self-hosted workflow reference in ${file}" >&2
+        fail=1
+    fi
+done
+
+if ! grep -q '^name: Self-hosted Smoke (manual)$' "$SELF_HOSTED_WORKFLOW"; then
+    echo "docs command contract fail: self-hosted workflow must be explicitly marked manual" >&2
+    fail=1
+fi
+if ! grep -q 'Regular self-hosted evidence lives in Nightly Smoke; this workflow is manual/on-demand only.' "$SELF_HOSTED_WORKFLOW"; then
+    echo "docs command contract fail: self-hosted workflow must point to Nightly Smoke as the regular evidence path" >&2
+    fail=1
+fi
 
 if ((fail != 0)); then
     exit 1

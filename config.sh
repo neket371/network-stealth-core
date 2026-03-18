@@ -219,18 +219,9 @@ build_config() {
     log OK "Конфигурация создана"
 }
 
-rebuild_config_for_transport() {
-    local target_transport="${1:-xhttp}"
-    local inbounds='[]'
-    local -a next_domains=()
-    local -a next_snis=()
-    local -a next_endpoints=()
-    local -a next_dests=()
-    local -a next_fps=()
-    local -a next_provider_families=()
-    local -a next_vless_encryptions=()
-    local -a next_vless_decryptions=()
-    local i
+rebuild_config_prepare_transport_context() {
+    local target_transport="$1"
+    local out_previous_transport_name="$2"
 
     if ((NUM_CONFIGS < 1)); then
         log ERROR "Нет конфигураций для rebuild transport"
@@ -239,9 +230,33 @@ rebuild_config_for_transport() {
 
     check_xray_version_for_config_generation
     ensure_xray_feature_contract
-    local previous_transport="${TRANSPORT:-xhttp}"
+    printf -v "$out_previous_transport_name" '%s' "${TRANSPORT:-xhttp}"
     TRANSPORT="$target_transport"
     setup_mux_settings
+}
+
+rebuild_config_collect_inbounds() {
+    local target_transport="$1"
+    local previous_transport="$2"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_inbounds="$3"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_domains="$4"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_snis="$5"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_endpoints="$6"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_dests="$7"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_fps="$8"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_provider_families="$9"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_vless_encryptions="${10}"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_vless_decryptions="${11}"
+    local i
 
     for ((i = 0; i < NUM_CONFIGS; i++)); do
         local domain="${CONFIG_DOMAINS[$i]:-}"
@@ -301,25 +316,31 @@ rebuild_config_for_transport() {
             "${PORTS[$i]}" "${UUIDS[$i]}" "$dest" "$sni_json" "${PRIVATE_KEYS[$i]}" "${SHORT_IDS[$i]}" \
             "$fp" "$transport_endpoint" "$keepalive" "$grpc_idle" "$grpc_health" \
             "$target_transport" "$payload" "$vless_decryption" "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}")
-        inbounds=$(echo "$inbounds" | jq --argjson ib "$inbound_v4" '. + [$ib]')
+        out_inbounds=$(echo "$out_inbounds" | jq --argjson ib "$inbound_v4" '. + [$ib]')
 
         if [[ "$HAS_IPV6" == true && -n "${PORTS_V6[$i]:-}" ]]; then
             local inbound_v6
             inbound_v6=$(echo "$inbound_v4" | jq --arg port "${PORTS_V6[$i]}" '.listen = "::" | .port = ($port|tonumber)')
-            inbounds=$(echo "$inbounds" | jq --argjson ib "$inbound_v6" '. + [$ib]')
+            out_inbounds=$(echo "$out_inbounds" | jq --argjson ib "$inbound_v6" '. + [$ib]')
         fi
 
-        next_domains+=("$domain")
-        next_snis+=("$sni")
-        next_endpoints+=("$transport_endpoint")
-        next_dests+=("$dest")
-        next_fps+=("$fp")
-        next_provider_families+=("$provider_family")
-        next_vless_encryptions+=("$vless_encryption")
-        next_vless_decryptions+=("$vless_decryption")
+        out_domains+=("$domain")
+        out_snis+=("$sni")
+        out_endpoints+=("$transport_endpoint")
+        out_dests+=("$dest")
+        out_fps+=("$fp")
+        out_provider_families+=("$provider_family")
+        out_vless_encryptions+=("$vless_encryption")
+        out_vless_decryptions+=("$vless_decryption")
     done
+}
 
+rebuild_config_write_candidate() {
+    local target_transport="$1"
+    local previous_transport="$2"
+    local inbounds="$3"
     local outbounds routing tmp_config
+
     outbounds=$(generate_outbounds_json)
     routing=$(generate_routing_json)
     backup_file "$XRAY_CONFIG"
@@ -370,15 +391,68 @@ rebuild_config_for_transport() {
         TRANSPORT="$previous_transport"
         return 1
     fi
-
-    CONFIG_DOMAINS=("${next_domains[@]}")
-    CONFIG_SNIS=("${next_snis[@]}")
-    CONFIG_TRANSPORT_ENDPOINTS=("${next_endpoints[@]}")
-    CONFIG_DESTS=("${next_dests[@]}")
-    CONFIG_FPS=("${next_fps[@]}")
-    CONFIG_PROVIDER_FAMILIES=("${next_provider_families[@]}")
-    CONFIG_VLESS_ENCRYPTIONS=("${next_vless_encryptions[@]}")
-    CONFIG_VLESS_DECRYPTIONS=("${next_vless_decryptions[@]}")
     TRANSPORT="$target_transport"
+}
+
+rebuild_config_commit_runtime_state() {
+    local target_transport="$1"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_domains_ref="$2"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_snis_ref="$3"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_endpoints_ref="$4"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_dests_ref="$5"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_fps_ref="$6"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_provider_families_ref="$7"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_vless_encryptions_ref="$8"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n next_vless_decryptions_ref="$9"
+
+    CONFIG_DOMAINS=("${next_domains_ref[@]}")
+    CONFIG_SNIS=("${next_snis_ref[@]}")
+    CONFIG_TRANSPORT_ENDPOINTS=("${next_endpoints_ref[@]}")
+    CONFIG_DESTS=("${next_dests_ref[@]}")
+    CONFIG_FPS=("${next_fps_ref[@]}")
+    CONFIG_PROVIDER_FAMILIES=("${next_provider_families_ref[@]}")
+    CONFIG_VLESS_ENCRYPTIONS=("${next_vless_encryptions_ref[@]}")
+    CONFIG_VLESS_DECRYPTIONS=("${next_vless_decryptions_ref[@]}")
+    TRANSPORT="$target_transport"
+}
+
+rebuild_config_for_transport() {
+    local target_transport="${1:-xhttp}"
+    local inbounds='[]'
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_domains=()
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_snis=()
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_endpoints=()
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_dests=()
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_fps=()
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_provider_families=()
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_vless_encryptions=()
+    # shellcheck disable=SC2034 # Used via nameref helpers.
+    local -a next_vless_decryptions=()
+    local previous_transport="${TRANSPORT:-xhttp}"
+    rebuild_config_prepare_transport_context "$target_transport" previous_transport || return 1
+    rebuild_config_collect_inbounds \
+        "$target_transport" "$previous_transport" \
+        inbounds next_domains next_snis next_endpoints next_dests next_fps next_provider_families \
+        next_vless_encryptions next_vless_decryptions || return 1
+    rebuild_config_write_candidate "$target_transport" "$previous_transport" "$inbounds" || return 1
+    rebuild_config_commit_runtime_state \
+        "$target_transport" \
+        next_domains next_snis next_endpoints next_dests next_fps next_provider_families \
+        next_vless_encryptions next_vless_decryptions
     return 0
 }

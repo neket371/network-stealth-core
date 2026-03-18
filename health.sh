@@ -607,6 +607,12 @@ diagnose() {
         [[ -f /etc/os-release ]] && cat /etc/os-release
         echo ""
 
+        echo "===== SOURCE ====="
+        echo "Kind: ${XRAY_SOURCE_KIND:-unknown}"
+        echo "Ref: ${XRAY_SOURCE_REF:-unknown}"
+        echo "Commit: ${XRAY_SOURCE_COMMIT:-unknown}"
+        echo ""
+
         echo "===== XRAY ====="
         if [[ -x "$XRAY_BIN" ]]; then
             "$XRAY_BIN" version | head -2

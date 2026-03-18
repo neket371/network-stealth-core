@@ -299,117 +299,131 @@ self_check_probe_single_url() {
         }'
 }
 
-self_check_run_variant_probe() {
+self_check_run_variant_probe_skipped_json() {
+    local action="$1"
+    local config_name="$2"
+    local variant_key="$3"
+    local mode="$4"
+    local ip_family="$5"
+    jq -n \
+        --arg action "$action" \
+        --arg config_name "$config_name" \
+        --arg variant_key "$variant_key" \
+        --arg mode "$mode" \
+        --arg ip_family "$ip_family" \
+        '{
+            checked_at: now | todateiso8601,
+            action: $action,
+            config_name: $config_name,
+            variant_key: $variant_key,
+            mode: (if ($mode | length) > 0 then $mode else null end),
+            ip_family: $ip_family,
+            success: false,
+            skipped: true,
+            reason: "self_check_disabled",
+            probe_results: []
+        }'
+}
+
+self_check_run_variant_probe_prepare_runtime() {
+    local config_name="$1"
+    local variant_key="$2"
+    local raw_config_file="$3"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_tmp_dir="$4"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_runtime_config="$5"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_runtime_log="$6"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_proxy_port="$7"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_pid="$8"
+    local out_reason_name="$9"
+
+    if [[ ! -x "$XRAY_BIN" ]]; then
+        printf -v "$out_reason_name" '%s' "xray_bin_missing"
+        return 0
+    fi
+    if [[ ! -f "$raw_config_file" ]]; then
+        printf -v "$out_reason_name" '%s' "raw_config_missing"
+        return 0
+    fi
+    if ! out_proxy_port=$(self_check_pick_free_port); then
+        printf -v "$out_reason_name" '%s' "no_free_local_proxy_port"
+        return 0
+    fi
+    out_tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/xray-self-check.XXXXXX") || {
+        printf -v "$out_reason_name" '%s' "tmpdir_create_failed"
+        return 0
+    }
+
+    out_runtime_config="${out_tmp_dir}/client.json"
+    out_runtime_log="${out_tmp_dir}/client.log"
+    if ! self_check_prepare_runtime_config "$raw_config_file" "$out_proxy_port" "$out_runtime_config"; then
+        printf -v "$out_reason_name" '%s' "runtime_config_prepare_failed"
+        return 0
+    fi
+
+    if declare -F xray_config_test_ok > /dev/null 2>&1; then
+        if ! xray_config_test_ok "$out_runtime_config" > /dev/null 2>&1; then
+            printf -v "$out_reason_name" '%s' "runtime_config_test_failed"
+            return 0
+        fi
+    fi
+
+    out_pid=$(self_check_start_client_process "$out_runtime_config" "$out_runtime_log")
+    if [[ -z "$out_pid" ]]; then
+        printf -v "$out_reason_name" '%s' "client_start_failed"
+        return 0
+    fi
+    if ! self_check_wait_for_proxy "$out_proxy_port"; then
+        printf -v "$out_reason_name" '%s' "proxy_not_ready"
+        local runtime_tail=""
+        runtime_tail=$(tail -n 20 "$out_runtime_log" 2> /dev/null || true)
+        self_check_debug "self-check proxy failed to start for ${config_name}/${variant_key}; log=${runtime_tail}"
+    fi
+}
+
+self_check_run_variant_probe_execute_urls() {
+    local proxy_port="$1"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_probe_results="$2"
+    local out_selected_url_name="$3"
+    local out_best_latency_ms_name="$4"
+    local out_success_name="$5"
+    local out_reason_name="$6"
+    local urls_json='[]'
+
+    urls_json=$(self_check_urls_json)
+    while IFS= read -r url; do
+        [[ -n "$url" ]] || continue
+        local single_result=""
+        single_result=$(self_check_probe_single_url "$proxy_port" "$url" "${SELF_CHECK_TIMEOUT_SEC:-8}")
+        out_probe_results=$(jq --argjson item "$single_result" '. + [$item]' <<< "$out_probe_results")
+    done < <(jq -r '.[]' <<< "$urls_json")
+
+    if jq -e 'any(.[]; .success == true)' <<< "$out_probe_results" > /dev/null 2>&1; then
+        printf -v "$out_success_name" '%s' true
+        printf -v "$out_selected_url_name" '%s' "$(jq -r '[.[] | select(.success == true)] | sort_by(.latency_ms) | .[0].url // ""' <<< "$out_probe_results")"
+        printf -v "$out_best_latency_ms_name" '%s' "$(jq -r '[.[] | select(.success == true)] | sort_by(.latency_ms) | .[0].latency_ms // 0' <<< "$out_probe_results")"
+    else
+        printf -v "$out_reason_name" '%s' "$(jq -r '[.[] | .error // ("http_" + .http_code)] | map(select(length > 0)) | first // "probe_failed"' <<< "$out_probe_results")"
+    fi
+}
+
+self_check_run_variant_probe_result_json() {
     local action="$1"
     local config_name="$2"
     local variant_key="$3"
     local mode="$4"
     local ip_family="$5"
     local raw_config_file="$6"
-    local tmp_dir=""
-    local runtime_config=""
-    local runtime_log=""
-    local proxy_port=""
-    local pid=""
-    local reason=""
-    local probe_results='[]'
-    local urls_json='[]'
-    local selected_url=""
-    local best_latency_ms=0
-    local success=false
-
-    if [[ "${SELF_CHECK_ENABLED:-true}" != "true" ]]; then
-        jq -n \
-            --arg action "$action" \
-            --arg config_name "$config_name" \
-            --arg variant_key "$variant_key" \
-            --arg mode "$mode" \
-            --arg ip_family "$ip_family" \
-            '{
-                checked_at: now | todateiso8601,
-                action: $action,
-                config_name: $config_name,
-                variant_key: $variant_key,
-                mode: (if ($mode | length) > 0 then $mode else null end),
-                ip_family: $ip_family,
-                success: false,
-                skipped: true,
-                reason: "self_check_disabled",
-                probe_results: []
-            }'
-        return 0
-    fi
-
-    if [[ ! -x "$XRAY_BIN" ]]; then
-        reason="xray_bin_missing"
-    elif [[ ! -f "$raw_config_file" ]]; then
-        reason="raw_config_missing"
-    fi
-
-    if [[ -z "$reason" ]]; then
-        if ! proxy_port=$(self_check_pick_free_port); then
-            reason="no_free_local_proxy_port"
-        fi
-    fi
-
-    if [[ -z "$reason" ]]; then
-        tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/xray-self-check.XXXXXX") || reason="tmpdir_create_failed"
-    fi
-
-    if [[ -z "$reason" ]]; then
-        runtime_config="${tmp_dir}/client.json"
-        runtime_log="${tmp_dir}/client.log"
-        if ! self_check_prepare_runtime_config "$raw_config_file" "$proxy_port" "$runtime_config"; then
-            reason="runtime_config_prepare_failed"
-        fi
-    fi
-
-    if [[ -z "$reason" ]] && declare -F xray_config_test_ok > /dev/null 2>&1; then
-        if ! xray_config_test_ok "$runtime_config" > /dev/null 2>&1; then
-            reason="runtime_config_test_failed"
-        fi
-    fi
-
-    if [[ -z "$reason" ]]; then
-        pid=$(self_check_start_client_process "$runtime_config" "$runtime_log")
-        if [[ -z "$pid" ]]; then
-            reason="client_start_failed"
-        elif ! self_check_wait_for_proxy "$proxy_port"; then
-            reason="proxy_not_ready"
-            local runtime_tail=""
-            runtime_tail=$(tail -n 20 "$runtime_log" 2> /dev/null || true)
-            self_check_debug "self-check proxy failed to start for ${config_name}/${variant_key}; log=${runtime_tail}"
-        fi
-    fi
-
-    if [[ -z "$reason" ]]; then
-        urls_json=$(self_check_urls_json)
-        while IFS= read -r url; do
-            [[ -n "$url" ]] || continue
-            local single_result=""
-            single_result=$(self_check_probe_single_url "$proxy_port" "$url" "${SELF_CHECK_TIMEOUT_SEC:-8}")
-            probe_results=$(jq --argjson item "$single_result" '. + [$item]' <<< "$probe_results")
-        done < <(jq -r '.[]' <<< "$urls_json")
-
-        if jq -e 'any(.[]; .success == true)' <<< "$probe_results" > /dev/null 2>&1; then
-            success=true
-            selected_url=$(jq -r '[.[] | select(.success == true)] | sort_by(.latency_ms) | .[0].url // ""' <<< "$probe_results")
-            best_latency_ms=$(jq -r '[.[] | select(.success == true)] | sort_by(.latency_ms) | .[0].latency_ms // 0' <<< "$probe_results")
-        else
-            reason=$(jq -r '[.[] | .error // ("http_" + .http_code)] | map(select(length > 0)) | first // "probe_failed"' <<< "$probe_results")
-        fi
-    fi
-
-    if ! self_check_stop_client_process "$pid"; then
-        self_check_debug "self-check cleanup failed for ${config_name}/${variant_key}; pid=${pid}"
-        if [[ -z "$reason" ]]; then
-            reason="client_stop_timeout"
-            success=false
-            selected_url=""
-            best_latency_ms=0
-        fi
-    fi
-    [[ -n "$tmp_dir" ]] && rm -rf "$tmp_dir"
+    local selected_url="$7"
+    local reason="$8"
+    local success="$9"
+    local latency_ms="${10}"
+    local probe_results="${11}"
 
     jq -n \
         --arg checked_at "$(self_check_now_utc)" \
@@ -422,7 +436,7 @@ self_check_run_variant_probe() {
         --arg selected_url "$selected_url" \
         --arg reason "$reason" \
         --argjson success "$success" \
-        --argjson latency_ms "${best_latency_ms:-0}" \
+        --argjson latency_ms "${latency_ms:-0}" \
         --argjson probe_results "$probe_results" \
         '{
             checked_at: $checked_at,
@@ -438,6 +452,56 @@ self_check_run_variant_probe() {
             reason: (if ($reason | length) > 0 then $reason else null end),
             probe_results: $probe_results
         }'
+}
+
+self_check_run_variant_probe() {
+    local action="$1"
+    local config_name="$2"
+    local variant_key="$3"
+    local mode="$4"
+    local ip_family="$5"
+    local raw_config_file="$6"
+    local tmp_dir=""
+    # shellcheck disable=SC2034 # Used via nameref helper.
+    local runtime_config=""
+    # shellcheck disable=SC2034 # Used via nameref helper.
+    local runtime_log=""
+    local proxy_port=""
+    local pid=""
+    local reason=""
+    local probe_results='[]'
+    local selected_url=""
+    local best_latency_ms=0
+    local success=false
+
+    if [[ "${SELF_CHECK_ENABLED:-true}" != "true" ]]; then
+        self_check_run_variant_probe_skipped_json "$action" "$config_name" "$variant_key" "$mode" "$ip_family"
+        return 0
+    fi
+
+    self_check_run_variant_probe_prepare_runtime \
+        "$config_name" "$variant_key" "$raw_config_file" \
+        tmp_dir runtime_config runtime_log proxy_port pid reason
+
+    if [[ -z "$reason" ]]; then
+        self_check_run_variant_probe_execute_urls \
+            "$proxy_port" probe_results selected_url best_latency_ms success reason
+    fi
+
+    if ! self_check_stop_client_process "$pid"; then
+        self_check_debug "self-check cleanup failed for ${config_name}/${variant_key}; pid=${pid}"
+        if [[ -z "$reason" ]]; then
+            reason="client_stop_timeout"
+            success=false
+            selected_url=""
+            best_latency_ms=0
+        fi
+    fi
+    [[ -n "$tmp_dir" ]] && rm -rf "$tmp_dir"
+
+    self_check_run_variant_probe_result_json \
+        "$action" "$config_name" "$variant_key" "$mode" "$ip_family" \
+        "$raw_config_file" "$selected_url" "$reason" "$success" "${best_latency_ms:-0}" "$probe_results"
 }
 
 self_check_config_job_json() {

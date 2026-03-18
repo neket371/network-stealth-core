@@ -84,6 +84,15 @@ load_runtime_identity_defaults() {
             NUM_CONFIGS | XRAY_NUM_CONFIGS)
                 [[ -n "${NUM_CONFIGS:-}" || -z "$value" ]] || NUM_CONFIGS="$value"
                 ;;
+            XRAY_SOURCE_KIND)
+                [[ -n "${XRAY_SOURCE_KIND:-}" || -z "$value" ]] || XRAY_SOURCE_KIND="$value"
+                ;;
+            XRAY_SOURCE_REF)
+                [[ -n "${XRAY_SOURCE_REF:-}" || -z "$value" ]] || XRAY_SOURCE_REF="$value"
+                ;;
+            XRAY_SOURCE_COMMIT)
+                [[ -n "${XRAY_SOURCE_COMMIT:-}" || -z "$value" ]] || XRAY_SOURCE_COMMIT="$value"
+                ;;
             *) ;;
         esac
     done < "$file"

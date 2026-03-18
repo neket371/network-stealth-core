@@ -340,14 +340,13 @@ strict_validate_primary_domain_controls() {
     return 0
 }
 
-strict_validate_runtime_inputs() {
-    local action="${1:-$ACTION}"
+strict_validate_runtime_safe_vars() {
     local var
     local -a safe_vars=(
         XRAY_BIN XRAY_CONFIG XRAY_ENV XRAY_MANAGED_CUSTOM_DOMAINS_FILE XRAY_KEYS XRAY_BACKUP XRAY_LOGS XRAY_HOME
         XRAY_DATA_DIR XRAY_GEO_DIR XRAY_SCRIPT_PATH XRAY_UPDATE_SCRIPT MINISIGN_KEY
         XRAY_CONFIG_FILE DOWNLOAD_HOST_ALLOWLIST XRAY_MIRRORS MINISIGN_MIRRORS
-        GH_PROXY_BASE
+        GH_PROXY_BASE XRAY_SOURCE_KIND XRAY_SOURCE_REF XRAY_SOURCE_COMMIT
         XRAY_GEOIP_URL XRAY_GEOSITE_URL XRAY_GEOIP_SHA256_URL XRAY_GEOSITE_SHA256_URL
         DOMAIN_HEALTH_FILE HEALTH_LOG SELF_CHECK_URLS SELF_CHECK_STATE_FILE SELF_CHECK_HISTORY_FILE
         AUTO_UPDATE_ONCALENDAR AUTO_UPDATE_RANDOM_DELAY
@@ -360,14 +359,19 @@ strict_validate_runtime_inputs() {
     for var in "${safe_vars[@]}"; do
         validate_no_control_chars "$var" "${!var:-}" || return 1
     done
+}
 
+strict_validate_runtime_action_paths() {
+    local action="${1:-$ACTION}"
     case "$action" in
         install | add-clients | add-keys | update | repair | diagnose | rollback | uninstall)
             validate_destructive_runtime_paths || return 1
             ;;
         *) ;;
     esac
+}
 
+strict_validate_runtime_file_contracts() {
     validate_safe_executable_path "XRAY_BIN" "$XRAY_BIN" || return 1
     validate_safe_executable_path "XRAY_SCRIPT_PATH" "$XRAY_SCRIPT_PATH" || return 1
     validate_safe_executable_path "XRAY_UPDATE_SCRIPT" "$XRAY_UPDATE_SCRIPT" || return 1
@@ -402,7 +406,9 @@ strict_validate_runtime_inputs() {
             return 1
         fi
     fi
+}
 
+strict_validate_runtime_download_contracts() {
     local url_var
     for url_var in XRAY_GEOIP_URL XRAY_GEOSITE_URL XRAY_GEOIP_SHA256_URL XRAY_GEOSITE_SHA256_URL; do
         if [[ -n "${!url_var:-}" ]] && ! is_valid_https_url "${!url_var}"; then
@@ -426,7 +432,9 @@ strict_validate_runtime_inputs() {
             return 1
         fi
     done < <(split_list "$DOWNLOAD_HOST_ALLOWLIST")
+}
 
+strict_validate_runtime_network_identity() {
     if [[ -n "${SERVER_IP:-}" ]] && ! is_valid_ipv4 "$SERVER_IP"; then
         log ERROR "Некорректный SERVER_IP: ${SERVER_IP}"
         return 1
@@ -435,7 +443,9 @@ strict_validate_runtime_inputs() {
         log ERROR "Некорректный SERVER_IP6: ${SERVER_IP6}"
         return 1
     fi
+}
 
+strict_validate_runtime_probe_settings() {
     strict_validate_runtime_schedule_settings || return 1
     strict_validate_progress_mode || return 1
     strict_validate_runtime_common_ranges || return 1
@@ -470,7 +480,9 @@ strict_validate_runtime_inputs() {
             return 1
         fi
     done < <(split_list "$REALITY_TEST_PORTS")
+}
 
+strict_validate_runtime_profile_inputs() {
     if [[ -n "$XRAY_VERSION" ]]; then
         if [[ "${XRAY_VERSION,,}" != "latest" ]]; then
             if [[ ! "$XRAY_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9._-]+)?$ ]]; then
@@ -492,7 +504,9 @@ strict_validate_runtime_inputs() {
         return 1
     fi
     strict_validate_primary_domain_controls || return 1
+}
 
+strict_validate_runtime_custom_domain_inputs() {
     if [[ -n "$XRAY_CUSTOM_DOMAINS" ]]; then
         local domain
         while read -r domain; do
@@ -525,7 +539,10 @@ strict_validate_runtime_inputs() {
             return 1
         fi
     fi
+}
 
+strict_validate_runtime_action_contracts() {
+    local action="${1:-$ACTION}"
     case "$action" in
         install | add-clients | add-keys)
             validate_install_config || return 1
@@ -548,6 +565,22 @@ strict_validate_runtime_inputs() {
             ;;
         *) ;;
     esac
+
+    return 0
+}
+
+strict_validate_runtime_inputs() {
+    local action="${1:-$ACTION}"
+
+    strict_validate_runtime_safe_vars || return 1
+    strict_validate_runtime_action_paths "$action" || return 1
+    strict_validate_runtime_file_contracts || return 1
+    strict_validate_runtime_download_contracts || return 1
+    strict_validate_runtime_network_identity || return 1
+    strict_validate_runtime_probe_settings || return 1
+    strict_validate_runtime_profile_inputs || return 1
+    strict_validate_runtime_custom_domain_inputs || return 1
+    strict_validate_runtime_action_contracts "$action" || return 1
 
     return 0
 }

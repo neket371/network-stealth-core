@@ -5,6 +5,9 @@ it describes isolated test flows for validating the project on busy hosts withou
 
 ordinary users do not need these commands for a normal install.
 
+regular self-hosted evidence belongs to the `Nightly Smoke` workflow and its `nightly smoke self-hosted` job.
+the standalone self-hosted workflow is manual/on-demand only and exists for targeted runner checks or maintainer repros.
+
 ## host-safe container smoke
 
 when the host already carries production services, keep the first smoke layer isolated:
@@ -37,7 +40,7 @@ when you need the real `systemd` lifecycle without touching the busy host namesp
 ```bash
 make vm-lab-prepare
 make vm-lab-smoke
-make vm-lab-release-smoke RELEASE_TAG=v7.3.8
+make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z
 make vm-proof-pack
 ```
 
@@ -81,7 +84,7 @@ inside the guest, use the helper commands:
 
 ```bash
 nsc-vm-install-latest --num-configs 3
-nsc-vm-install-release v7.3.8 --num-configs 1
+nsc-vm-install-release vX.Y.Z --num-configs 1
 nsc-vm-install-repo --advanced
 ```
 
@@ -133,3 +136,5 @@ the proof-pack intentionally excludes:
 - use `make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z` for tagged bootstrap validation in the nat-backed guest
 - use `make vm-proof-pack` when you need a shareable maintainer/operator evidence bundle from that vm-lab run
 - use canary bundle exports for testing from another machine or another network
+- treat `Nightly Smoke` self-hosted as the regular scheduled proof path
+- treat `.github/workflows/self-hosted-smoke.yml` as manual/on-demand only

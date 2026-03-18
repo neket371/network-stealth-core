@@ -368,6 +368,6 @@ proof dir: ${proof_dir:-none}
 guest tips:
   bash scripts/lab/enter-vm-smoke.sh
   nsc-vm-install-latest --num-configs 3
-  nsc-vm-install-release ${RELEASE_TAG:-v7.3.8} --num-configs 1
+  nsc-vm-install-release ${RELEASE_TAG:-vX.Y.Z} --num-configs 1
   nsc-vm-install-repo --advanced
 EOF

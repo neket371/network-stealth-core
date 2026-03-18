@@ -97,6 +97,9 @@ when a lifecycle bug is reproduced through vm-lab, also attach:
 
 - `make vm-proof-pack`
 
+regular self-hosted evidence belongs to `Nightly Smoke`.
+`.github/workflows/self-hosted-smoke.yml` is manual/on-demand only and should not be treated as the scheduled proof source.
+
 ## coding standards
 
 1. keep scripts safe under `set -euo pipefail`

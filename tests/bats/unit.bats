@@ -3400,6 +3400,35 @@ EOF
     [[ "$output" == *"ok"* ]]
 }
 
+@test "load_runtime_identity_defaults backfills source metadata without overriding wrapper values" {
+    run bash -eo pipefail -c "
+    source ./lib.sh
+
+    cfg=\$(mktemp)
+    trap 'rm -f \"\$cfg\"' EXIT
+    cat > \"\$cfg\" <<'EOF'
+XRAY_SOURCE_KIND=bootstrap
+XRAY_SOURCE_REF=v7.5.2
+XRAY_SOURCE_COMMIT=2fba5138b5e629891ef92f909f163af0b1a988d9
+EOF
+
+    XRAY_SOURCE_KIND=''
+    XRAY_SOURCE_REF=''
+    XRAY_SOURCE_COMMIT=''
+    load_runtime_identity_defaults \"\$cfg\"
+    [[ \"\$XRAY_SOURCE_KIND\" == 'bootstrap' ]]
+    [[ \"\$XRAY_SOURCE_REF\" == 'v7.5.2' ]]
+    [[ \"\$XRAY_SOURCE_COMMIT\" == '2fba5138b5e629891ef92f909f163af0b1a988d9' ]]
+
+    XRAY_SOURCE_COMMIT='override'
+    load_runtime_identity_defaults \"\$cfg\"
+    [[ \"\$XRAY_SOURCE_COMMIT\" == 'override' ]]
+    echo ok
+  "
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "build_vless_query_params URL-encodes special characters" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -3741,10 +3770,71 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "status_flow verbose shows source metadata section" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_BIN="$tmp/xray"
+    XRAY_CONFIG="$tmp/config.json"
+    XRAY_KEYS="$tmp/keys"
+    mkdir -p "$XRAY_KEYS"
+    touch "$XRAY_KEYS/clients.txt"
+    cat > "$XRAY_CONFIG" <<'"'"'EOF'"'"'
+{"inbounds":[]}
+EOF
+    cat > "$XRAY_BIN" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+echo "Xray 25.9.5"
+EOF
+    chmod +x "$XRAY_BIN"
+    XRAY_SOURCE_KIND="bootstrap"
+    XRAY_SOURCE_REF="v7.5.2"
+    XRAY_SOURCE_COMMIT="2fba5138b5e629891ef92f909f163af0b1a988d9"
+    VERBOSE=true
+    systemctl() { return 1; }
+    out="$(status_flow | sed -E "s/\x1B\\[[0-9;]*[A-Za-z]//g")"
+    printf "%s\n" "$out" | grep -q "^Source metadata:"
+    printf "%s\n" "$out" | grep -q "Kind: bootstrap"
+    printf "%s\n" "$out" | grep -q "Ref: v7.5.2"
+    printf "%s\n" "$out" | grep -q "Commit: 2fba5138b5e629891ef92f909f163af0b1a988d9"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "logs_flow falls back to xray-health journal when health log file is absent" {
     run bash -eo pipefail -c '
     grep -Fq '\''journalctl -u xray-health.service -n "$lines" --no-pager'\'' ./service.sh
     grep -Fq '\''journalctl -u xray-health.service -n 10 --no-pager'\'' ./service.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "source metadata and hotspot phase helpers are wired into runtime modules" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''XRAY_SOURCE_KIND="${XRAY_SOURCE_KIND:-}"'\'' ./lib.sh
+    grep -Fq '\''write_env_kv XRAY_SOURCE_KIND'\'' ./modules/config/runtime_apply.sh
+    grep -Fq '\''XRAY_SOURCE_KIND)'\'' ./modules/lib/config_loading.sh
+    grep -Fq '\''===== SOURCE ====='\'' ./health.sh
+    grep -Fq '\''status_flow_render_verbose_source() {'\'' ./service.sh
+    grep -Fq '\''export_wrapper_source_metadata() {'\'' ./xray-reality.sh
+    grep -Fq '\''parse_args_collect_tokens() {'\'' ./modules/lib/cli.sh
+    grep -Fq '\''parse_args_apply_action_positionals() {'\'' ./modules/lib/cli.sh
+    grep -Fq '\''strict_validate_runtime_safe_vars() {'\'' ./modules/lib/runtime_inputs.sh
+    grep -Fq '\''strict_validate_runtime_action_contracts() {'\'' ./modules/lib/runtime_inputs.sh
+    grep -Fq '\''create_systemd_service_prepare_values() {'\'' ./modules/service/runtime.sh
+    grep -Fq '\''create_systemd_service_activate_unit() {'\'' ./modules/service/runtime.sh
+    grep -Fq '\''self_check_run_variant_probe_prepare_runtime() {'\'' ./modules/health/self_check.sh
+    grep -Fq '\''self_check_run_variant_probe_result_json() {'\'' ./modules/health/self_check.sh
+    grep -Fq '\''rebuild_config_prepare_transport_context() {'\'' ./config.sh
+    grep -Fq '\''rebuild_config_commit_runtime_state() {'\'' ./config.sh
+    grep -Fq '\''save_client_configs_validate_prerequisites() {'\'' ./modules/config/client_formats.sh
+    grep -Fq '\''save_client_configs_build_inventory() {'\'' ./modules/config/client_formats.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3816,6 +3906,10 @@ EOF
     grep -Fq '\''CHANGELOG_FILE_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''latest_local_semver_tag()'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''check_unreleased_branch_state()'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''docs/en/CHANGELOG.md must keep non-empty [unreleased] notes while HEAD is ahead of ${latest_tag}'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''if [[ "$latest_tag" != "v${script_version}" ]]; then'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''docs/ru/CHANGELOG.md section'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''README.md release-tag bootstrap url'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''README.ru.md release-tag bootstrap ref'\'' ./scripts/check-release-consistency.sh
@@ -3891,10 +3985,16 @@ EOF
     run bash -eo pipefail -c '
     test -f ./docs/en/MAINTAINER-LAB.md
     test -f ./docs/ru/MAINTAINER-LAB.md
+    test -f ./docs/en/FIELD-VALIDATION.md
+    test -f ./docs/ru/FIELD-VALIDATION.md
     grep -q '\''docs/en/MAINTAINER-LAB.md'\'' ./scripts/check-docs-commands.sh
     grep -q '\''docs/ru/MAINTAINER-LAB.md'\'' ./scripts/check-docs-commands.sh
+    grep -q '\''docs/en/FIELD-VALIDATION.md'\'' ./scripts/check-docs-commands.sh
+    grep -q '\''docs/ru/FIELD-VALIDATION.md'\'' ./scripts/check-docs-commands.sh
     grep -Fq "[MAINTAINER-LAB.md](MAINTAINER-LAB.md)" ./docs/en/INDEX.md
     grep -Fq "[MAINTAINER-LAB.md](MAINTAINER-LAB.md)" ./docs/ru/INDEX.md
+    grep -Fq "[FIELD-VALIDATION.md](FIELD-VALIDATION.md)" ./docs/en/INDEX.md
+    grep -Fq "[FIELD-VALIDATION.md](FIELD-VALIDATION.md)" ./docs/ru/INDEX.md
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3928,6 +4028,24 @@ EOF
     ! grep -R -n -E "nsc-vm-install-(latest|repo)" \
       ./README.md ./README.ru.md ./docs/en/OPERATIONS.md ./docs/ru/OPERATIONS.md \
       ./docs/en/FAQ.md ./docs/ru/FAQ.md
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "docs and workflows separate nightly self-hosted evidence from manual smoke" {
+    run bash -eo pipefail -c '
+    grep -Fq "Nightly Smoke" ./docs/en/MAINTAINER-LAB.md
+    grep -Fq "self-hosted-smoke.yml" ./docs/en/MAINTAINER-LAB.md
+    grep -Fq "Nightly Smoke" ./docs/ru/MAINTAINER-LAB.md
+    grep -Fq "self-hosted-smoke.yml" ./docs/ru/MAINTAINER-LAB.md
+    grep -Fq "Nightly Smoke" ./.github/CONTRIBUTING.md
+    grep -Fq "self-hosted-smoke.yml" ./.github/CONTRIBUTING.md
+    grep -Fq "Nightly Smoke" ./.github/CONTRIBUTING.ru.md
+    grep -Fq "self-hosted-smoke.yml" ./.github/CONTRIBUTING.ru.md
+    grep -Fq "name: Self-hosted Smoke (manual)" ./.github/workflows/self-hosted-smoke.yml
+    grep -Fq "Regular self-hosted evidence lives in Nightly Smoke; this workflow is manual/on-demand only." ./.github/workflows/self-hosted-smoke.yml
     echo "ok"
   '
     [ "$status" -eq 0 ]

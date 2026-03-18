@@ -272,42 +272,65 @@ cleanup_conflicting_xray_service_dropins() {
     return 0
 }
 
-create_systemd_service() {
-    log STEP "Создаём systemd сервис..."
-
-    local manage_systemd=true
+create_systemd_service_manage_mode() {
+    local out_manage_systemd_name="$1"
+    printf -v "$out_manage_systemd_name" '%s' true
     if ! systemctl_available; then
         log WARN "systemctl не найден; сервис будет создан без активации"
-        manage_systemd=false
+        printf -v "$out_manage_systemd_name" '%s' false
     elif ! systemd_running; then
         log WARN "systemd не запущен; сервис будет создан без активации"
-        manage_systemd=false
+        printf -v "$out_manage_systemd_name" '%s' false
     fi
+}
 
+create_systemd_service_ensure_unit_dir() {
     local systemd_dir="/etc/systemd/system"
     if [[ ! -d "$systemd_dir" ]]; then
         if ! install -d -m 755 "$systemd_dir" 2> /dev/null; then
-            if [[ "$manage_systemd" == true ]]; then
+            if [[ "${1:-true}" == true ]]; then
                 log ERROR "Не удалось создать каталог ${systemd_dir} для unit-файлов"
                 return 1
             fi
             log WARN "Каталог ${systemd_dir} недоступен; создание unit-файла пропущено"
-            return 0
+            return 2
         fi
     fi
+    return 0
+}
 
-    local _sd_user _sd_group _sd_logs _sd_bin _sd_config _sd_log_directives
-    sanitize_systemd_value_into _sd_user "$XRAY_USER"
-    sanitize_systemd_value_into _sd_group "$XRAY_GROUP"
-    sanitize_systemd_value_into _sd_logs "$XRAY_LOGS"
-    sanitize_systemd_value_into _sd_bin "$XRAY_BIN"
-    sanitize_systemd_value_into _sd_config "$XRAY_CONFIG"
-    validate_systemd_user_group_value "$_sd_user" "XRAY_USER" || return 1
-    validate_systemd_user_group_value "$_sd_group" "XRAY_GROUP" || return 1
-    validate_systemd_path_value "$_sd_logs" "XRAY_LOGS" || return 1
-    validate_systemd_path_value "$_sd_bin" "XRAY_BIN" || return 1
-    validate_systemd_path_value "$_sd_config" "XRAY_CONFIG" || return 1
-    _sd_log_directives="$(systemd_log_access_directives "$_sd_logs" "$_sd_user" "$_sd_group")"
+create_systemd_service_prepare_values() {
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_user="$1"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_group="$2"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_logs="$3"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_bin="$4"
+    # shellcheck disable=SC2034 # Used as nameref output parameter.
+    local -n out_config="$5"
+    local out_log_directives_name="$6"
+
+    sanitize_systemd_value_into out_user "$XRAY_USER"
+    sanitize_systemd_value_into out_group "$XRAY_GROUP"
+    sanitize_systemd_value_into out_logs "$XRAY_LOGS"
+    sanitize_systemd_value_into out_bin "$XRAY_BIN"
+    sanitize_systemd_value_into out_config "$XRAY_CONFIG"
+    validate_systemd_user_group_value "$out_user" "XRAY_USER" || return 1
+    validate_systemd_user_group_value "$out_group" "XRAY_GROUP" || return 1
+    validate_systemd_path_value "$out_logs" "XRAY_LOGS" || return 1
+    validate_systemd_path_value "$out_bin" "XRAY_BIN" || return 1
+    validate_systemd_path_value "$out_config" "XRAY_CONFIG" || return 1
+    printf -v "$out_log_directives_name" '%s' "$(systemd_log_access_directives "$out_logs" "$out_user" "$out_group")"
+}
+
+create_systemd_service_write_unit() {
+    local service_user="$1"
+    local service_group="$2"
+    local service_bin="$3"
+    local service_config="$4"
+    local service_log_directives="$5"
 
     cleanup_conflicting_xray_service_dropins || return 1
 
@@ -326,8 +349,8 @@ OnFailure=xray-diagnose@%n.service
 
 [Service]
 Type=simple
-User=${_sd_user}
-Group=${_sd_group}
+User=${service_user}
+Group=${service_group}
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
@@ -348,8 +371,8 @@ SystemCallFilter=@system-service @network-io
 SystemCallFilter=~@privileged @mount @swap @reboot @raw-io @cpu-emulation @debug @obsolete
 PrivateTmp=true
 UMask=0027
-${_sd_log_directives}
-ExecStart=${_sd_bin} run -config ${_sd_config}
+${service_log_directives}
+ExecStart=${service_bin} run -config ${service_config}
 Restart=on-failure
 RestartSec=5s
 LimitNOFILE=1000000
@@ -357,7 +380,10 @@ LimitNOFILE=1000000
 [Install]
 WantedBy=multi-user.target
 EOF
+}
 
+create_systemd_service_activate_unit() {
+    local manage_systemd="$1"
     if [[ "$manage_systemd" == true ]]; then
         local daemon_reload_err=""
         local daemon_reload_rc=0
@@ -413,6 +439,26 @@ EOF
         SYSTEMD_MANAGEMENT_DISABLED=true
         log WARN "Unit-файл создан; активируйте сервис вручную при наличии systemd"
     fi
+}
+
+create_systemd_service() {
+    log STEP "Создаём systemd сервис..."
+
+    local manage_systemd
+    create_systemd_service_manage_mode manage_systemd
+
+    local ensure_unit_dir_rc=0
+    create_systemd_service_ensure_unit_dir "$manage_systemd" || ensure_unit_dir_rc=$?
+    if ((ensure_unit_dir_rc == 2)); then
+        return 0
+    elif ((ensure_unit_dir_rc != 0)); then
+        return 1
+    fi
+
+    local _sd_user _sd_group _sd_logs _sd_bin _sd_config _sd_log_directives
+    create_systemd_service_prepare_values _sd_user _sd_group _sd_logs _sd_bin _sd_config _sd_log_directives || return 1
+    create_systemd_service_write_unit "$_sd_user" "$_sd_group" "$_sd_bin" "$_sd_config" "$_sd_log_directives" || return 1
+    create_systemd_service_activate_unit "$manage_systemd"
 }
 
 setup_diagnose_service() {

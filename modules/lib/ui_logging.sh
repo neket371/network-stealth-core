@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 : "${SCRIPT_NAME:=Network Stealth Core}"
-: "${SCRIPT_VERSION:=7.3.8}"
+: "${SCRIPT_VERSION:=unknown}"
 : "${LOG_CONTEXT:=установки}"
 : "${INSTALL_LOG:=/var/log/xray-install.log}"
 : "${VERBOSE:=false}"

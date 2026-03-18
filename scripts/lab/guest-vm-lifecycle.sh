@@ -83,7 +83,7 @@ vm-lab: быстрый старт
   nsc-vm-guest-ip
   nsc-vm-install-latest --num-configs 3
   nsc-vm-install-latest --advanced
-  nsc-vm-install-release v7.3.8 --num-configs 1
+  nsc-vm-install-release vX.Y.Z --num-configs 1
   nsc-vm-install-repo --num-configs 3
   nsc-vm-install-repo --advanced
 

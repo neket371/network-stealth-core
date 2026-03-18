@@ -329,13 +329,13 @@ cli_handle_long_option() {
     exit 1
 }
 
-parse_args() {
+parse_args_collect_tokens() {
+    local -n out_opts="$1"
+    local -n out_pos="$2"
+    local -n out_cmd="$3"
+    local -n out_explicit_cmd="$4"
+    shift 4
     local args=("$@")
-    local cmd=""
-    local explicit_cmd=""
-    local opts=()
-    local pos=()
-    local remaining=()
     local i=0
 
     while [[ $i -lt ${#args[@]} ]]; do
@@ -344,15 +344,15 @@ parse_args() {
         if [[ "$a" == "--" ]]; then
             i=$((i + 1))
             while [[ $i -lt ${#args[@]} ]]; do
-                pos+=("${args[$i]}")
+                out_pos+=("${args[$i]}")
                 i=$((i + 1))
             done
             break
         fi
 
-        if [[ -z "$cmd" ]] && cli_is_action "$a"; then
-            cmd="$a"
-            explicit_cmd="$a"
+        if [[ -z "$out_cmd" ]] && cli_is_action "$a"; then
+            out_cmd="$a"
+            out_explicit_cmd="$a"
             i=$((i + 1))
             continue
         fi
@@ -364,24 +364,72 @@ parse_args() {
                     log ERROR "Не указан параметр для $a"
                     exit 1
                 fi
-                opts+=("${a}=${args[$i]}")
+                out_opts+=("${a}=${args[$i]}")
             elif [[ "$a" == --rollback && "$a" != *=* ]]; then
                 local next="${args[$((i + 1))]:-}"
                 if [[ -n "$next" && "$next" != --* ]]; then
                     i=$((i + 1))
-                    opts+=("${a}=${next}")
+                    out_opts+=("${a}=${next}")
                 else
-                    opts+=("$a")
+                    out_opts+=("$a")
                 fi
             else
-                opts+=("$a")
+                out_opts+=("$a")
             fi
         else
-            pos+=("$a")
+            out_pos+=("$a")
         fi
 
         i=$((i + 1))
     done
+}
+
+parse_args_validate_remaining() {
+    local -n remaining_args="$1"
+
+    if ((${#remaining_args[@]} > 0)); then
+        log ERROR "Неожиданные аргументы после разбора опций: ${remaining_args[*]}"
+        print_usage
+        exit 1
+    fi
+}
+
+parse_args_apply_action_positionals() {
+    local -n positional_args="$1"
+
+    case "$ACTION" in
+        rollback)
+            if [[ -z "$ROLLBACK_DIR" && ${#positional_args[@]} -gt 0 && "${positional_args[0]}" != --* ]]; then
+                ROLLBACK_DIR="${positional_args[0]}"
+                positional_args=("${positional_args[@]:1}")
+            fi
+            ;;
+        logs)
+            if [[ ${#positional_args[@]} -gt 0 && "${positional_args[0]}" != --* ]]; then
+                # shellcheck disable=SC2034 # Used in health.sh
+                LOGS_TARGET="${positional_args[0]}"
+                positional_args=("${positional_args[@]:1}")
+            fi
+            ;;
+        add-clients | add-keys)
+            if [[ ${#positional_args[@]} -gt 0 && "${positional_args[0]}" != --* ]]; then
+                # shellcheck disable=SC2034 # Used in config.sh add_clients_flow
+                ADD_CLIENTS_COUNT="${positional_args[0]}"
+                positional_args=("${positional_args[@]:1}")
+            fi
+            ;;
+        *) ;;
+    esac
+}
+
+parse_args() {
+    local cmd=""
+    local explicit_cmd=""
+    local opts=()
+    local pos=()
+    local remaining=()
+
+    parse_args_collect_tokens opts pos cmd explicit_cmd "$@"
 
     set -- "${opts[@]}"
 
@@ -415,11 +463,7 @@ parse_args() {
     if [[ $# -gt 0 ]]; then
         remaining=("$@")
     fi
-    if ((${#remaining[@]} > 0)); then
-        log ERROR "Неожиданные аргументы после разбора опций: ${remaining[*]}"
-        print_usage
-        exit 1
-    fi
+    parse_args_validate_remaining remaining
 
     if [[ -n "$cmd" ]]; then
         ACTION="$cmd"
@@ -431,29 +475,7 @@ parse_args() {
         exit 1
     fi
 
-    case "$ACTION" in
-        rollback)
-            if [[ -z "$ROLLBACK_DIR" && ${#pos[@]} -gt 0 && "${pos[0]}" != --* ]]; then
-                ROLLBACK_DIR="${pos[0]}"
-                pos=("${pos[@]:1}")
-            fi
-            ;;
-        logs)
-            if [[ ${#pos[@]} -gt 0 && "${pos[0]}" != --* ]]; then
-                # shellcheck disable=SC2034 # Used in health.sh
-                LOGS_TARGET="${pos[0]}"
-                pos=("${pos[@]:1}")
-            fi
-            ;;
-        add-clients | add-keys)
-            if [[ ${#pos[@]} -gt 0 && "${pos[0]}" != --* ]]; then
-                # shellcheck disable=SC2034 # Used in config.sh add_clients_flow
-                ADD_CLIENTS_COUNT="${pos[0]}"
-                pos=("${pos[@]:1}")
-            fi
-            ;;
-        *) ;;
-    esac
+    parse_args_apply_action_positionals pos
 
     if ((${#pos[@]} > 0)); then
         log ERROR "Неожиданные позиционные аргументы для '${ACTION}': ${pos[*]}"

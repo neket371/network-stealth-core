@@ -7,6 +7,12 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- persisted source metadata (`kind`, `ref`, `commit`) into managed state and surfaced it in `status --verbose` and `diagnose`
+- made `Nightly Smoke` self-hosted the explicit regular evidence path while leaving the standalone self-hosted workflow manual/on-demand only
+- documented field validation as a separate real-network proof layer instead of treating runtime-green smoke as anti-dpi proof
+- split several high-risk orchestration functions into phase helpers to reduce silent regression pressure without changing the public CLI
+
 ## [7.5.2] - 2026-03-17
 
 ### Changed

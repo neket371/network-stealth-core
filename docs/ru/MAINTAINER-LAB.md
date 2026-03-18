@@ -5,6 +5,9 @@
 
 обычному пользователю эти команды для стандартной установки не нужны.
 
+регулярное self-hosted evidence живёт в workflow `Nightly Smoke` и его job `nightly smoke self-hosted`.
+отдельный self-hosted workflow — только manual/on-demand инструмент для точечных проверок runner'а и воспроизведения maintainer-багов.
+
 ## host-safe container smoke
 
 если на хосте уже крутятся production-сервисы, используй сначала изолированный smoke-слой:
@@ -37,7 +40,7 @@ bash scripts/lab/collect-container-artifacts.sh
 ```bash
 make vm-lab-prepare
 make vm-lab-smoke
-make vm-lab-release-smoke RELEASE_TAG=v7.3.8
+make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z
 make vm-proof-pack
 ```
 
@@ -81,7 +84,7 @@ bash scripts/lab/generate-vm-proof-pack.sh
 
 ```bash
 nsc-vm-install-latest --num-configs 3
-nsc-vm-install-release v7.3.8 --num-configs 1
+nsc-vm-install-release vX.Y.Z --num-configs 1
 nsc-vm-install-repo --advanced
 ```
 
@@ -133,3 +136,5 @@ proof-pack намеренно не включает:
 - `make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z` — tagged bootstrap validation в nat-backed guest
 - `make vm-proof-pack` — shareable maintainer/operator evidence bundle из последнего vm-lab run
 - canary bundle exports — проверка с другой машины или другой сети
+- `Nightly Smoke` self-hosted — регулярный scheduled proof-path
+- `.github/workflows/self-hosted-smoke.yml` — только manual/on-demand workflow

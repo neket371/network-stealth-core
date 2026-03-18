@@ -121,6 +121,7 @@ sudo xray-reality.sh status --verbose
 в подробном статусе должны быть:
 
 - детали strongest-direct контракта
+- source metadata (`kind`, `ref`, `commit`)
 - последний self-check verdict
 - последний verdict полевых измерений
 - текущий primary config
@@ -134,6 +135,7 @@ sudo xray-reality.sh diagnose
 ```
 
 `diagnose` теперь включает policy, историю self-check и measurement summary.
+туда же теперь попадает managed source metadata, из которого собран текущий state узла.
 
 ## workflow измерений
 
@@ -181,6 +183,9 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 обычный вызов без subcommand ведёт себя как `run`.
+
+runtime smoke, hosted CI и busy-host lifecycle checks сами по себе не доказывают anti-dpi эффективность в реальных сетях.
+для этого уровня используй отдельный playbook: [FIELD-VALIDATION.md](FIELD-VALIDATION.md).
 
 ## smoke для сопровождающих и busy-host validation
 

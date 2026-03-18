@@ -161,6 +161,7 @@ sudo bash scripts/measure-stealth.sh prune \
 
 для удалённых тестов на сетях рф используй bundle из `export/canary/` и raw xray-конфиги оттуда.
 если проверяешь `emergency`, на стороне клиента нужно выставить `xray.browser.dialer`.
+hosted CI, nightly runtime smoke и busy-host lifecycle checks доказывают только runtime correctness; для реальной anti-dpi проверки используй [docs/ru/FIELD-VALIDATION.md](docs/ru/FIELD-VALIDATION.md).
 
 ## документация для сопровождающих
 
@@ -201,6 +202,7 @@ sudo bash scripts/measure-stealth.sh prune \
 | `docs/ru/INDEX.md` | точка входа в документацию |
 | `docs/ru/ARCHITECTURE.md` | runtime-модель, state split и границы модулей |
 | `docs/ru/OPERATIONS.md` | runbook по install, migration, repair, measurement и инцидентам |
+| `docs/ru/FIELD-VALIDATION.md` | workflow полевой проверки для `recommended`, `rescue` и `emergency` |
 | `docs/ru/FAQ.md` | практические вопросы |
 | `docs/ru/MAINTAINER-LAB.md` | только для сопровождающих: изолированные smoke и vm-lab flow |
 | `docs/ru/TROUBLESHOOTING.md` | диагностика по симптомам |
