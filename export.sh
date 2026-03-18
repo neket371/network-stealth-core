@@ -203,62 +203,114 @@ export_compatibility_notes() {
     log OK "Compatibility notes сохранены: $out_file"
 }
 
+copy_canary_raw_file() {
+    local source_file="$1"
+    local raw_dir="$2"
+
+    [[ -n "$source_file" && -f "$source_file" ]] || return 0
+
+    local dest_file=""
+    dest_file="${raw_dir}/$(basename "$source_file")"
+    if [[ -e "$dest_file" ]]; then
+        log ERROR "export_canary_bundle: коллизия raw-xray имени: $(basename "$source_file")"
+        return 1
+    fi
+
+    cp -f -- "$source_file" "$dest_file" || {
+        log ERROR "export_canary_bundle: не удалось скопировать raw-xray файл: $source_file"
+        return 1
+    }
+}
+
 export_canary_bundle() {
     local json_file="$1"
     local out_dir="$2"
-    local manifest_file="${out_dir}/manifest.json"
-    local raw_dir="${out_dir}/raw-xray"
-    mkdir -p "$raw_dir"
+    local out_parent
+    out_parent="$(dirname "$out_dir")"
+    local bundle_tmp
+    bundle_tmp=$(mktemp -d "${out_dir}.tmp.XXXXXX")
+    local manifest_file="${bundle_tmp}/manifest.json"
+    local raw_dir="${bundle_tmp}/raw-xray"
+    mkdir -p "$out_parent" "$raw_dir"
 
-    jq -r '.configs[] | .variants[] | [.key, .xray_client_file_v4 // "", .xray_client_file_v6 // ""] | @tsv' "$json_file" 2> /dev/null |
-        while IFS=$'\t' read -r _variant_key raw_v4 raw_v6; do
-            if [[ -n "$raw_v4" && -f "$raw_v4" ]]; then
-                cp -f "$raw_v4" "${raw_dir}/$(basename "$raw_v4")"
-            fi
-            if [[ -n "$raw_v6" && -f "$raw_v6" ]]; then
-                cp -f "$raw_v6" "${raw_dir}/$(basename "$raw_v6")"
-            fi
-        done
+    local variant_rows
+    variant_rows=$(jq -r '.configs[] | .variants[] | [.key, .xray_client_file_v4 // "", .xray_client_file_v6 // ""] | @tsv' "$json_file" 2> /dev/null) || {
+        log ERROR "export_canary_bundle: не удалось разобрать variants из ${json_file}"
+        rm -rf -- "$bundle_tmp"
+        return 1
+    }
 
+    while IFS=$'\t' read -r _variant_key raw_v4 raw_v6; do
+        copy_canary_raw_file "$raw_v4" "$raw_dir" || {
+            rm -rf -- "$bundle_tmp"
+            return 1
+        }
+        copy_canary_raw_file "$raw_v6" "$raw_dir" || {
+            rm -rf -- "$bundle_tmp"
+            return 1
+        }
+    done <<< "$variant_rows"
+
+    local source_json
+    source_json=$(jq '. | {
+        schema_version,
+        stealth_contract_version,
+        xray_min_version,
+        generated,
+        transport,
+        configs: [
+            .configs[] | {
+                name,
+                domain,
+                recommended_variant,
+                variants: [
+                    .variants[] | {
+                        key,
+                        category,
+                        mode,
+                        requires,
+                        import_hint,
+                        raw_xray_ipv4: (if (.xray_client_file_v4 // "") != "" then ("raw-xray/" + ((.xray_client_file_v4 | gsub("\\\\"; "/")) | split("/") | last)) else null end),
+                        raw_xray_ipv6: (if (.xray_client_file_v6 // "") != "" then ("raw-xray/" + ((.xray_client_file_v6 | gsub("\\\\"; "/")) | split("/") | last)) else null end)
+                    }
+                ]
+            }
+        ]
+    }' "$json_file" 2> /dev/null) || {
+        log ERROR "export_canary_bundle: не удалось сформировать source JSON"
+        rm -rf -- "$bundle_tmp"
+        return 1
+    }
+
+    local manifest_tmp
+    manifest_tmp=$(mktemp "${manifest_file}.tmp.XXXXXX")
     jq -n \
         --arg generated "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
         --arg root "$out_dir" \
         --arg browser_dialer_env "${BROWSER_DIALER_ENV_NAME:-xray.browser.dialer}" \
         --arg browser_dialer_address "${XRAY_BROWSER_DIALER_ADDRESS:-127.0.0.1:11050}" \
-        --argjson source "$(jq '. | {
-            schema_version,
-            stealth_contract_version,
-            xray_min_version,
-            generated,
-            transport,
-            configs: [
-                .configs[] | {
-                    name,
-                    domain,
-                    recommended_variant,
-                    variants: [
-                        .variants[] | {
-                            key,
-                            category,
-                            mode,
-                            requires,
-                            import_hint,
-                            raw_xray_ipv4: (if (.xray_client_file_v4 // "") != "" then ("raw-xray/" + ((.xray_client_file_v4 | gsub("\\\\"; "/")) | split("/") | last)) else null end),
-                            raw_xray_ipv6: (if (.xray_client_file_v6 // "") != "" then ("raw-xray/" + ((.xray_client_file_v6 | gsub("\\\\"; "/")) | split("/") | last)) else null end)
-                        }
-                    ]
-                }
-            ]
-        }' "$json_file")" \
+        --argjson source "$source_json" \
         '{
             generated: $generated,
             root: $root,
             browser_dialer_env: $browser_dialer_env,
             browser_dialer_address: $browser_dialer_address,
             source: $source
-        }' > "$manifest_file"
+        }' > "$manifest_tmp" || {
+        log ERROR "export_canary_bundle: не удалось записать manifest.json"
+        rm -f -- "$manifest_tmp"
+        rm -rf -- "$bundle_tmp"
+        return 1
+    }
 
-    cat > "${out_dir}/measure-linux.sh" << 'EOF'
+    if ! validate_export_json_schema "$manifest_tmp" json; then
+        rm -f -- "$manifest_tmp"
+        rm -rf -- "$bundle_tmp"
+        return 1
+    fi
+    mv -f -- "$manifest_tmp" "$manifest_file"
+
+    cat > "${bundle_tmp}/measure-linux.sh" << 'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -274,9 +326,9 @@ echo "  2. export ${XRAY_BROWSER_DIALER_ADDRESS:-xray.browser.dialer}=host:port 
 echo "  3. run repo-local scripts/measure-stealth.sh for full JSON reports when possible"
 cat "$MANIFEST"
 EOF
-    chmod +x "${out_dir}/measure-linux.sh"
+    chmod +x "${bundle_tmp}/measure-linux.sh"
 
-    cat > "${out_dir}/measure-windows.ps1" << 'EOF'
+    cat > "${bundle_tmp}/measure-windows.ps1" << 'EOF'
 param()
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $manifest = Join-Path $root 'manifest.json'
@@ -289,7 +341,8 @@ Write-Host 'for full field reports prefer scripts/measure-stealth.sh from the re
 Get-Content $manifest
 EOF
 
-    validate_export_json_schema "$manifest_file" json || return 1
+    rm -rf -- "$out_dir"
+    mv -- "$bundle_tmp" "$out_dir"
     log OK "Canary bundle сохранён: $out_dir"
 }
 

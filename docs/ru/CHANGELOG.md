@@ -7,6 +7,11 @@
 
 ## [unreleased]
 
+### Fixed
+- canary bundle теперь валится fail-closed с явной ошибкой, если ломается сборка source manifest или сталкиваются имена raw-xray файлов
+- wrapper теперь предупреждает, когда `SCRIPT_DIR` не удалось определить и вместо локального source tree может быть использован bootstrap path
+- regex проверки версии в `check-update` нормализован так, чтобы `-` и `.` были явно литеральными в prerelease suffix
+
 ## [7.5.5] - 2026-03-18
 
 ### Changed

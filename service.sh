@@ -512,7 +512,7 @@ check_update_flow() {
             echo -e "  Для обновления выполните: ${CYAN}xray-reality.sh update${NC}"
         elif [[ "$current_version" == "$latest_version" ]]; then
             echo -e "${GREEN}Xray актуален${NC}"
-        elif [[ ! "$current_version" =~ ^[0-9]+(\.[0-9]+){1,3}([.-][0-9A-Za-z]+)*$ ]]; then
+        elif [[ ! "$current_version" =~ ^[0-9]+(\.[0-9]+){1,3}([-.][0-9A-Za-z]+)*$ ]]; then
             echo -e "${YELLOW}Нестандартный формат версии: ${current_version}${NC}"
             echo -e "  Для обновления выполните: ${CYAN}xray-reality.sh update${NC}"
         elif version_lt "$current_version" "$latest_version"; then

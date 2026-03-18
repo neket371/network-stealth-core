@@ -381,6 +381,128 @@ JSON
     [ "$status" -eq 0 ]
 }
 
+@test "export_canary_bundle fails with clear error when source JSON build fails" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./export.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    XRAY_KEYS="$tmp_dir"
+    XRAY_GROUP="root"
+    mkdir -p "$tmp_dir/export/canary" "$tmp_dir/export/raw-xray"
+    printf "sentinel-manifest\n" > "$tmp_dir/export/canary/manifest.json"
+    printf "{}\n" > "$tmp_dir/export/raw-xray/config-1-recommended-ipv4.json"
+    cat > "$tmp_dir/clients.json" <<JSON
+{
+  "schema_version": 3,
+  "stealth_contract_version": "7.5.5",
+  "xray_min_version": "25.9.5",
+  "generated": "2026-03-19T00:00:00Z",
+  "transport": "xhttp",
+  "configs": [
+    {
+      "name": "Config 1",
+      "domain": "disk.yandex.ru",
+      "recommended_variant": "recommended",
+      "variants": [
+        {
+          "key": "recommended",
+          "category": "primary",
+          "mode": "auto",
+          "requires": {"browser_dialer": false},
+          "import_hint": "hint",
+          "xray_client_file_v4": "$tmp_dir/export/raw-xray/config-1-recommended-ipv4.json"
+        }
+      ]
+    }
+  ]
+}
+JSON
+    real_jq=$(command -v jq)
+    mockbin=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\" \"$mockbin\"" EXIT
+    cat > "$mockbin/jq" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "-r" ]]; then
+  exec "$real_jq" "\$@"
+fi
+exit 1
+EOF
+    chmod 755 "$mockbin/jq"
+    PATH="$mockbin:$PATH"
+    set +e
+    export_canary_bundle "$tmp_dir/clients.json" "$tmp_dir/export/canary"
+    rc=$?
+    set -e
+    echo "rc=$rc"
+    cat "$tmp_dir/export/canary/manifest.json"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"export_canary_bundle: не удалось сформировать source JSON"* ]]
+    [[ "$output" == *"rc=1"* ]]
+    [[ "$output" == *"sentinel-manifest"* ]]
+}
+
+@test "export_canary_bundle fails closed on raw basename collision" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./export.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    XRAY_KEYS="$tmp_dir"
+    XRAY_GROUP="root"
+    mkdir -p "$tmp_dir/export/canary" "$tmp_dir/a" "$tmp_dir/b"
+    printf "sentinel-manifest\n" > "$tmp_dir/export/canary/manifest.json"
+    printf "{}\n" > "$tmp_dir/a/config-1-recommended-ipv4.json"
+    printf "{}\n" > "$tmp_dir/b/config-1-recommended-ipv4.json"
+    cat > "$tmp_dir/clients.json" <<JSON
+{
+  "schema_version": 3,
+  "stealth_contract_version": "7.5.5",
+  "xray_min_version": "25.9.5",
+  "generated": "2026-03-19T00:00:00Z",
+  "transport": "xhttp",
+  "configs": [
+    {
+      "name": "Config 1",
+      "domain": "disk.yandex.ru",
+      "recommended_variant": "recommended",
+      "variants": [
+        {
+          "key": "recommended",
+          "category": "primary",
+          "mode": "auto",
+          "requires": {"browser_dialer": false},
+          "import_hint": "hint",
+          "xray_client_file_v4": "$tmp_dir/a/config-1-recommended-ipv4.json"
+        },
+        {
+          "key": "rescue",
+          "category": "fallback",
+          "mode": "packet-up",
+          "requires": {"browser_dialer": false},
+          "import_hint": "hint",
+          "xray_client_file_v4": "$tmp_dir/b/config-1-recommended-ipv4.json"
+        }
+      ]
+    }
+  ]
+}
+JSON
+    set +e
+    export_canary_bundle "$tmp_dir/clients.json" "$tmp_dir/export/canary"
+    rc=$?
+    set -e
+    echo "rc=$rc"
+    cat "$tmp_dir/export/canary/manifest.json"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"export_canary_bundle: коллизия raw-xray имени: config-1-recommended-ipv4.json"* ]]
+    [[ "$output" == *"rc=1"* ]]
+    [[ "$output" == *"sentinel-manifest"* ]]
+}
+
 @test "measure-stealth script exposes help" {
     run bash -eo pipefail -c 'bash ./scripts/measure-stealth.sh --help'
     [ "$status" -eq 0 ]
@@ -4906,6 +5028,16 @@ EOF
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
+}
+
+@test "check_update_flow version regex keeps literal dash in prerelease suffix" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''([-.][0-9A-Za-z]+)*$'\'' ./service.sh
+    ! grep -Fq '\''([.-][0-9A-Za-z]+)*$'\'' ./service.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
 }
 
 @test "sync_transport_endpoint_file_contract prefers neutral seed path" {

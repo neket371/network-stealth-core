@@ -3,7 +3,10 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2> /dev/null && pwd 2> /dev/null || echo "")"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2> /dev/null && pwd 2> /dev/null || true)"
+if [[ -z "$SCRIPT_DIR" ]]; then
+    echo "WARN: could not determine SCRIPT_DIR; local source tree is unavailable, bootstrap clone may be used." >&2
+fi
 MODULE_DIR=""
 DEFAULT_DATA_DIR="/usr/local/share/xray-reality"
 XRAY_DATA_DIR="${XRAY_DATA_DIR:-$DEFAULT_DATA_DIR}"

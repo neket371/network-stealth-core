@@ -7,6 +7,11 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Fixed
+- made canary bundle export fail closed with explicit errors when source manifest generation breaks or raw-xray filenames collide
+- added a wrapper warning when `SCRIPT_DIR` cannot be resolved and the bootstrap path may be used instead of local sources
+- normalized the update-version regex to keep `-` and `.` explicitly literal in prerelease suffix checks
+
 ## [7.5.5] - 2026-03-18
 
 ### Changed
