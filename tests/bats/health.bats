@@ -306,6 +306,135 @@
     [ "$output" = "ok" ]
 }
 
+@test "setup_health_monitoring emits curl-first domain probe contract" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    HEALTH_SCRIPT_OUT="$tmp_dir/xray-health.sh"
+    HEALTH_SERVICE_OUT="$tmp_dir/xray-health.service"
+    HEALTH_TIMER_OUT="$tmp_dir/xray-health.timer"
+    log() { :; }
+    backup_file() { :; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl_run_bounded() { return 1; }
+    systemd_enable_symlink_path_for_unit() { return 1; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      local out="$target"
+      case "$target" in
+        /usr/local/bin/xray-health.sh) out="$HEALTH_SCRIPT_OUT" ;;
+        /etc/systemd/system/xray-health.service) out="$HEALTH_SERVICE_OUT" ;;
+        /etc/systemd/system/xray-health.timer) out="$HEALTH_TIMER_OUT" ;;
+      esac
+      cat > "$out"
+      [[ -n "$mode" ]] && chmod "$mode" "$out"
+    }
+
+    PORTS=(443)
+    HAS_IPV6=false
+    REALITY_TEST_PORTS="443"
+    DOMAIN_HEALTH_FILE="/var/lib/xray/domain-health.json"
+    DOMAIN_HEALTH_PROBE_TIMEOUT=2
+    DOMAIN_HEALTH_RATE_LIMIT_MS=250
+    DOMAIN_HEALTH_MAX_PROBES=20
+    LOG_RETENTION_DAYS=30
+    LOG_MAX_SIZE_MB=10
+    HEALTH_CHECK_INTERVAL=120
+    setup_health_monitoring
+
+    grep -q "^probe_domain_with_curl()" "$HEALTH_SCRIPT_OUT"
+    grep -q "url=\"https://\\\${domain}:\\\${port}\"" "$HEALTH_SCRIPT_OUT"
+    grep -q "probe_domain_with_curl \"\\\$domain\" \"\\\$port\" \"\\\$timeout_sec\"" "$HEALTH_SCRIPT_OUT"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "setup_health_monitoring emits verified openssl fallback instead of CONNECTED grep" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    HEALTH_SCRIPT_OUT="$tmp_dir/xray-health.sh"
+    HEALTH_SERVICE_OUT="$tmp_dir/xray-health.service"
+    HEALTH_TIMER_OUT="$tmp_dir/xray-health.timer"
+    log() { :; }
+    backup_file() { :; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl_run_bounded() { return 1; }
+    systemd_enable_symlink_path_for_unit() { return 1; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      local out="$target"
+      case "$target" in
+        /usr/local/bin/xray-health.sh) out="$HEALTH_SCRIPT_OUT" ;;
+        /etc/systemd/system/xray-health.service) out="$HEALTH_SERVICE_OUT" ;;
+        /etc/systemd/system/xray-health.timer) out="$HEALTH_TIMER_OUT" ;;
+      esac
+      cat > "$out"
+      [[ -n "$mode" ]] && chmod "$mode" "$out"
+    }
+
+    PORTS=(443)
+    HAS_IPV6=false
+    REALITY_TEST_PORTS="443"
+    DOMAIN_HEALTH_FILE="/var/lib/xray/domain-health.json"
+    DOMAIN_HEALTH_PROBE_TIMEOUT=2
+    DOMAIN_HEALTH_RATE_LIMIT_MS=250
+    DOMAIN_HEALTH_MAX_PROBES=20
+    LOG_RETENTION_DAYS=30
+    LOG_MAX_SIZE_MB=10
+    HEALTH_CHECK_INTERVAL=120
+    setup_health_monitoring
+
+    grep -q "^probe_domain_with_openssl()" "$HEALTH_SCRIPT_OUT"
+    grep -q "Verify return code: 0 (ok)" "$HEALTH_SCRIPT_OUT"
+    grep -q -- "-verify_return_error -verify_hostname" "$HEALTH_SCRIPT_OUT"
+    ! grep -q "grep -q \"CONNECTED\"" "$HEALTH_SCRIPT_OUT"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "test_reality_connectivity avoids fixed sleep when xray is already ready" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+
+    sleep_calls=0
+    NUM_CONFIGS=1
+    PORTS=(24443)
+    HAS_IPV6=false
+
+    log() { :; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl() {
+      [[ "$1" == "is-active" ]] && return 0
+      return 0
+    }
+    pgrep() { return 0; }
+    xray_config_test_ok() { return 0; }
+    port_is_listening() { return 0; }
+    sleep() { sleep_calls=$((sleep_calls + 1)); }
+
+    test_reality_connectivity
+    [[ "$sleep_calls" -eq 0 ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "diagnose writes collected output to DIAG_LOG" {
     run bash -eo pipefail -c '
     source ./lib.sh

@@ -230,6 +230,41 @@ ms_to_sleep() {
     awk -v v="$ms" 'BEGIN { printf "%.3f", v / 1000 }'
 }
 
+probe_domain_with_curl() {
+    local domain="$1"
+    local port="$2"
+    local timeout_sec="$3"
+    local url="https://${domain}:${port}"
+
+    if command -v timeout > /dev/null 2>&1; then
+        timeout "$timeout_sec" curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+            -I --connect-timeout "$timeout_sec" --max-time "$timeout_sec" "$url" > /dev/null 2>&1
+        return $?
+    fi
+
+    curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+        -I --connect-timeout "$timeout_sec" --max-time "$timeout_sec" "$url" > /dev/null 2>&1
+}
+
+probe_domain_with_openssl() {
+    local domain="$1"
+    local port="$2"
+    local timeout_sec="$3"
+    local output=""
+
+    # shellcheck disable=SC2016 # Single quotes intentional - args passed via $1/$2
+    local openssl_cmd='echo | openssl s_client -connect "$1:$2" -servername "$1" -verify_return_error -verify_hostname "$1" 2>/dev/null'
+
+    if command -v timeout > /dev/null 2>&1; then
+        output=$(timeout "$timeout_sec" bash -c "$openssl_cmd" _ "$domain" "$port" 2> /dev/null || true)
+    else
+        output=$(bash -c "$openssl_cmd" _ "$domain" "$port" 2> /dev/null || true)
+    fi
+
+    [[ -n "$output" ]] || return 1
+    grep -q "Verify return code: 0 (ok)" <<< "$output"
+}
+
 probe_domain() {
     local domain="$1"
     local timeout_sec="$2"
@@ -245,23 +280,24 @@ probe_domain() {
         ports=(443 8443)
     fi
 
-    if command -v timeout > /dev/null 2>&1 && command -v openssl > /dev/null 2>&1; then
+    if command -v curl > /dev/null 2>&1; then
         local port
         for port in "${ports[@]}"; do
             [[ "$port" =~ ^[0-9]+$ ]] || continue
-            # shellcheck disable=SC2016 # Single quotes intentional - args passed via $1/$2
-            if timeout "$timeout_sec" bash -c 'echo | openssl s_client -connect "$1:$2" -servername "$1" 2>/dev/null' _ "$domain" "$port" | grep -q "CONNECTED"; then
+            if probe_domain_with_curl "$domain" "$port" "$timeout_sec"; then
                 return 0
             fi
         done
-        return 1
     fi
 
-    if command -v curl > /dev/null 2>&1; then
-        if curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
-            -I --connect-timeout "$timeout_sec" --max-time "$timeout_sec" "https://${domain}" > /dev/null 2>&1; then
-            return 0
-        fi
+    if command -v openssl > /dev/null 2>&1; then
+        local port
+        for port in "${ports[@]}"; do
+            [[ "$port" =~ ^[0-9]+$ ]] || continue
+            if probe_domain_with_openssl "$domain" "$port" "$timeout_sec"; then
+                return 0
+            fi
+        done
     fi
     return 1
 }
@@ -669,10 +705,24 @@ diagnose() {
     fi
 }
 
+wait_for_xray_runtime_ready() {
+    local max_attempts="${1:-10}"
+    local sleep_interval="${2:-0.2}"
+    local attempt=0
+
+    while ((attempt < max_attempts)); do
+        if systemctl is-active --quiet xray 2> /dev/null && pgrep -x xray > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep "$sleep_interval"
+        ((attempt += 1))
+    done
+
+    return 1
+}
+
 test_reality_connectivity() {
     log STEP "Проверяем работоспособность Reality..."
-
-    sleep 2
 
     if ! systemctl_available; then
         log WARN "systemctl не найден; проверка Reality пропущена"
@@ -683,6 +733,17 @@ test_reality_connectivity() {
         return 0
     fi
 
+    if ! wait_for_xray_runtime_ready 10 0.2; then
+        if ! systemctl is-active --quiet xray 2> /dev/null; then
+            log ERROR "Xray не активен"
+            log ERROR "Проверьте логи: journalctl -u xray -n 50"
+            return 1
+        fi
+        if ! pgrep -x xray > /dev/null; then
+            log ERROR "Процесс Xray не найден"
+            return 1
+        fi
+    fi
     if ! systemctl is-active --quiet xray; then
         log ERROR "Xray не активен"
         log ERROR "Проверьте логи: journalctl -u xray -n 50"

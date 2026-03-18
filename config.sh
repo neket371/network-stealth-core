@@ -78,6 +78,54 @@ fi
 # shellcheck source=modules/config/add_clients.sh
 source "$CONFIG_ADD_CLIENTS_MODULE"
 
+write_xray_root_config_json() {
+    local inbounds="$1"
+    local outbounds="$2"
+    local routing="$3"
+
+    jq -n \
+        --argjson inbounds "$inbounds" \
+        --argjson outbounds "$outbounds" \
+        --argjson routing "$routing" \
+        --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
+        '{
+            log: {
+                loglevel: "warning",
+                access: "/var/log/xray/access.log",
+                error: "/var/log/xray/error.log"
+            },
+            dns: {
+                servers: [
+                    "https+local://1.1.1.1/dns-query",
+                    "https+local://8.8.8.8/dns-query",
+                    "localhost"
+                ],
+                queryStrategy: "UseIPv4"
+            },
+            version: {
+                min: $min_version
+            },
+            inbounds: $inbounds,
+            outbounds: $outbounds,
+            routing: $routing,
+            policy: {
+                levels: {
+                    "0": {
+                        handshake: 4,
+                        connIdle: 600,
+                        uplinkOnly: 2,
+                        downlinkOnly: 5,
+                        bufferSize: 1024
+                    }
+                },
+                system: {
+                    statsInboundUplink: false,
+                    statsInboundDownlink: false
+                }
+            }
+        }'
+}
+
 build_config() {
     log STEP "Собираем конфигурацию Xray (modular)..."
 
@@ -168,47 +216,7 @@ build_config() {
     backup_file "$XRAY_CONFIG"
     local tmp_config
     tmp_config=$(create_temp_xray_config_file)
-    jq -n \
-        --argjson inbounds "$inbounds" \
-        --argjson outbounds "$outbounds" \
-        --argjson routing "$routing" \
-        --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
-        '{
-            log: {
-                loglevel: "warning",
-                access: "/var/log/xray/access.log",
-                error: "/var/log/xray/error.log"
-            },
-            dns: {
-                servers: [
-                    "https+local://1.1.1.1/dns-query",
-                    "https+local://8.8.8.8/dns-query",
-                    "localhost"
-                ],
-                queryStrategy: "UseIPv4"
-            },
-            version: {
-                min: $min_version
-            },
-            inbounds: $inbounds,
-            outbounds: $outbounds,
-            routing: $routing,
-            policy: {
-                levels: {
-                    "0": {
-                        handshake: 4,
-                        connIdle: 600,
-                        uplinkOnly: 2,
-                        downlinkOnly: 5,
-                        bufferSize: 1024
-                    }
-                },
-                system: {
-                    statsInboundUplink: false,
-                    statsInboundDownlink: false
-                }
-            }
-        }' > "$tmp_config"
+    write_xray_root_config_json "$inbounds" "$outbounds" "$routing" > "$tmp_config"
 
     set_temp_xray_config_permissions "$tmp_config"
 
@@ -292,10 +300,12 @@ rebuild_config_collect_inbounds() {
 
         local sni_json
         sni_json=$(jq -cn --arg sni "$sni" '[$sni]')
-        local keepalive grpc_idle grpc_health
+        local keepalive grpc_idle=0 grpc_health=0
         keepalive=$(rand_between "$TCP_KEEPALIVE_MIN" "$TCP_KEEPALIVE_MAX")
-        grpc_idle=$(rand_between "$GRPC_IDLE_TIMEOUT_MIN" "$GRPC_IDLE_TIMEOUT_MAX")
-        grpc_health=$(rand_between "$GRPC_HEALTH_TIMEOUT_MIN" "$GRPC_HEALTH_TIMEOUT_MAX")
+        if [[ "$target_transport" == "grpc" ]]; then
+            grpc_idle=$(rand_between "$GRPC_IDLE_TIMEOUT_MIN" "$GRPC_IDLE_TIMEOUT_MAX")
+            grpc_health=$(rand_between "$GRPC_HEALTH_TIMEOUT_MIN" "$GRPC_HEALTH_TIMEOUT_MAX")
+        fi
 
         if [[ "$target_transport" == "xhttp" ]]; then
             if [[ -z "$vless_decryption" || "$vless_decryption" == "none" || -z "$vless_encryption" || "$vless_encryption" == "none" ]]; then
@@ -345,47 +355,7 @@ rebuild_config_write_candidate() {
     routing=$(generate_routing_json)
     backup_file "$XRAY_CONFIG"
     tmp_config=$(create_temp_xray_config_file)
-    jq -n \
-        --argjson inbounds "$inbounds" \
-        --argjson outbounds "$outbounds" \
-        --argjson routing "$routing" \
-        --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
-        '{
-            log: {
-                loglevel: "warning",
-                access: "/var/log/xray/access.log",
-                error: "/var/log/xray/error.log"
-            },
-            dns: {
-                servers: [
-                    "https+local://1.1.1.1/dns-query",
-                    "https+local://8.8.8.8/dns-query",
-                    "localhost"
-                ],
-                queryStrategy: "UseIPv4"
-            },
-            version: {
-                min: $min_version
-            },
-            inbounds: $inbounds,
-            outbounds: $outbounds,
-            routing: $routing,
-            policy: {
-                levels: {
-                    "0": {
-                        handshake: 4,
-                        connIdle: 600,
-                        uplinkOnly: 2,
-                        downlinkOnly: 5,
-                        bufferSize: 1024
-                    }
-                },
-                system: {
-                    statsInboundUplink: false,
-                    statsInboundDownlink: false
-                }
-            }
-        }' > "$tmp_config"
+    write_xray_root_config_json "$inbounds" "$outbounds" "$routing" > "$tmp_config"
     set_temp_xray_config_permissions "$tmp_config"
     if ! apply_validated_config "$tmp_config"; then
         TRANSPORT="$previous_transport"

@@ -1005,6 +1005,19 @@ ExecStart=/tmp/pwn"
     [ "$output" = "tier_global_ms10" ]
 }
 
+@test "apply_runtime_overrides folds XRAY_DOMAIN_TIER into effective DOMAIN_TIER for install" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    ACTION="install"
+    DOMAIN_TIER="tier_ru"
+    XRAY_DOMAIN_TIER="global-50-auto"
+    apply_runtime_overrides
+    echo "$DOMAIN_TIER"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "tier_global_ms10" ]
+}
+
 @test "apply_runtime_overrides warns for legacy global-ms10 alias and keeps compatibility" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -3028,6 +3041,83 @@ JSON
     [[ "$output" == *"ok"* ]]
 }
 
+@test "rebuild_config_for_transport skips grpc timeout randomization for xhttp" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_CONFIG="$tmp/config.json"
+    calls="$tmp/rand-calls.log"
+    log() { :; }
+    check_xray_version_for_config_generation() { :; }
+    ensure_xray_feature_contract() { :; }
+    setup_mux_settings() { :; }
+    detect_reality_dest() { printf "443\n"; }
+    domain_provider_family_for() { printf "tier-test\n"; }
+    generate_xhttp_path_for_domain() { printf "/edge/api/rebuilt\n"; }
+    generate_vless_encryption_pair() { printf "decrypt-A\tencrypt-A\n"; }
+    rand_between() {
+      printf "%s:%s\n" "$1" "$2" >> "$calls"
+      printf "10\n"
+    }
+    generate_inbound_json() {
+      MSYS_NO_PATHCONV=1 jq -nc --arg transport "${12}" --arg grpc_idle "${10}" --arg grpc_health "${11}" \
+        "{transport:\$transport,grpc_idle:(\$grpc_idle|tonumber),grpc_health:(\$grpc_health|tonumber)}"
+    }
+    generate_outbounds_json() { printf "[]\n"; }
+    generate_routing_json() { printf "{}\n"; }
+    backup_file() { :; }
+    set_temp_xray_config_permissions() { :; }
+    apply_validated_config() { mv "$1" "$XRAY_CONFIG"; }
+
+    TCP_KEEPALIVE_MIN=20
+    TCP_KEEPALIVE_MAX=21
+    GRPC_IDLE_TIMEOUT_MIN=600
+    GRPC_IDLE_TIMEOUT_MAX=601
+    GRPC_HEALTH_TIMEOUT_MIN=700
+    GRPC_HEALTH_TIMEOUT_MAX=701
+    NUM_CONFIGS=1
+    HAS_IPV6=false
+    TRANSPORT="grpc"
+    PORTS=(24443)
+    PORTS_V6=()
+    UUIDS=("uuid-1")
+    SHORT_IDS=("abcd1234")
+    PRIVATE_KEYS=("private-1")
+    CONFIG_DOMAINS=("example.com")
+    CONFIG_SNIS=("")
+    CONFIG_FPS=("chrome")
+    CONFIG_TRANSPORT_ENDPOINTS=("legacy-endpoint")
+    CONFIG_DESTS=("")
+    CONFIG_PROVIDER_FAMILIES=("")
+    CONFIG_VLESS_ENCRYPTIONS=("none")
+    CONFIG_VLESS_DECRYPTIONS=("none")
+
+    rebuild_config_for_transport xhttp
+
+    grep -Fxq "20:21" "$calls"
+    ! grep -Fq "600:601" "$calls"
+    ! grep -Fq "700:701" "$calls"
+    jq -e ".inbounds[0].grpc_idle == 0" "$XRAY_CONFIG" > /dev/null
+    jq -e ".inbounds[0].grpc_health == 0" "$XRAY_CONFIG" > /dev/null
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "config root json writer is shared by build and rebuild paths" {
+    run bash -eo pipefail -c '
+    grep -q "^write_xray_root_config_json()" ./config.sh
+    count=$(grep -c '\''write_xray_root_config_json "\$inbounds" "\$outbounds" "\$routing" > "\$tmp_config"'\'' ./config.sh)
+    [[ "$count" -eq 2 ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "load_existing_* supports explicit ipv4 listen and filters non-reality inbounds" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -4852,4 +4942,116 @@ EOF
     [ "$status" -eq 0 ]
     [[ "${lines[0]}" == primary=*grpc_services.map ]]
     [ "${lines[1]}" = "alias=${lines[0]#primary=}" ]
+}
+
+@test "_path_has_parent_segments matches real traversal segments only" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    _path_has_parent_segments "/etc/xray/dir/../config.json"
+    ! _path_has_parent_segments "/etc/xray/config..json"
+    ! _path_has_parent_segments "/etc/xray/dir..name/config.json"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "rand_u32 fallback widens RANDOM entropy beyond 15 bits" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    od() { return 1; }
+    openssl() { return 1; }
+    rand_u32 > /dev/null
+    (( RAND_U32_MAX > 32767 ))
+    (( RAND_U32_VALUE >= 0 ))
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "resolve_paths preserves custom data-file overrides" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    log() { :; }
+    _resolve_path() {
+      local var_name="$1"
+      case "$var_name" in
+        XRAY_BIN) printf -v "$var_name" "%s" "/opt/xray/bin/xray" ;;
+        XRAY_GEO_DIR) printf -v "$var_name" "%s" "/opt/xray/share" ;;
+        XRAY_CONFIG) printf -v "$var_name" "%s" "/opt/xray/etc/config.json" ;;
+        XRAY_KEYS) printf -v "$var_name" "%s" "/opt/xray/etc/private/keys" ;;
+        MINISIGN_KEY) printf -v "$var_name" "%s" "/opt/xray/etc/minisign.pub" ;;
+        XRAY_ENV) printf -v "$var_name" "%s" "/opt/xray/etc/config.env" ;;
+        XRAY_POLICY) printf -v "$var_name" "%s" "/opt/xray/etc/policy.json" ;;
+        XRAY_LOGS) printf -v "$var_name" "%s" "/opt/xray/log" ;;
+        XRAY_HOME) printf -v "$var_name" "%s" "/opt/xray/data" ;;
+        MEASUREMENTS_DIR) printf -v "$var_name" "%s" "/opt/xray/data/measurements" ;;
+        XRAY_BACKUP) printf -v "$var_name" "%s" "/opt/xray/backups" ;;
+        XRAY_DATA_DIR) printf -v "$var_name" "%s" "/opt/xray/share" ;;
+      esac
+      return 0
+    }
+
+    XRAY_DATA_DIR="/usr/local/share/xray-reality"
+    XRAY_TIERS_FILE="/custom/domains.tiers"
+    XRAY_SNI_POOLS_FILE="/custom/sni_pools.map"
+    XRAY_TRANSPORT_ENDPOINTS_FILE="/custom/transport_endpoints.map"
+    XRAY_GRPC_SERVICES_FILE="/custom/grpc_services.map"
+    XRAY_DOMAIN_CATALOG_FILE="/custom/catalog.json"
+
+    resolve_paths
+
+    [[ "$XRAY_TIERS_FILE" == "/custom/domains.tiers" ]]
+    [[ "$XRAY_SNI_POOLS_FILE" == "/custom/sni_pools.map" ]]
+    [[ "$XRAY_TRANSPORT_ENDPOINTS_FILE" == "/custom/transport_endpoints.map" ]]
+    [[ "$XRAY_GRPC_SERVICES_FILE" == "/custom/grpc_services.map" ]]
+    [[ "$XRAY_DOMAIN_CATALOG_FILE" == "/custom/catalog.json" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "resolve_paths rebinds managed default data files to resolved data dir" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    log() { :; }
+    _resolve_path() {
+      local var_name="$1"
+      case "$var_name" in
+        XRAY_BIN) printf -v "$var_name" "%s" "/opt/xray/bin/xray" ;;
+        XRAY_GEO_DIR) printf -v "$var_name" "%s" "/opt/xray/share" ;;
+        XRAY_CONFIG) printf -v "$var_name" "%s" "/opt/xray/etc/config.json" ;;
+        XRAY_KEYS) printf -v "$var_name" "%s" "/opt/xray/etc/private/keys" ;;
+        MINISIGN_KEY) printf -v "$var_name" "%s" "/opt/xray/etc/minisign.pub" ;;
+        XRAY_ENV) printf -v "$var_name" "%s" "/opt/xray/etc/config.env" ;;
+        XRAY_POLICY) printf -v "$var_name" "%s" "/opt/xray/etc/policy.json" ;;
+        XRAY_LOGS) printf -v "$var_name" "%s" "/opt/xray/log" ;;
+        XRAY_HOME) printf -v "$var_name" "%s" "/opt/xray/data" ;;
+        MEASUREMENTS_DIR) printf -v "$var_name" "%s" "/opt/xray/data/measurements" ;;
+        XRAY_BACKUP) printf -v "$var_name" "%s" "/opt/xray/backups" ;;
+        XRAY_DATA_DIR) printf -v "$var_name" "%s" "/opt/xray/share" ;;
+      esac
+      return 0
+    }
+
+    XRAY_DATA_DIR="/usr/local/share/xray-reality"
+    XRAY_TIERS_FILE="/usr/local/share/xray-reality/domains.tiers"
+    XRAY_SNI_POOLS_FILE="/usr/local/share/xray-reality/sni_pools.map"
+    XRAY_TRANSPORT_ENDPOINTS_FILE="/usr/local/share/xray-reality/transport_endpoints.map"
+    XRAY_GRPC_SERVICES_FILE="/usr/local/share/xray-reality/transport_endpoints.map"
+    XRAY_DOMAIN_CATALOG_FILE="/usr/local/share/xray-reality/data/domains/catalog.json"
+
+    resolve_paths
+
+    [[ "$XRAY_TIERS_FILE" == "/opt/xray/share/domains.tiers" ]]
+    [[ "$XRAY_SNI_POOLS_FILE" == "/opt/xray/share/sni_pools.map" ]]
+    [[ "$XRAY_TRANSPORT_ENDPOINTS_FILE" == "/opt/xray/share/transport_endpoints.map" ]]
+    [[ "$XRAY_GRPC_SERVICES_FILE" == "/opt/xray/share/transport_endpoints.map" ]]
+    [[ "$XRAY_DOMAIN_CATALOG_FILE" == "/opt/xray/share/data/domains/catalog.json" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
 }

@@ -40,6 +40,7 @@ XRAY_TRANSPORT="${XRAY_TRANSPORT:-}"
 XRAY_ADVANCED="${XRAY_ADVANCED:-}"
 TRANSPORT="${TRANSPORT:-xhttp}" # xhttp only (legacy grpc/http2 require migrate-stealth)
 MUX_MODE="${MUX_MODE:-off}"     # off by default for xhttp-first installs
+# legacy grpc/mux knobs remain only for migrate-stealth and explicit legacy rebuild paths.
 MUX_CONCURRENCY_MIN="${MUX_CONCURRENCY_MIN:-3}"
 MUX_CONCURRENCY_MAX="${MUX_CONCURRENCY_MAX:-20}"
 GRPC_IDLE_TIMEOUT_MIN="${GRPC_IDLE_TIMEOUT_MIN:-60}"
@@ -335,6 +336,28 @@ _resolve_path() {
 resolve_paths() {
     log STEP "Проверяем системные пути..."
     local resolve_errors=0
+    local previous_data_dir="${XRAY_DATA_DIR:-$DEFAULT_DATA_DIR}"
+    local tiers_file_is_managed_default=false
+    local sni_pools_file_is_managed_default=false
+    local transport_endpoints_is_managed_default=false
+    local grpc_services_is_managed_default=false
+    local domain_catalog_is_managed_default=false
+
+    if [[ -z "${XRAY_TIERS_FILE:-}" || "$XRAY_TIERS_FILE" == "$previous_data_dir/domains.tiers" ]]; then
+        tiers_file_is_managed_default=true
+    fi
+    if [[ -z "${XRAY_SNI_POOLS_FILE:-}" || "$XRAY_SNI_POOLS_FILE" == "$previous_data_dir/sni_pools.map" ]]; then
+        sni_pools_file_is_managed_default=true
+    fi
+    if [[ -z "${XRAY_TRANSPORT_ENDPOINTS_FILE:-}" || "$XRAY_TRANSPORT_ENDPOINTS_FILE" == "$previous_data_dir/transport_endpoints.map" || "$XRAY_TRANSPORT_ENDPOINTS_FILE" == "$previous_data_dir/grpc_services.map" ]]; then
+        transport_endpoints_is_managed_default=true
+    fi
+    if [[ -z "${XRAY_GRPC_SERVICES_FILE:-}" || "$XRAY_GRPC_SERVICES_FILE" == "$previous_data_dir/transport_endpoints.map" || "$XRAY_GRPC_SERVICES_FILE" == "$previous_data_dir/grpc_services.map" ]]; then
+        grpc_services_is_managed_default=true
+    fi
+    if [[ -z "${XRAY_DOMAIN_CATALOG_FILE:-}" || "$XRAY_DOMAIN_CATALOG_FILE" == "$previous_data_dir/data/domains/catalog.json" ]]; then
+        domain_catalog_is_managed_default=true
+    fi
 
     if ! _resolve_path XRAY_BIN "Бинарник Xray" \
         "/usr/local/bin/xray" "/opt/xray/bin/xray"; then
@@ -396,11 +419,22 @@ resolve_paths() {
         resolve_errors=$((resolve_errors + 1))
     fi
 
-    XRAY_TIERS_FILE="$XRAY_DATA_DIR/domains.tiers"
-    XRAY_SNI_POOLS_FILE="$XRAY_DATA_DIR/sni_pools.map"
-    XRAY_TRANSPORT_ENDPOINTS_FILE="$XRAY_DATA_DIR/transport_endpoints.map"
+    if [[ "$tiers_file_is_managed_default" == true ]]; then
+        XRAY_TIERS_FILE="$XRAY_DATA_DIR/domains.tiers"
+    fi
+    if [[ "$sni_pools_file_is_managed_default" == true ]]; then
+        XRAY_SNI_POOLS_FILE="$XRAY_DATA_DIR/sni_pools.map"
+    fi
+    if [[ "$transport_endpoints_is_managed_default" == true ]]; then
+        XRAY_TRANSPORT_ENDPOINTS_FILE=""
+    fi
+    if [[ "$grpc_services_is_managed_default" == true ]]; then
+        XRAY_GRPC_SERVICES_FILE=""
+    fi
     sync_transport_endpoint_file_contract
-    XRAY_DOMAIN_CATALOG_FILE="$XRAY_DATA_DIR/data/domains/catalog.json"
+    if [[ "$domain_catalog_is_managed_default" == true ]]; then
+        XRAY_DOMAIN_CATALOG_FILE="$XRAY_DATA_DIR/data/domains/catalog.json"
+    fi
     SELF_CHECK_HISTORY_FILE="${XRAY_HOME%/}/self-check-history.ndjson"
     MEASUREMENTS_SUMMARY_FILE="${MEASUREMENTS_DIR%/}/latest-summary.json"
 
@@ -415,6 +449,15 @@ resolve_paths() {
     fi
 
     log OK "Все пути проверены"
+}
+
+_path_has_parent_segments() {
+    local path="${1:-}"
+    local part
+    while IFS= read -r part; do
+        [[ "$part" == ".." ]] && return 0
+    done < <(tr '/' '\n' <<< "$path")
+    return 1
 }
 
 LIB_UI_LOGGING_MODULE="$MODULE_DIR/modules/lib/ui_logging.sh"
@@ -482,16 +525,16 @@ atomic_write() {
         target_existed=true
     fi
 
+    if _path_has_parent_segments "$target"; then
+        log ERROR "atomic_write: путь содержит traversal-сегменты ..: $target"
+        return 1
+    fi
+
     local resolved
-    resolved=$(realpath -m "$target" 2> /dev/null) || {
+    resolved=$(realpath -m -- "$target" 2> /dev/null) || {
         log ERROR "atomic_write: не удалось разрешить путь: $target"
         return 1
     }
-
-    if [[ "$resolved" == *".."* ]] || [[ "$target" == *".."* ]]; then
-        log ERROR "atomic_write: путь содержит ..: $target"
-        return 1
-    fi
 
     local -a safe_prefixes=(
         "/etc/xray" "/etc/systemd" "/usr/lib/systemd" "/lib/systemd" "/var/log" "/var/backups/xray"
@@ -537,7 +580,7 @@ RAND_U32_MAX=32767
 rand_u32() {
     if [[ -r /dev/urandom ]] && command -v od > /dev/null 2>&1; then
         local n
-        n=$(od -An -N4 -tu4 /dev/urandom 2> /dev/null | tr -d '[:space:]')
+        n=$(od -An -N4 -tu4 /dev/urandom 2> /dev/null | tr -d '[:space:]' || true)
         if [[ "$n" =~ ^[0-9]+$ ]]; then
             RAND_U32_VALUE="$n"
             RAND_U32_MAX=4294967295
@@ -555,8 +598,11 @@ rand_u32() {
             return 0
         fi
     fi
-    RAND_U32_VALUE="$RANDOM"
-    RAND_U32_MAX=32767
+    local high low
+    high=$((RANDOM & 32767))
+    low=$((RANDOM & 32767))
+    RAND_U32_VALUE=$(((high << 15) | low))
+    RAND_U32_MAX=1073741823
     echo "$RAND_U32_VALUE"
 }
 
