@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.4] - 2026-03-18
+
 ### Fixed
 - fixed release automation so tagged changelog sections now consume `[unreleased]` notes cleanly instead of duplicating sections or leaving stale bullets behind
 - cleaned the `7.5.3` changelog layout and restored markdownlint-clean release docs after the previous release-script bug

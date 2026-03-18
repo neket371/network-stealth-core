@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.4] - 2026-03-18
+
 ### Fixed
 - release automation теперь корректно переносит заметки из `[unreleased]` в tagged section и больше не дублирует секции с висящими bullet’ами
 - layout секции `7.5.3` выровнен, а release docs снова проходят markdownlint после бага в release-script
