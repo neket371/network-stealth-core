@@ -80,6 +80,22 @@
     [ "$output" = "ok" ]
 }
 
+@test "rand_between falls back after repeated rejected samples" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    rand_u32() {
+      RAND_U32_MAX=9
+      RAND_U32_VALUE=9
+      echo "$RAND_U32_VALUE"
+    }
+    val=$(rand_between 0 5)
+    [[ "$val" == "3" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "progress_bar handles zero total" {
     run bash -eo pipefail -c 'source ./lib.sh; progress_bar 0 0; echo "ok"'
     [ "$status" -eq 0 ]

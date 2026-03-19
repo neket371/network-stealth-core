@@ -113,6 +113,7 @@ PRIMARY_ADAPTIVE_TOP_N="${PRIMARY_ADAPTIVE_TOP_N:-5}"
 MEASUREMENTS_DIR="${MEASUREMENTS_DIR:-/var/lib/xray/measurements}"
 MEASUREMENTS_SUMMARY_FILE="${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}"
 SELF_CHECK_HISTORY_FILE="${SELF_CHECK_HISTORY_FILE:-/var/lib/xray/self-check-history.ndjson}"
+# managed strongest-direct contract epoch; this is independent from the release tag.
 STEALTH_CONTRACT_VERSION="${STEALTH_CONTRACT_VERSION:-7.3.8}"
 XRAY_CLIENT_MIN_VERSION="${XRAY_CLIENT_MIN_VERSION:-25.9.5}"
 XRAY_DIRECT_FLOW="${XRAY_DIRECT_FLOW:-xtls-rprx-vision}"
@@ -213,6 +214,7 @@ export XRAY_DATA_DIR
 XRAY_TIERS_FILE="${XRAY_TIERS_FILE:-$XRAY_DATA_DIR/domains.tiers}"
 XRAY_SNI_POOLS_FILE="${XRAY_SNI_POOLS_FILE:-$XRAY_DATA_DIR/sni_pools.map}"
 XRAY_TRANSPORT_ENDPOINTS_FILE="${XRAY_TRANSPORT_ENDPOINTS_FILE:-$XRAY_DATA_DIR/transport_endpoints.map}"
+# seed neutral transport-endpoint aliases before callers use these globals pre-resolve_paths.
 sync_transport_endpoint_file_contract
 XRAY_DOMAIN_CATALOG_FILE="${XRAY_DOMAIN_CATALOG_FILE:-$XRAY_DATA_DIR/data/domains/catalog.json}"
 
@@ -431,6 +433,7 @@ resolve_paths() {
     if [[ "$grpc_services_is_managed_default" == true ]]; then
         XRAY_GRPC_SERVICES_FILE=""
     fi
+    # run alias sync again after XRAY_DATA_DIR rebinding so managed defaults follow the resolved data root.
     sync_transport_endpoint_file_contract
     if [[ "$domain_catalog_is_managed_default" == true ]]; then
         XRAY_DOMAIN_CATALOG_FILE="$XRAY_DATA_DIR/data/domains/catalog.json"
@@ -562,7 +565,11 @@ atomic_write() {
     local _old_umask
     _old_umask=$(umask)
     umask 077
-    tmp=$(mktemp "${target}.tmp.XXXXXX")
+    if ! tmp=$(mktemp "${target}.tmp.XXXXXX"); then
+        umask "$_old_umask"
+        log ERROR "atomic_write: не удалось создать временный файл: $target"
+        return 1
+    fi
     umask "$_old_umask"
     cat > "$tmp"
     if [[ -n "$mode" ]]; then
@@ -620,7 +627,10 @@ rand_between() {
     fi
 
     local source_max rnd bucket_limit
-    while true; do
+    local max_attempts=128
+    local attempt=0
+    while ((attempt < max_attempts)); do
+        attempt=$((attempt + 1))
         rand_u32 > /dev/null
         rnd="$RAND_U32_VALUE"
         source_max="$RAND_U32_MAX"
@@ -636,6 +646,8 @@ rand_between() {
             return
         fi
     done
+
+    echo "$((rnd % span + min))"
 }
 
 normalize_domain_tier() {

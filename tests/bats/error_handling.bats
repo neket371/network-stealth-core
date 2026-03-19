@@ -390,3 +390,23 @@
   '
     [ "$status" -ne 0 ]
 }
+
+@test "atomic_write restores umask when mktemp fails" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    log() { :; }
+    mkdir() { :; }
+    realpath() { printf "%s\n" "${@: -1}"; }
+    mktemp() { return 1; }
+    before=$(umask)
+    if echo "test" | atomic_write "/var/lib/xray/test.txt" 0644; then
+      echo "unexpected-success"
+      exit 1
+    fi
+    after=$(umask)
+    [[ "$before" == "$after" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}

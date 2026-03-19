@@ -12,6 +12,8 @@
 - oneshot-таймаут `xray-health.service` уменьшен до `90s`, чтобы зависший health pass фейлился быстро, а не висел `30min`
 - из setup health monitoring убран helper с 10 позиционными nameref-аргументами; вместо него используются явные typed normalizers
 - grpc/mux defaults явно помечены как legacy compatibility knobs для `migrate-stealth` и explicit legacy rebuild paths
+- `rand_between` получил bounded retry sampling и детерминированный fallback вместо потенциально бесконечного rejection loop
+- `atomic_write` теперь явно восстанавливает `umask` при провале `mktemp`, а install теперь предупреждает, если export hooks после загрузки недоступны
 
 ## [7.5.6] - 2026-03-19
 

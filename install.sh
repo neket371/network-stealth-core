@@ -215,6 +215,8 @@ install_flow() {
     save_client_configs
     if declare -F export_all_configs > /dev/null 2>&1; then
         export_all_configs
+    else
+        log WARN "Модуль export.sh не загружен; экспорт клиентских конфигов и canary bundle пропущен"
     fi
     ensure_self_check_artifacts_ready
     if ! verify_ports_available; then

@@ -12,6 +12,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 - reduced the `xray-health.service` oneshot start timeout to `90s` so a stuck health pass fails promptly instead of waiting `30min`
 - removed the 10-position nameref normalization helper from health monitoring setup and replaced it with explicit typed normalizers
 - clarified grpc/mux defaults as legacy compatibility knobs for `migrate-stealth` and explicit legacy rebuild paths
+- bounded `rand_between` retry sampling and added a deterministic fallback path instead of leaving an unbounded rejection loop
+- hardened `atomic_write` to restore `umask` when temporary file creation fails and made install warn explicitly when export hooks are unavailable after load
 
 ## [7.5.6] - 2026-03-19
 

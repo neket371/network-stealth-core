@@ -503,6 +503,17 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "wrapper treats export module as part of the required trusted tree" {
+    run bash -eo pipefail -c '
+    grep -Fq "export.sh" ./xray-reality.sh
+    grep -Fq "source \"\$MODULE_DIR/export.sh\"" ./xray-reality.sh
+    ! grep -Fq "client exports and canary bundle will be skipped" ./xray-reality.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "wrapper maps legacy main ref to ubuntu and falls back to ref clone in non-strict mode" {
     run bash -eo pipefail -c '
     set -euo pipefail

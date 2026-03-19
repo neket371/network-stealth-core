@@ -595,9 +595,7 @@ source "$MODULE_DIR/service.sh"
 # shellcheck source=/dev/null
 source "$MODULE_DIR/health.sh"
 # shellcheck source=/dev/null
-if [[ -f "$MODULE_DIR/export.sh" ]]; then
-    source "$MODULE_DIR/export.sh"
-fi
+source "$MODULE_DIR/export.sh"
 
 if [[ "$INSTALL_DIR_OWNED" == "true" ]]; then
     export_wrapper_source_metadata "bootstrap" "$SCRIPT_DIR" "$REPO_REF" "$REPO_COMMIT"

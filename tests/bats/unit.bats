@@ -4598,6 +4598,15 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "install flow warns when export module is unavailable" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''Модуль export.sh не загружен; экспорт клиентских конфигов и canary bundle пропущен'\'' ./install.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "lab scripts are wired into lint and self-hosted workflows" {
     run bash -eo pipefail -c '
     grep -q '\''scripts/lab/\*.sh'\'' ./Makefile

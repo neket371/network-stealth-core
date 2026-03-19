@@ -135,6 +135,7 @@
 : "${PRIMARY_DOMAIN_MODE:=adaptive}"
 : "${PRIMARY_PIN_DOMAIN:=}"
 : "${PRIMARY_ADAPTIVE_TOP_N:=5}"
+# managed strongest-direct contract epoch; this is independent from the release tag.
 : "${STEALTH_CONTRACT_VERSION:=7.3.8}"
 : "${XRAY_CLIENT_MIN_VERSION:=25.9.5}"
 : "${XRAY_DIRECT_FLOW:=xtls-rprx-vision}"
