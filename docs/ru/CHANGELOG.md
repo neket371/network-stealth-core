@@ -12,6 +12,7 @@
 - `diagnose` теперь собирает вывод в subshell, поэтому временный `set +e` больше не может протечь в вызывающий shell
 - `status --verbose` теперь деградирует в raw transport labels, если shared helper-функции недоступны
 - явные legacy-override значения `TRANSPORT` для обычных v7 actions теперь режутся раньше в runtime override layer; `migrate-stealth` по-прежнему допускается
+- read-only и cleanup actions теперь сохраняют persisted legacy `TRANSPORT` на managed pre-migration install и не валятся раньше `migrate-stealth`
 - generated domain-health updates переведены на `printf '%s\n'`, чтобы JSON state передавался в `jq` единообразно и без зависимости от shell `echo`
 - oneshot-таймаут `xray-health.service` уменьшен до `90s`, чтобы зависший health pass фейлился быстро, а не висел `30min`
 - из setup health monitoring убран helper с 10 позиционными nameref-аргументами; вместо него используются явные typed normalizers

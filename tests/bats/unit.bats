@@ -1154,11 +1154,38 @@ ExecStart=/tmp/pwn"
     [[ "$output" == *"tier=tier_global_ms10"* ]]
 }
 
-@test "apply_runtime_overrides rejects explicit legacy transport override outside migrate-stealth" {
+@test "apply_runtime_overrides rejects explicit legacy transport override for normal v7 action" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    ACTION="install"
+    TRANSPORT="grpc"
+    apply_runtime_overrides
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"migrate-stealth"* ]]
+}
+
+@test "apply_runtime_overrides allows managed legacy transport for status" {
     run bash -eo pipefail -c '
     source ./lib.sh
     ACTION="status"
     TRANSPORT="grpc"
+    managed_install_contract_present() { return 0; }
+    detect_current_managed_transport() { printf "%s\n" "grpc"; }
+    apply_runtime_overrides
+    echo "$TRANSPORT"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "grpc" ]
+}
+
+@test "apply_runtime_overrides rejects mismatched legacy transport for status" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    ACTION="status"
+    TRANSPORT="grpc"
+    managed_install_contract_present() { return 0; }
+    detect_current_managed_transport() { printf "%s\n" "xhttp"; }
     apply_runtime_overrides
   '
     [ "$status" -ne 0 ]

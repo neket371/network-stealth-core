@@ -12,6 +12,7 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 - made `diagnose` collect output in a subshell so temporary `set +e` no longer leaks into the caller shell state
 - made `status --verbose` fall back to raw transport labels if shared helper functions are unavailable
 - rejected explicit legacy `TRANSPORT` overrides on normal v7 actions earlier in runtime override handling while still allowing `migrate-stealth`
+- allowed read-only and cleanup actions to keep the persisted legacy `TRANSPORT` value on managed pre-migration installs instead of aborting before `migrate-stealth`
 - switched generated domain-health updates to `printf '%s\n'` pipes so JSON state is passed to `jq` consistently instead of relying on shell `echo`
 - reduced the `xray-health.service` oneshot start timeout to `90s` so a stuck health pass fails promptly instead of waiting `30min`
 - removed the 10-position nameref normalization helper from health monitoring setup and replaced it with explicit typed normalizers

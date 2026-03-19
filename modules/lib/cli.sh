@@ -615,6 +615,28 @@ apply_runtime_overrides() {
                     ;;
             esac
             ;;
+        status | logs | diagnose | check-update | rollback | uninstall)
+            case "$TRANSPORT" in
+                "" | xhttp)
+                    TRANSPORT="xhttp"
+                    ;;
+                grpc | http2 | h2)
+                    local current_transport=""
+                    [[ "$TRANSPORT" == "h2" ]] && TRANSPORT="http2"
+                    if managed_install_contract_present; then
+                        current_transport="$(detect_current_managed_transport)"
+                    fi
+                    if ! contract_gate_transport_is_legacy "$current_transport" || [[ "$TRANSPORT" != "$current_transport" ]]; then
+                        log ERROR "TRANSPORT=${TRANSPORT} больше не поддерживается в v7; используйте xhttp или migrate-stealth для legacy install"
+                        exit 1
+                    fi
+                    ;;
+                *)
+                    log ERROR "Неверный TRANSPORT: ${TRANSPORT} (в v7 поддерживается только xhttp)"
+                    exit 1
+                    ;;
+            esac
+            ;;
         *)
             case "$TRANSPORT" in
                 "" | xhttp)
