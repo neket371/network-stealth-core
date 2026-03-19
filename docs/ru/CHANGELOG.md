@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.6] - 2026-03-19
+
 ### Fixed
 - canary bundle теперь валится fail-closed с явной ошибкой, если ломается сборка source manifest или сталкиваются имена raw-xray файлов
 - wrapper теперь предупреждает, когда `SCRIPT_DIR` не удалось определить и вместо локального source tree может быть использован bootstrap path
