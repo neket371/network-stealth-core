@@ -54,8 +54,10 @@ CHANGELOG_FILE="$ROOT_DIR/docs/en/CHANGELOG.md"
 CHANGELOG_FILE_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"
 BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"
 SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"
+SECURITY_EN="$ROOT_DIR/.github/SECURITY.md"
+SECURITY_RU="$ROOT_DIR/.github/SECURITY.ru.md"
 
-for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG_FILE" "$CHANGELOG_FILE_RU" "$BUG_TEMPLATE" "$SUPPORT_TEMPLATE"; do
+for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG_FILE" "$CHANGELOG_FILE_RU" "$BUG_TEMPLATE" "$SUPPORT_TEMPLATE" "$SECURITY_EN" "$SECURITY_RU"; do
     [[ -f "$file" ]] || {
         echo "Missing required file: $file" >&2
         exit 1
@@ -146,6 +148,8 @@ if [[ ! "$script_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "SCRIPT_VERSION must match MAJOR.MINOR.PATCH, got: $script_version" >&2
     exit 1
 fi
+script_minor_line="${script_version%.*}.x"
+unsupported_before_line="<${script_version%.*}"
 
 require_pattern "$LIB_FILE" "^# Network Stealth Core ${script_version} - " "lib.sh header version"
 require_pattern "$WRAPPER_FILE" "^# Network Stealth Core ${script_version} - Wrapper" "wrapper header version"
@@ -159,6 +163,10 @@ require_pattern "$CHANGELOG_FILE" "^## \\[${script_version}\\]" "docs/en/CHANGEL
 require_pattern "$CHANGELOG_FILE_RU" "^## \\[${script_version}\\]" "docs/ru/CHANGELOG.md section"
 require_pattern "$BUG_TEMPLATE" "^      placeholder: v${script_version} / <full_commit_sha> / ubuntu@<sha>$" "bug template placeholder"
 require_pattern "$SUPPORT_TEMPLATE" "^      placeholder: v${script_version} / <full_commit_sha> / ubuntu@<sha>$" "support template placeholder"
+require_pattern "$SECURITY_EN" "^\\| \`${script_minor_line}\` \\| supported \\|$" "SECURITY.md supported version line"
+require_pattern "$SECURITY_EN" "^\\| \`${unsupported_before_line}\` \\| unsupported in this repository \\|$" "SECURITY.md unsupported version line"
+require_pattern "$SECURITY_RU" "^\\| \`${script_minor_line}\` \\| поддерживается \\|$" "SECURITY.ru.md supported version line"
+require_pattern "$SECURITY_RU" "^\\| \`${unsupported_before_line}\` \\| не поддерживается в этом репозитории \\|$" "SECURITY.ru.md unsupported version line"
 
 if awk '
     BEGIN { in_released = 0; bad = 0 }

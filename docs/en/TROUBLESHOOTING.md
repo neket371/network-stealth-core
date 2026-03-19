@@ -84,8 +84,10 @@ use the raw xray artifact from `export/raw-xray/` or the `export/canary/` bundle
 example client-side env:
 
 ```bash
-export xray.browser.dialer=127.0.0.1:11050
+env 'xray.browser.dialer=127.0.0.1:11050' xray run -config /path/to/emergency.json
 ```
+
+do not use the dotted `export` form in bash or other POSIX shells: dotted env names are not valid shell identifiers there.
 
 it is normal that server-side post-action self-check does not execute `emergency`.
 

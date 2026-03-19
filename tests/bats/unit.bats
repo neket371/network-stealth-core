@@ -4159,6 +4159,24 @@ EOF
 placeholder: v1.0.0 / <full_commit_sha> / ubuntu@<sha>
 EOF
 
+    cat > "$tmp_repo/.github/SECURITY.md" <<'\''EOF'\''
+# security policy
+
+| version line | status |
+|---|---|
+| `1.0.x` | supported |
+| `<1.0` | unsupported in this repository |
+EOF
+
+    cat > "$tmp_repo/.github/SECURITY.ru.md" <<'\''EOF'\''
+# политика безопасности
+
+| линейка версий | статус |
+|---|---|
+| `1.0.x` | поддерживается |
+| `<1.0` | не поддерживается в этом репозитории |
+EOF
+
     cat > "$tmp_repo/docs/en/CHANGELOG.md" <<'\''EOF'\''
 # changelog
 
@@ -4335,6 +4353,55 @@ EOF
     grep -q '\''XRAY_REPO_REF=v<release-tag>'\'' ./docs/ru/FAQ.md
     grep -q '\''XRAY_REPO_REF=v<release-tag>'\'' ./docs/en/OPERATIONS.md
     grep -q '\''XRAY_REPO_REF=v<release-tag>'\'' ./docs/ru/OPERATIONS.md
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "docs and helpers use shell-safe browser dialer guidance" {
+    run bash -eo pipefail -c '
+    for file in ./export.sh ./docs/en/OPERATIONS.md ./docs/ru/OPERATIONS.md ./docs/en/TROUBLESHOOTING.md ./docs/ru/TROUBLESHOOTING.md; do
+      ! grep -q '\''export xray\.browser\.dialer='\'' "$file"
+    done
+    grep -Fq "env '\''xray.browser.dialer=127.0.0.1:11050'\'' xray run -config raw-xray/<emergency-config>.json" ./export.sh
+    grep -Fq "browser_dialer_env/browser_dialer_address from manifest.json" ./export.sh
+    grep -Fq "env '\''xray.browser.dialer=127.0.0.1:11050'\'' xray run -config /path/to/emergency.json" ./docs/en/OPERATIONS.md
+    grep -Fq "env '\''xray.browser.dialer=127.0.0.1:11050'\'' xray run -config /path/to/emergency.json" ./docs/ru/OPERATIONS.md
+    grep -Fq "env '\''xray.browser.dialer=127.0.0.1:11050'\'' xray run -config /path/to/emergency.json" ./docs/en/TROUBLESHOOTING.md
+    grep -Fq "env '\''xray.browser.dialer=127.0.0.1:11050'\'' xray run -config /path/to/emergency.json" ./docs/ru/TROUBLESHOOTING.md
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "release tooling covers security version surface" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''SECURITY_EN="$ROOT_DIR/.github/SECURITY.md"'\'' ./scripts/release.sh
+    grep -Fq '\''SECURITY_RU="$ROOT_DIR/.github/SECURITY.ru.md"'\'' ./scripts/release.sh
+    grep -Fq '\''supported_minor_line="${VERSION%.*}.x"'\'' ./scripts/release.sh
+    grep -Fq '\''unsupported_before_line="<${VERSION%.*}"'\'' ./scripts/release.sh
+    grep -Fq '\''SECURITY_EN="$ROOT_DIR/.github/SECURITY.md"'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''SECURITY_RU="$ROOT_DIR/.github/SECURITY.ru.md"'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''SECURITY.md supported version line'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''SECURITY.ru.md supported version line'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''| `7.5.x` | supported |'\'' ./.github/SECURITY.md
+    grep -Fq '\''| `<7.5` | unsupported in this repository |'\'' ./.github/SECURITY.md
+    grep -Fq '\''| `7.5.x` | поддерживается |'\'' ./.github/SECURITY.ru.md
+    grep -Fq '\''| `<7.5` | не поддерживается в этом репозитории |'\'' ./.github/SECURITY.ru.md
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "shared runtime modules keep canonical self-check urls default" {
+    run bash -eo pipefail -c '
+    canonical="https://cp.cloudflare.com/generate_204,https://www.gstatic.com/generate_204"
+    grep -Fq ": \"\${SELF_CHECK_URLS:=$canonical}\"" ./modules/lib/globals_contract.sh
+    grep -Fq ": \"\${SELF_CHECK_URLS:=$canonical}\"" ./modules/lib/runtime_inputs.sh
+    grep -Fq "\${SELF_CHECK_URLS:-$canonical}" ./modules/health/self_check.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]

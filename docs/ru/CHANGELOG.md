@@ -11,6 +11,9 @@
 - canary bundle теперь валится fail-closed с явной ошибкой, если ломается сборка source manifest или сталкиваются имена raw-xray файлов
 - wrapper теперь предупреждает, когда `SCRIPT_DIR` не удалось определить и вместо локального source tree может быть использован bootstrap path
 - regex проверки версии в `check-update` нормализован так, чтобы `-` и `.` были явно литеральными в prerelease suffix
+- linux-инструкция для `emergency` browser-dialer исправлена: docs и canary helper теперь используют shell-safe `env 'xray.browser.dialer=...'` вместо невалидного `export`
+- `SECURITY.md` и `SECURITY.ru.md` выровнены с текущей поддерживаемой релизной линией `7.5.x`, а release-check теперь следит и за этой поверхностью
+- канонический default для `SELF_CHECK_URLS` унифицирован между общими runtime-модулями
 
 ## [7.5.5] - 2026-03-18
 

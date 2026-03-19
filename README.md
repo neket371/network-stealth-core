@@ -160,7 +160,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 for remote rf testing, send the generated canary bundle from `export/canary/` and use the raw xray configs there.
-set `xray.browser.dialer` on the client side when you intentionally test the `emergency` variant.
+set `xray.browser.dialer` on the client side when you intentionally test the `emergency` variant; on POSIX shells use `env 'xray.browser.dialer=127.0.0.1:11050' ...` instead of `export`.
 hosted CI, nightly runtime smoke, and busy-host lifecycle checks validate runtime correctness only; use [docs/en/FIELD-VALIDATION.md](docs/en/FIELD-VALIDATION.md) when you need real-network anti-dpi proof.
 
 ## maintainer-only validation docs

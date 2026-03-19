@@ -72,6 +72,8 @@ CHANGELOG_EN="$ROOT_DIR/docs/en/CHANGELOG.md"
 CHANGELOG_RU="$ROOT_DIR/docs/ru/CHANGELOG.md"
 BUG_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/bug_report.yml"
 SUPPORT_TEMPLATE="$ROOT_DIR/.github/ISSUE_TEMPLATE/support_request.yml"
+SECURITY_EN="$ROOT_DIR/.github/SECURITY.md"
+SECURITY_RU="$ROOT_DIR/.github/SECURITY.ru.md"
 TAG="v$VERSION"
 TODAY="$(date +%Y-%m-%d)"
 NOTES_TMP="$(mktemp)"
@@ -79,12 +81,27 @@ trap 'rm -f "$NOTES_TMP"' EXIT
 
 cd "$ROOT_DIR"
 
-for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG_EN" "$CHANGELOG_RU" "$BUG_TEMPLATE" "$SUPPORT_TEMPLATE"; do
+for file in "$LIB_FILE" "$WRAPPER_FILE" "$README_EN" "$README_RU" "$CHANGELOG_EN" "$CHANGELOG_RU" "$BUG_TEMPLATE" "$SUPPORT_TEMPLATE" "$SECURITY_EN" "$SECURITY_RU"; do
     [[ -f "$file" ]] || {
         echo "Missing required file: $file" >&2
         exit 1
     }
 done
+
+supported_minor_line="${VERSION%.*}.x"
+unsupported_before_line="<${VERSION%.*}"
+security_en_supported_expr=""
+security_en_unsupported_expr=""
+security_ru_supported_expr=""
+security_ru_unsupported_expr=""
+# shellcheck disable=SC2016
+printf -v security_en_supported_expr 's/^\| `[^`]+\.x` \| supported \|$/| `%s` | supported |/' "$supported_minor_line"
+# shellcheck disable=SC2016
+printf -v security_en_unsupported_expr 's/^\| `<[^`]+` \| unsupported in this repository \|$/| `%s` | unsupported in this repository |/' "$unsupported_before_line"
+# shellcheck disable=SC2016
+printf -v security_ru_supported_expr 's/^\| `[^`]+\.x` \| поддерживается \|$/| `%s` | поддерживается |/' "$supported_minor_line"
+# shellcheck disable=SC2016
+printf -v security_ru_unsupported_expr 's/^\| `<[^`]+` \| не поддерживается в этом репозитории \|$/| `%s` | не поддерживается в этом репозитории |/' "$unsupported_before_line"
 
 generate_release_notes() {
     local previous_tag
@@ -255,6 +272,10 @@ replace_with_sed 's/XRAY_REPO_REF=v[0-9]+\.[0-9]+\.[0-9]+/XRAY_REPO_REF=v'"$VERS
 replace_with_sed 's/XRAY_REPO_REF=v[0-9]+\.[0-9]+\.[0-9]+/XRAY_REPO_REF=v'"$VERSION"'/g' "$README_RU"
 replace_with_sed 's#placeholder: v[0-9]+\.[0-9]+\.[0-9]+ / .*#placeholder: v'"$VERSION"' / <full_commit_sha> / ubuntu@<sha>#' "$BUG_TEMPLATE"
 replace_with_sed 's#placeholder: v[0-9]+\.[0-9]+\.[0-9]+ / .*#placeholder: v'"$VERSION"' / <full_commit_sha> / ubuntu@<sha>#' "$SUPPORT_TEMPLATE"
+replace_with_sed "$security_en_supported_expr" "$SECURITY_EN"
+replace_with_sed "$security_en_unsupported_expr" "$SECURITY_EN"
+replace_with_sed "$security_ru_supported_expr" "$SECURITY_RU"
+replace_with_sed "$security_ru_unsupported_expr" "$SECURITY_RU"
 
 for changelog_file in "$CHANGELOG_EN" "$CHANGELOG_RU"; do
     if ! grep -q "^## \[$VERSION\]" "$changelog_file"; then
@@ -275,10 +296,13 @@ echo "  - docs/en/CHANGELOG.md"
 echo "  - docs/ru/CHANGELOG.md"
 echo "  - .github/ISSUE_TEMPLATE/bug_report.yml"
 echo "  - .github/ISSUE_TEMPLATE/support_request.yml"
+echo "  - .github/SECURITY.md"
+echo "  - .github/SECURITY.ru.md"
 
 if [[ "$DO_COMMIT" == true ]]; then
     git add lib.sh xray-reality.sh README.md README.ru.md docs/en/CHANGELOG.md docs/ru/CHANGELOG.md \
-        .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/support_request.yml
+        .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/support_request.yml \
+        .github/SECURITY.md .github/SECURITY.ru.md
     if git diff --cached --quiet; then
         echo "No staged changes to commit."
     else

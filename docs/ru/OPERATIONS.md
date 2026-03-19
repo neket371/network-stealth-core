@@ -205,11 +205,13 @@ managed exports теперь включают:
 - `export/canary/measure-windows.ps1`
 
 используй canary bundle, когда нужно тестировать узел с другой машины или сети.
-для варианта `emergency` задай browser dialer env на клиентской стороне:
+для варианта `emergency` запускай клиент через shell-safe env assignment:
 
 ```bash
-export xray.browser.dialer=127.0.0.1:11050
+env 'xray.browser.dialer=127.0.0.1:11050' xray run -config /path/to/emergency.json
 ```
+
+не используй dotted `export`-форму в bash и других POSIX shell: dotted env names там не являются валидными shell-идентификаторами.
 
 ## важные файлы
 

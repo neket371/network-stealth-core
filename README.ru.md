@@ -160,7 +160,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 для удалённых тестов на сетях рф используй bundle из `export/canary/` и raw xray-конфиги оттуда.
-если проверяешь `emergency`, на стороне клиента нужно выставить `xray.browser.dialer`.
+если проверяешь `emergency`, на стороне клиента нужно выставить `xray.browser.dialer`; в POSIX shell используй `env 'xray.browser.dialer=127.0.0.1:11050' ...`, а не `export`.
 hosted CI, nightly runtime smoke и busy-host lifecycle checks доказывают только runtime correctness; для реальной anti-dpi проверки используй [docs/ru/FIELD-VALIDATION.md](docs/ru/FIELD-VALIDATION.md).
 
 ## документация для сопровождающих

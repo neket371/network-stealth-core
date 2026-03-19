@@ -84,8 +84,10 @@ jq . /tmp/measure.json
 пример env на клиенте:
 
 ```bash
-export xray.browser.dialer=127.0.0.1:11050
+env 'xray.browser.dialer=127.0.0.1:11050' xray run -config /path/to/emergency.json
 ```
+
+не используй dotted `export`-форму в bash и других POSIX shell: dotted env names там не являются валидными shell-идентификаторами.
 
 это нормально, что server-side post-action self-check не запускает `emergency`.
 

@@ -322,7 +322,9 @@ fi
 echo "use the bundle with xray and curl installed."
 echo "recommended flow:"
 echo "  1. inspect manifest.json"
-echo "  2. export ${XRAY_BROWSER_DIALER_ADDRESS:-xray.browser.dialer}=host:port if testing emergency"
+echo "  2. if you test emergency on a POSIX shell, launch the client with:"
+echo "     env 'xray.browser.dialer=127.0.0.1:11050' xray run -config raw-xray/<emergency-config>.json"
+echo "     use browser_dialer_env/browser_dialer_address from manifest.json if they differ from the defaults"
 echo "  3. run repo-local scripts/measure-stealth.sh for full JSON reports when possible"
 cat "$MANIFEST"
 EOF

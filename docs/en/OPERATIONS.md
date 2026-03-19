@@ -205,11 +205,13 @@ managed exports now include:
 - `export/canary/measure-windows.ps1`
 
 use the canary bundle when you need field testing from another machine or network.
-for the `emergency` variant, set the browser dialer env on the client side:
+for the `emergency` variant, launch the client with a shell-safe env assignment:
 
 ```bash
-export xray.browser.dialer=127.0.0.1:11050
+env 'xray.browser.dialer=127.0.0.1:11050' xray run -config /path/to/emergency.json
 ```
+
+do not use the dotted `export` form in bash or other POSIX shells: dotted env names are not valid shell identifiers there.
 
 ## important files
 

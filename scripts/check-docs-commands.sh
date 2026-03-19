@@ -101,6 +101,17 @@ for file in docs/en/FAQ.md docs/ru/FAQ.md docs/en/OPERATIONS.md docs/ru/OPERATIO
     fi
 done
 
+for file in docs/en/OPERATIONS.md docs/ru/OPERATIONS.md docs/en/TROUBLESHOOTING.md docs/ru/TROUBLESHOOTING.md; do
+    if grep -q 'export xray\.browser\.dialer=' "$file"; then
+        echo "docs command contract fail: invalid dotted export guidance in ${file}" >&2
+        fail=1
+    fi
+    if ! grep -q "env 'xray.browser.dialer=127.0.0.1:11050'" "$file"; then
+        echo "docs command contract fail: missing shell-safe browser dialer guidance in ${file}" >&2
+        fail=1
+    fi
+done
+
 for file in README.md README.ru.md docs/en/OPERATIONS.md docs/ru/OPERATIONS.md docs/en/INDEX.md docs/ru/INDEX.md; do
     if ! grep -q 'FIELD-VALIDATION.md' "$file"; then
         echo "docs command contract fail: missing field-validation link in ${file}" >&2

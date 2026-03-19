@@ -25,7 +25,7 @@
 : "${MINISIGN_MIRRORS:=}"
 : "${DOWNLOAD_HOST_ALLOWLIST:=github.com,api.github.com,objects.githubusercontent.com,raw.githubusercontent.com,release-assets.githubusercontent.com,ghproxy.com}"
 : "${SELF_CHECK_ENABLED:=true}"
-: "${SELF_CHECK_URLS:=https://www.gstatic.com/generate_204 https://connectivitycheck.gstatic.com/generate_204}"
+: "${SELF_CHECK_URLS:=https://cp.cloudflare.com/generate_204,https://www.gstatic.com/generate_204}"
 : "${REALITY_TEST_PORTS:=443,8443,2053,2083,2087,2096}"
 : "${BOLD:=}"
 : "${CYAN:=}"
