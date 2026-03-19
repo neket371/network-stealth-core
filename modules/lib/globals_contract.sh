@@ -102,6 +102,7 @@
 : "${TRANSPORT:=xhttp}"
 : "${PROGRESS_MODE:=auto}"
 : "${MUX_MODE:=off}"
+# legacy grpc/mux compatibility knobs remain for migrate-stealth and explicit legacy rebuilds.
 : "${MUX_ENABLED:=false}"
 : "${MUX_CONCURRENCY:=0}"
 : "${MUX_CONCURRENCY_MIN:=3}"

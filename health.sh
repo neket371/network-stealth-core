@@ -56,113 +56,53 @@ health_monitoring_collect_port_lines() {
     out_v6_ref="$calc_ports_v6_line"
 }
 
-health_monitoring_normalize_settings() {
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_retention_ref="$1"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_size_bytes_ref="$2"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_interval_ref="$3"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_domain_health_ref="$4"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_ports_ref="$5"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_probe_timeout_ref="$6"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_rate_limit_ref="$7"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_max_probes_ref="$8"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_health_log_ref="$9"
-    # shellcheck disable=SC2034 # nameref writes caller variables.
-    local -n out_xray_config_ref="${10}"
+health_monitoring_assign_bounded_int() {
+    # shellcheck disable=SC2034 # nameref writes caller variable.
+    local -n out_ref="$1"
+    local raw_value="$2"
+    local default_value="$3"
+    local min_value="$4"
+    local max_value="$5"
+    local setting_name="$6"
 
-    local calc_log_retention="${LOG_RETENTION_DAYS:-30}"
-    local calc_log_max_size_mb="${LOG_MAX_SIZE_MB:-10}"
-    local calc_log_max_size_bytes=0
-    local calc_health_interval="${HEALTH_CHECK_INTERVAL:-120}"
-    local calc_domain_health_file calc_reality_test_ports calc_probe_timeout calc_rate_limit_ms calc_max_probes
-    local calc_logs_dir calc_health_log calc_xray_config
-
-    if [[ ! "$calc_log_retention" =~ ^[0-9]+$ ]] || ((calc_log_retention < 1 || calc_log_retention > 3650)); then
-        log WARN "Некорректный LOG_RETENTION_DAYS: ${calc_log_retention} (используем 30)"
-        calc_log_retention=30
-    fi
-    if [[ ! "$calc_log_max_size_mb" =~ ^[0-9]+$ ]] || ((calc_log_max_size_mb < 1 || calc_log_max_size_mb > 1024)); then
-        log WARN "Некорректный LOG_MAX_SIZE_MB: ${calc_log_max_size_mb} (используем 10)"
-        calc_log_max_size_mb=10
-    fi
-    calc_log_max_size_bytes=$((calc_log_max_size_mb * 1048576))
-    if [[ ! "$calc_health_interval" =~ ^[0-9]+$ ]] || ((calc_health_interval < 10 || calc_health_interval > 86400)); then
-        log WARN "Некорректный HEALTH_CHECK_INTERVAL: ${calc_health_interval} (используем 120)"
-        calc_health_interval=120
+    if [[ ! "$raw_value" =~ ^[0-9]+$ ]] || ((raw_value < min_value || raw_value > max_value)); then
+        log WARN "Некорректный ${setting_name}: ${raw_value} (используем ${default_value})"
+        raw_value="$default_value"
     fi
 
-    calc_domain_health_file="${DOMAIN_HEALTH_FILE//$'\n'/}"
-    calc_domain_health_file="${calc_domain_health_file//$'\r'/}"
-    if [[ -z "$calc_domain_health_file" ]]; then
-        calc_domain_health_file="/var/lib/xray/domain-health.json"
+    # shellcheck disable=SC2034 # nameref target is used by caller.
+    out_ref="$raw_value"
+}
+
+health_monitoring_assign_path_or_default() {
+    # shellcheck disable=SC2034 # nameref writes caller variable.
+    local -n out_ref="$1"
+    local raw_value="$2"
+    local default_value="$3"
+
+    raw_value="${raw_value//$'\n'/}"
+    raw_value="${raw_value//$'\r'/}"
+    raw_value=$(printf '%s' "$raw_value" | tr -d '\000-\037\177')
+    if [[ -z "$raw_value" || "$raw_value" != /* ]]; then
+        raw_value="$default_value"
     fi
 
-    calc_logs_dir="${XRAY_LOGS:-/var/log/xray}"
-    calc_logs_dir=$(printf '%s' "$calc_logs_dir" | tr -d '\000-\037\177')
-    if [[ -z "$calc_logs_dir" || "$calc_logs_dir" != /* ]]; then
-        calc_logs_dir="/var/log/xray"
+    # shellcheck disable=SC2034 # nameref target is used by caller.
+    out_ref="$raw_value"
+}
+
+health_monitoring_assign_port_list() {
+    # shellcheck disable=SC2034 # nameref writes caller variable.
+    local -n out_ref="$1"
+    local raw_value="$2"
+
+    raw_value="${raw_value//[^0-9, ]/}"
+    if [[ -z "$raw_value" ]]; then
+        raw_value="443,8443"
     fi
 
-    calc_health_log="${HEALTH_LOG:-${calc_logs_dir%/}/xray-health.log}"
-    calc_health_log=$(printf '%s' "$calc_health_log" | tr -d '\000-\037\177')
-    if [[ -z "$calc_health_log" || "$calc_health_log" != /* ]]; then
-        calc_health_log="${calc_logs_dir%/}/xray-health.log"
-    fi
-
-    calc_xray_config="${XRAY_CONFIG:-/etc/xray/config.json}"
-    calc_xray_config=$(printf '%s' "$calc_xray_config" | tr -d '\000-\037\177')
-    if [[ -z "$calc_xray_config" || "$calc_xray_config" != /* ]]; then
-        calc_xray_config="/etc/xray/config.json"
-    fi
-
-    calc_reality_test_ports="${REALITY_TEST_PORTS//[^0-9, ]/}"
-    if [[ -z "$calc_reality_test_ports" ]]; then
-        calc_reality_test_ports="443,8443"
-    fi
-
-    calc_probe_timeout="$DOMAIN_HEALTH_PROBE_TIMEOUT"
-    if [[ ! "$calc_probe_timeout" =~ ^[0-9]+$ ]] || ((calc_probe_timeout < 1 || calc_probe_timeout > 15)); then
-        calc_probe_timeout=2
-    fi
-
-    calc_rate_limit_ms="$DOMAIN_HEALTH_RATE_LIMIT_MS"
-    if [[ ! "$calc_rate_limit_ms" =~ ^[0-9]+$ ]] || ((calc_rate_limit_ms < 0 || calc_rate_limit_ms > 10000)); then
-        calc_rate_limit_ms=250
-    fi
-
-    calc_max_probes="$DOMAIN_HEALTH_MAX_PROBES"
-    if [[ ! "$calc_max_probes" =~ ^[0-9]+$ ]] || ((calc_max_probes < 1 || calc_max_probes > 200)); then
-        calc_max_probes=20
-    fi
-
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_retention_ref="$calc_log_retention"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_size_bytes_ref="$calc_log_max_size_bytes"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_interval_ref="$calc_health_interval"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_domain_health_ref="$calc_domain_health_file"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_ports_ref="$calc_reality_test_ports"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_probe_timeout_ref="$calc_probe_timeout"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_rate_limit_ref="$calc_rate_limit_ms"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_max_probes_ref="$calc_max_probes"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_health_log_ref="$calc_health_log"
-    # shellcheck disable=SC2034 # nameref targets are used by caller.
-    out_xray_config_ref="$calc_xray_config"
+    # shellcheck disable=SC2034 # nameref target is used by caller.
+    out_ref="$raw_value"
 }
 
 health_monitoring_emit_health_script_prelude() {
@@ -366,8 +306,8 @@ update_domain_health() {
             fi
 
             local fail_streak score timeout_sec
-            fail_streak=$(echo "$state" | jq -r --arg d "$domain" '.domains[$d].fail_streak // 0' 2> /dev/null || echo 0)
-            score=$(echo "$state" | jq -r --arg d "$domain" '.domains[$d].score // 0' 2> /dev/null || echo 0)
+            fail_streak=$(printf '%s\n' "$state" | jq -r --arg d "$domain" '.domains[$d].fail_streak // 0' 2> /dev/null || echo 0)
+            score=$(printf '%s\n' "$state" | jq -r --arg d "$domain" '.domains[$d].score // 0' 2> /dev/null || echo 0)
             [[ "$fail_streak" =~ ^[0-9]+$ ]] || fail_streak=0
             [[ "$score" =~ ^-?[0-9]+$ ]] || score=0
 
@@ -384,7 +324,7 @@ update_domain_health() {
             ((timeout_sec < 1)) && timeout_sec=1
 
             if probe_domain "$domain" "$timeout_sec"; then
-                state=$(echo "$state" | jq --arg d "$domain" --arg now "$now" '
+                state=$(printf '%s\n' "$state" | jq --arg d "$domain" --arg now "$now" '
                     .domains[$d] = ((.domains[$d] // {score:0, success:0, fail:0, fail_streak:0})
                         | .success = ((.success // 0) + 1)
                         | .score = (((.score // 0) + 3) | if . > 100 then 100 else . end)
@@ -392,7 +332,7 @@ update_domain_health() {
                         | .last_ok = $now
                     )')
             else
-                state=$(echo "$state" | jq --arg d "$domain" --arg now "$now" '
+                state=$(printf '%s\n' "$state" | jq --arg d "$domain" --arg now "$now" '
                     .domains[$d] = ((.domains[$d] // {score:0, success:0, fail:0, fail_streak:0})
                         | .fail = ((.fail // 0) + 1)
                         | .fail_streak = ((.fail_streak // 0) + 1)
@@ -413,7 +353,7 @@ update_domain_health() {
             fi
         done
 
-        state=$(echo "$state" | jq --arg now "$now" '.updated_at = $now')
+        state=$(printf '%s\n' "$state" | jq --arg now "$now" '.updated_at = $now')
         local tmp
         tmp=$(mktemp "${file}.XXXXXX")
         trap 'rm -f "$tmp" 2>/dev/null || true' EXIT INT TERM
@@ -538,7 +478,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-TimeoutStartSec=30min
+TimeoutStartSec=90s
 ExecStart=/usr/local/bin/xray-health.sh
 EOF
 
@@ -573,20 +513,23 @@ setup_health_monitoring() {
     local ports_v4_line ports_v6_line
     health_monitoring_collect_port_lines ports_v4_line ports_v6_line
 
-    local log_retention log_max_size_bytes safe_health_interval
+    local log_retention log_max_size_mb log_max_size_bytes safe_health_interval
     local safe_domain_health_file safe_reality_test_ports safe_probe_timeout safe_rate_limit_ms safe_max_probes
-    local safe_health_log safe_xray_config
-    health_monitoring_normalize_settings \
-        log_retention \
-        log_max_size_bytes \
-        safe_health_interval \
-        safe_domain_health_file \
-        safe_reality_test_ports \
-        safe_probe_timeout \
-        safe_rate_limit_ms \
-        safe_max_probes \
-        safe_health_log \
-        safe_xray_config
+    local safe_logs_dir safe_health_log safe_xray_config
+
+    health_monitoring_assign_bounded_int log_retention "${LOG_RETENTION_DAYS:-30}" 30 1 3650 "LOG_RETENTION_DAYS"
+    health_monitoring_assign_bounded_int log_max_size_mb "${LOG_MAX_SIZE_MB:-10}" 10 1 1024 "LOG_MAX_SIZE_MB"
+    log_max_size_bytes=$((log_max_size_mb * 1048576))
+    health_monitoring_assign_bounded_int safe_health_interval "${HEALTH_CHECK_INTERVAL:-120}" 120 10 86400 "HEALTH_CHECK_INTERVAL"
+
+    health_monitoring_assign_path_or_default safe_domain_health_file "${DOMAIN_HEALTH_FILE:-}" "/var/lib/xray/domain-health.json"
+    health_monitoring_assign_path_or_default safe_logs_dir "${XRAY_LOGS:-/var/log/xray}" "/var/log/xray"
+    health_monitoring_assign_path_or_default safe_health_log "${HEALTH_LOG:-${safe_logs_dir%/}/xray-health.log}" "${safe_logs_dir%/}/xray-health.log"
+    health_monitoring_assign_path_or_default safe_xray_config "${XRAY_CONFIG:-/etc/xray/config.json}" "/etc/xray/config.json"
+    health_monitoring_assign_port_list safe_reality_test_ports "${REALITY_TEST_PORTS:-443,8443}"
+    health_monitoring_assign_bounded_int safe_probe_timeout "${DOMAIN_HEALTH_PROBE_TIMEOUT:-2}" 2 1 15 "DOMAIN_HEALTH_PROBE_TIMEOUT"
+    health_monitoring_assign_bounded_int safe_rate_limit_ms "${DOMAIN_HEALTH_RATE_LIMIT_MS:-250}" 250 0 10000 "DOMAIN_HEALTH_RATE_LIMIT_MS"
+    health_monitoring_assign_bounded_int safe_max_probes "${DOMAIN_HEALTH_MAX_PROBES:-20}" 20 1 200 "DOMAIN_HEALTH_MAX_PROBES"
 
     health_monitoring_write_health_script \
         "$ports_v4_line" \

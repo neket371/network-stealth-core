@@ -96,6 +96,7 @@
     grep -q "^DOMAIN_HEALTH_PROBE_TIMEOUT=2$" "$HEALTH_SCRIPT_OUT"
     grep -q "^DOMAIN_HEALTH_RATE_LIMIT_MS=250$" "$HEALTH_SCRIPT_OUT"
     grep -q "^DOMAIN_HEALTH_MAX_PROBES=20$" "$HEALTH_SCRIPT_OUT"
+    grep -q "^TimeoutStartSec=90s$" "$HEALTH_SERVICE_OUT"
     ! grep -q "split_list" "$HEALTH_SCRIPT_OUT"
     grep -q "^OnUnitActiveSec=120s$" "$HEALTH_TIMER_OUT"
     echo "ok"
@@ -399,6 +400,59 @@
     grep -q "Verify return code: 0 (ok)" "$HEALTH_SCRIPT_OUT"
     grep -q -- "-verify_return_error -verify_hostname" "$HEALTH_SCRIPT_OUT"
     ! grep -q "grep -q \"CONNECTED\"" "$HEALTH_SCRIPT_OUT"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "setup_health_monitoring uses printf-safe jq state updates in generated domain health script" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    HEALTH_SCRIPT_OUT="$tmp_dir/xray-health.sh"
+    HEALTH_SERVICE_OUT="$tmp_dir/xray-health.service"
+    HEALTH_TIMER_OUT="$tmp_dir/xray-health.timer"
+
+    log() { :; }
+    backup_file() { :; }
+    systemctl_available() { return 0; }
+    systemd_running() { return 0; }
+    systemctl_run_bounded() { return 1; }
+    systemd_enable_symlink_path_for_unit() { return 1; }
+    atomic_write() {
+      local target="$1"
+      local mode="${2:-}"
+      local out="$target"
+      case "$target" in
+        /usr/local/bin/xray-health.sh) out="$HEALTH_SCRIPT_OUT" ;;
+        /etc/systemd/system/xray-health.service) out="$HEALTH_SERVICE_OUT" ;;
+        /etc/systemd/system/xray-health.timer) out="$HEALTH_TIMER_OUT" ;;
+      esac
+      cat > "$out"
+      [[ -n "$mode" ]] && chmod "$mode" "$out"
+    }
+
+    PORTS=(443)
+    HAS_IPV6=false
+    REALITY_TEST_PORTS="443"
+    DOMAIN_HEALTH_FILE="/var/lib/xray/domain-health.json"
+    DOMAIN_HEALTH_PROBE_TIMEOUT=2
+    DOMAIN_HEALTH_RATE_LIMIT_MS=250
+    DOMAIN_HEALTH_MAX_PROBES=20
+    LOG_RETENTION_DAYS=30
+    LOG_MAX_SIZE_MB=10
+    HEALTH_CHECK_INTERVAL=120
+    setup_health_monitoring
+
+    grep -Fq "fail_streak=\$(printf '\''%s\\n'\'' \"\$state\" | jq -r" "$HEALTH_SCRIPT_OUT"
+    grep -Fq "score=\$(printf '\''%s\\n'\'' \"\$state\" | jq -r" "$HEALTH_SCRIPT_OUT"
+    grep -Fq "state=\$(printf '\''%s\\n'\'' \"\$state\" | jq --arg d \"\$domain\" --arg now \"\$now\"" "$HEALTH_SCRIPT_OUT"
+    grep -Fq "state=\$(printf '\''%s\\n'\'' \"\$state\" | jq --arg now \"\$now\" '\''.updated_at = \$now'\'')" "$HEALTH_SCRIPT_OUT"
+    ! grep -Fq "echo \"\$state\" | jq" "$HEALTH_SCRIPT_OUT"
     echo "ok"
   '
     [ "$status" -eq 0 ]

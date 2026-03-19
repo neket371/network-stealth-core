@@ -3847,7 +3847,7 @@ EOF
     grep -q '\''restart_xray_bounded()'\'' ./health.sh
     grep -q '\''timeout --signal=TERM --kill-after=10s'\'' ./health.sh
     grep -q '\''if restart_xray_bounded; then'\'' ./health.sh
-    grep -q '\''TimeoutStartSec=30min'\'' ./health.sh
+    grep -q '\''TimeoutStartSec=90s'\'' ./health.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]

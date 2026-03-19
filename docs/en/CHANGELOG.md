@@ -7,6 +7,12 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Fixed
+- switched generated domain-health updates to `printf '%s\n'` pipes so JSON state is passed to `jq` consistently instead of relying on shell `echo`
+- reduced the `xray-health.service` oneshot start timeout to `90s` so a stuck health pass fails promptly instead of waiting `30min`
+- removed the 10-position nameref normalization helper from health monitoring setup and replaced it with explicit typed normalizers
+- clarified grpc/mux defaults as legacy compatibility knobs for `migrate-stealth` and explicit legacy rebuild paths
+
 ## [7.5.6] - 2026-03-19
 
 ### Fixed

@@ -7,6 +7,12 @@
 
 ## [unreleased]
 
+### Fixed
+- generated domain-health updates переведены на `printf '%s\n'`, чтобы JSON state передавался в `jq` единообразно и без зависимости от shell `echo`
+- oneshot-таймаут `xray-health.service` уменьшен до `90s`, чтобы зависший health pass фейлился быстро, а не висел `30min`
+- из setup health monitoring убран helper с 10 позиционными nameref-аргументами; вместо него используются явные typed normalizers
+- grpc/mux defaults явно помечены как legacy compatibility knobs для `migrate-stealth` и explicit legacy rebuild paths
+
 ## [7.5.6] - 2026-03-19
 
 ### Fixed
