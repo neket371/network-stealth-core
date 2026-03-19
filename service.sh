@@ -288,15 +288,21 @@ status_flow_render_verbose_config_details() {
             port_status="${GREEN}активен${NC}"
         fi
 
-        local transport_label
-        transport_label=$(transport_endpoint_label "$net")
+        local transport_label="endpoint"
+        local transport_name="${net:-xhttp}"
+        if declare -F transport_endpoint_label > /dev/null 2>&1; then
+            transport_label=$(transport_endpoint_label "$net")
+        fi
+        if declare -F transport_display_name > /dev/null 2>&1; then
+            transport_name=$(transport_display_name "${net:-xhttp}")
+        fi
 
         echo -e "  Config ${i}:"
         echo -e "    Порт:        ${port} (${port_status})"
         echo -e "    Домен:       ${domain:-?}"
         echo -e "    SNI:         ${sni:-?}"
         echo -e "    Fingerprint: ${fp:-?}"
-        echo -e "    Transport:   $(transport_display_name "${net:-xhttp}")"
+        echo -e "    Transport:   ${transport_name}"
         echo -e "    ${transport_label}: ${service:-?}"
         echo -e "    Flow:        ${flow:-${XRAY_DIRECT_FLOW:-xtls-rprx-vision}}"
         echo -e "    Decryption:  ${decryption:-none}"

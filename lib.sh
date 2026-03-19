@@ -38,8 +38,8 @@ LOG_MAX_SIZE_MB="${LOG_MAX_SIZE_MB:-10}"
 KEEP_LOCAL_BACKUPS="${KEEP_LOCAL_BACKUPS:-true}"
 XRAY_TRANSPORT="${XRAY_TRANSPORT:-}"
 XRAY_ADVANCED="${XRAY_ADVANCED:-}"
-TRANSPORT="${TRANSPORT:-xhttp}" # xhttp only (legacy grpc/http2 require migrate-stealth)
-MUX_MODE="${MUX_MODE:-off}"     # off by default for xhttp-first installs
+TRANSPORT="${TRANSPORT:-xhttp}" # normal v7 actions are xhttp-only; legacy grpc/http2 require migrate-stealth
+MUX_MODE="${MUX_MODE:-off}"     # ignored on normal xhttp-first installs
 # legacy grpc/mux knobs remain only for migrate-stealth and explicit legacy rebuild paths.
 MUX_CONCURRENCY_MIN="${MUX_CONCURRENCY_MIN:-3}"
 MUX_CONCURRENCY_MAX="${MUX_CONCURRENCY_MAX:-20}"

@@ -604,6 +604,36 @@ apply_runtime_overrides() {
         TRANSPORT="$XRAY_TRANSPORT"
     fi
     TRANSPORT="${TRANSPORT,,}"
+    case "${ACTION:-install}" in
+        migrate-stealth)
+            case "$TRANSPORT" in
+                "" | xhttp | grpc | http2) ;;
+                h2) TRANSPORT="http2" ;;
+                *)
+                    log ERROR "Неверный TRANSPORT: ${TRANSPORT} (для migrate-stealth допускаются xhttp|grpc|http2)"
+                    exit 1
+                    ;;
+            esac
+            ;;
+        *)
+            case "$TRANSPORT" in
+                "" | xhttp)
+                    TRANSPORT="xhttp"
+                    ;;
+                grpc | http2 | h2)
+                    log ERROR "TRANSPORT=${TRANSPORT} больше не поддерживается в v7; используйте xhttp или migrate-stealth для legacy install"
+                    exit 1
+                    ;;
+                *)
+                    log ERROR "Неверный TRANSPORT: ${TRANSPORT} (в v7 поддерживается только xhttp)"
+                    exit 1
+                    ;;
+            esac
+            ;;
+    esac
+    if [[ -n "${XRAY_TRANSPORT:-}" ]]; then
+        XRAY_TRANSPORT="$TRANSPORT"
+    fi
     ADVANCED_MODE=$(parse_bool "${XRAY_ADVANCED:-${ADVANCED_MODE:-false}}" false)
     MUX_MODE="${MUX_MODE,,}"
     QR_ENABLED="${QR_ENABLED,,}"

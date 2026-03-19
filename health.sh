@@ -381,17 +381,22 @@ restart_xray_bounded() {
     fi
 }
 
-FAIL_COUNT=$(read_count "$FAIL_COUNT_FILE")
+FAIL_COUNT=$(read_count "$FAIL_COUNT_FILE") || {
+    echo "[$(date)] WARN: could not read fail count, assuming 0" >> "$LOG"
+    FAIL_COUNT=0
+}
 
 if ! check_xray_health; then
     FAIL_COUNT=$((FAIL_COUNT + 1))
-    write_count "$FAIL_COUNT_FILE" "$FAIL_COUNT"
+    write_count "$FAIL_COUNT_FILE" "$FAIL_COUNT" \
+        || echo "[$(date)] WARN: could not persist fail count" >> "$LOG"
     echo "[$(date)] Xray health check failed ($FAIL_COUNT/$MAX_FAILS)" >> "$LOG"
 
     if [[ $FAIL_COUNT -ge $MAX_FAILS ]]; then
         echo "[$(date)] Max Xray failures reached - restarting" >> "$LOG"
         if restart_xray_bounded; then
-            write_count "$FAIL_COUNT_FILE" "0"
+            write_count "$FAIL_COUNT_FILE" "0" \
+                || echo "[$(date)] WARN: could not reset fail count" >> "$LOG"
             sleep 3
         else
             echo "[$(date)] WARN: xray restart failed or timed out" >> "$LOG"
@@ -401,7 +406,8 @@ else
     if [[ "$FAIL_COUNT" -gt 0 ]]; then
         echo "[$(date)] Xray recovered after $FAIL_COUNT failure(s)" >> "$LOG"
     fi
-    write_count "$FAIL_COUNT_FILE" "0"
+    write_count "$FAIL_COUNT_FILE" "0" \
+        || echo "[$(date)] WARN: could not reset fail count" >> "$LOG"
 fi
 
 update_domain_health || echo "[$(date)] WARN: domain health update failed" >> "$LOG"
@@ -575,9 +581,8 @@ setup_health_monitoring() {
 
 diagnose() {
     log STEP "Собираем диагностику..."
-    set +e
-
-    if {
+    if (
+        set +e
         echo "===== CONTEXT ====="
         echo "Date: $(date)"
         echo "Failed unit: ${FAILED_UNIT:-N/A}"
@@ -639,11 +644,9 @@ diagnose() {
         df -h 2> /dev/null || true
         free -m 2> /dev/null || true
         echo ""
-    } > "$DIAG_LOG" 2>&1; then
-        set -e
+    ) > "$DIAG_LOG" 2>&1; then
         log OK "Диагностика сохранена в $DIAG_LOG"
     else
-        set -e
         log WARN "Не удалось сохранить диагностику в $DIAG_LOG"
     fi
 }

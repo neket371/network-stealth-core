@@ -99,9 +99,9 @@
 : "${AUTO_UPDATE_RANDOM_DELAY:=1h}"
 : "${AUTO_ROLLBACK:=true}"
 
-: "${TRANSPORT:=xhttp}"
+: "${TRANSPORT:=xhttp}" # normal v7 actions are xhttp-only; legacy grpc/http2 require migrate-stealth
 : "${PROGRESS_MODE:=auto}"
-: "${MUX_MODE:=off}"
+: "${MUX_MODE:=off}" # ignored on normal xhttp-first installs
 # legacy grpc/mux compatibility knobs remain for migrate-stealth and explicit legacy rebuilds.
 : "${MUX_ENABLED:=false}"
 : "${MUX_CONCURRENCY:=0}"

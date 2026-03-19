@@ -1154,6 +1154,29 @@ ExecStart=/tmp/pwn"
     [[ "$output" == *"tier=tier_global_ms10"* ]]
 }
 
+@test "apply_runtime_overrides rejects explicit legacy transport override outside migrate-stealth" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    ACTION="status"
+    TRANSPORT="grpc"
+    apply_runtime_overrides
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"migrate-stealth"* ]]
+}
+
+@test "apply_runtime_overrides allows explicit legacy transport for migrate-stealth" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    ACTION="migrate-stealth"
+    TRANSPORT="grpc"
+    apply_runtime_overrides
+    echo "$TRANSPORT"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "grpc" ]
+}
+
 @test "strict_validate_runtime_inputs rejects invalid XRAY_DOMAINS_FILE domain" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -4021,6 +4044,64 @@ EOF
     run bash -eo pipefail -c '
     grep -Fq '\''journalctl -u xray-health.service -n "$lines" --no-pager'\'' ./service.sh
     grep -Fq '\''journalctl -u xray-health.service -n 10 --no-pager'\'' ./service.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "status_flow verbose falls back when transport helper functions are unavailable" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+    unset -f transport_endpoint_label transport_display_name
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_BIN="$tmp/xray"
+    XRAY_CONFIG="$tmp/config.json"
+    XRAY_KEYS="$tmp/keys"
+    mkdir -p "$XRAY_KEYS"
+    touch "$XRAY_KEYS/clients.txt"
+    cat > "$XRAY_CONFIG" <<'"'"'EOF'"'"'
+{"inbounds":[{"listen":"0.0.0.0","port":443,"streamSettings":{"network":"xhttp","realitySettings":{"dest":"example.com:443","serverNames":["example.com"],"fingerprint":"chrome"},"xhttpSettings":{"path":"/x"}},"settings":{"decryption":"none","clients":[{"flow":"xtls-rprx-vision"}]}}]}
+EOF
+    cat > "$XRAY_BIN" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+echo "Xray 25.9.5"
+EOF
+    chmod +x "$XRAY_BIN"
+    VERBOSE=true
+    systemctl() { return 1; }
+    out="$(status_flow | sed -E "s/\x1B\\[[0-9;]*[A-Za-z]//g")"
+    printf "%s\n" "$out" | grep -q "Transport:   xhttp"
+    printf "%s\n" "$out" | grep -q "endpoint: /x"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "diagnose keeps errexit enabled in caller shell" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+
+    tmp_log=$(mktemp)
+    trap "rm -f \"$tmp_log\"" EXIT
+
+    DIAG_LOG="$tmp_log"
+    XRAY_BIN="/nonexistent/xray"
+    XRAY_CONFIG="/nonexistent/config.json"
+
+    log() { :; }
+    systemctl() { return 0; }
+    journalctl() { return 0; }
+    ss() { return 0; }
+    df() { return 0; }
+    free() { return 0; }
+
+    diagnose
+    set -o | grep -Eq "^errexit[[:space:]]+on$"
     echo "ok"
   '
     [ "$status" -eq 0 ]

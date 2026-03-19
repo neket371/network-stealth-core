@@ -250,7 +250,11 @@
     DOMAIN_HEALTH_MAX_PROBES=20
 
     setup_health_monitoring
+    grep -Fq "FAIL_COUNT=\$(read_count \"\$FAIL_COUNT_FILE\") || {" "$HEALTH_SCRIPT_OUT"
     grep -Fq "FAIL_COUNT=\$((FAIL_COUNT + 1))" "$HEALTH_SCRIPT_OUT"
+    grep -Fq "write_count \"\$FAIL_COUNT_FILE\" \"\$FAIL_COUNT\" \\" "$HEALTH_SCRIPT_OUT"
+    grep -Fq "WARN: could not persist fail count" "$HEALTH_SCRIPT_OUT"
+    grep -Fq "WARN: could not reset fail count" "$HEALTH_SCRIPT_OUT"
     ! grep -q "\\(\\(FAIL_COUNT\\+\\+\\)\\)" "$HEALTH_SCRIPT_OUT"
     echo "ok"
   '
@@ -541,7 +545,8 @@
 }
 EOF
     out=$(self_check_status_summary_tsv)
-    [[ "$out" == $'\''warning\trepair\t2026-03-07T12:00:00Z\tconfig-2\trescue\tpacket-up\tipv4\t321'\'' ]]
+    expected=$(printf "warning\trepair\t2026-03-07T12:00:00Z\tconfig-2\trescue\tpacket-up\tipv4\t321")
+    [[ "$out" == "$expected" ]]
     echo ok
   '
     [ "$status" -eq 0 ]
