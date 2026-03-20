@@ -241,6 +241,25 @@ build_xray_client_variant_json() {
         }'
 }
 
+write_client_variant_json_file() {
+    local target_file="$1"
+    shift
+
+    mkdir -p "$(dirname "$target_file")" || {
+        log ERROR "Не удалось создать каталог для raw Xray файла: ${target_file}"
+        return 1
+    }
+
+    if ! build_xray_client_variant_json "$@" | jq '.' > "$target_file"; then
+        rm -f "$target_file"
+        log ERROR "Не удалось собрать raw Xray конфиг: ${target_file}"
+        return 1
+    fi
+
+    chmod 640 "$target_file" 2> /dev/null || true
+    chown "root:${XRAY_GROUP}" "$target_file" 2> /dev/null || true
+}
+
 render_clients_txt_from_json() {
     local json_file="$1"
     local client_file="$2"
@@ -637,14 +656,14 @@ save_client_configs_build_inventory() {
     local -n out_qr_links_v4="$3"
     # shellcheck disable=SC2034 # Used as nameref output parameter.
     local -n out_qr_links_v6="$4"
+    local stage_export_root="${5:-${XRAY_KEYS}/export}"
 
     local json_configs_acc
     json_configs_acc=$(jq -n '[]')
     local link_prefix
     link_prefix=$(client_link_prefix_for_tier "$DOMAIN_TIER")
-    local raw_xray_dir="${XRAY_KEYS}/export/raw-xray"
+    local raw_xray_dir="${stage_export_root}/raw-xray"
     mkdir -p "$raw_xray_dir"
-    find "$raw_xray_dir" -maxdepth 1 -type f -name 'config-*.json' -delete 2> /dev/null || true
 
     local i
     for ((i = 0; i < required_count; i++)); do
@@ -704,26 +723,29 @@ save_client_configs_build_inventory() {
             if [[ "$transport_value" == "xhttp" ]]; then
                 local raw_server_v4="${SERVER_IP:-$domain}"
                 local raw_server_v6="${SERVER_IP6:-$domain}"
+                local raw_relative_path=""
+                local raw_target_v4=""
+                local raw_target_v6=""
                 if [[ "$variant_requires_browser_dialer" == "true" ]]; then
                     raw_server_v4="$domain"
                     raw_server_v6="$domain"
                 fi
-                raw_v4="${XRAY_KEYS}/export/$(variant_xray_relative_path "$((i + 1))" "$variant_key" "ipv4")"
-                mkdir -p "$(dirname "$raw_v4")"
-                build_xray_client_variant_json \
+                raw_relative_path="$(variant_xray_relative_path "$((i + 1))" "$variant_key" "ipv4")"
+                raw_v4="${XRAY_KEYS}/export/${raw_relative_path}"
+                raw_target_v4="${stage_export_root}/${raw_relative_path}"
+                write_client_variant_json_file \
+                    "$raw_target_v4" \
                     "$raw_server_v4" "${PORTS[$i]}" "${UUIDS[$i]}" "$sni" "$fp" "${PUBLIC_KEYS[$i]}" "${SHORT_IDS[$i]}" \
-                    "$transport_value" "$endpoint" "$variant_mode" "$vless_encryption" "$variant_requires_browser_dialer" "$direct_flow" |
-                    jq '.' | atomic_write "$raw_v4" 0640
-                chown "root:${XRAY_GROUP}" "$raw_v4" 2> /dev/null || true
+                    "$transport_value" "$endpoint" "$variant_mode" "$vless_encryption" "$variant_requires_browser_dialer" "$direct_flow" || return 1
 
                 if [[ "$HAS_IPV6" == true && -n "${PORTS_V6[$i]:-}" ]]; then
-                    raw_v6="${XRAY_KEYS}/export/$(variant_xray_relative_path "$((i + 1))" "$variant_key" "ipv6")"
-                    mkdir -p "$(dirname "$raw_v6")"
-                    build_xray_client_variant_json \
+                    raw_relative_path="$(variant_xray_relative_path "$((i + 1))" "$variant_key" "ipv6")"
+                    raw_v6="${XRAY_KEYS}/export/${raw_relative_path}"
+                    raw_target_v6="${stage_export_root}/${raw_relative_path}"
+                    write_client_variant_json_file \
+                        "$raw_target_v6" \
                         "$raw_server_v6" "${PORTS_V6[$i]}" "${UUIDS[$i]}" "$sni" "$fp" "${PUBLIC_KEYS[$i]}" "${SHORT_IDS[$i]}" \
-                        "$transport_value" "$endpoint" "$variant_mode" "$vless_encryption" "$variant_requires_browser_dialer" "$direct_flow" |
-                        jq '.' | atomic_write "$raw_v6" 0640
-                    chown "root:${XRAY_GROUP}" "$raw_v6" 2> /dev/null || true
+                        "$transport_value" "$endpoint" "$variant_mode" "$vless_encryption" "$variant_requires_browser_dialer" "$direct_flow" || return 1
                 fi
             fi
 
@@ -830,19 +852,10 @@ save_client_configs_build_inventory() {
     printf -v "$out_json_configs_name" '%s' "$json_configs_acc"
 }
 
-save_client_configs_persist_inventory() {
-    local json_file="$1"
-    local client_file="$2"
-    local json_configs="$3"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n qr_links_v4_ref="$4"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n qr_links_v6_ref="$5"
-    local i
+build_clients_json_output() {
+    local json_configs="$1"
 
-    backup_file "$json_file"
-    local json_output
-    json_output=$(jq -n \
+    jq -n \
         --arg server_ipv4 "$SERVER_IP" \
         --arg server_ipv6 "${SERVER_IP6:-}" \
         --arg generated "$(format_generated_timestamp)" \
@@ -861,30 +874,231 @@ save_client_configs_persist_inventory() {
             xray_min_version: $min_version,
             spider_mode: ($spider == "true"),
             configs: $configs
-        }')
-    printf '%s\n' "$json_output" | atomic_write "$json_file" 0640
-    secure_clients_json_permissions "$json_file"
-    render_clients_txt_from_json "$json_file" "$client_file"
-    render_clients_links_txt_from_json "$json_file" "${XRAY_KEYS}/clients-links.txt"
+        }'
+}
 
-    if [[ "$QR_ENABLED" == "true" ]] || { [[ "$QR_ENABLED" == "auto" ]] && command -v qrencode > /dev/null 2>&1; }; then
-        if command -v qrencode > /dev/null 2>&1; then
-            local qr_dir="${XRAY_KEYS}/qr"
-            mkdir -p "$qr_dir"
-            for ((i = 0; i < NUM_CONFIGS; i++)); do
-                if [[ -n "${qr_links_v4_ref[$i]:-}" ]]; then
-                    qrencode -o "${qr_dir}/config-${i}-v4.png" -s 6 -m 2 "${qr_links_v4_ref[$i]}" > /dev/null 2>&1 || true
-                fi
-                if [[ -n "${qr_links_v6_ref[$i]:-}" ]]; then
-                    qrencode -o "${qr_dir}/config-${i}-v6.png" -s 6 -m 2 "${qr_links_v6_ref[$i]}" > /dev/null 2>&1 || true
-                fi
-            done
-            log OK "QR-коды сохранены в ${qr_dir}"
-        else
-            log WARN "qrencode не найден; QR-коды пропущены"
-        fi
+client_artifacts_create_stage_dir() {
+    mkdir -p "${XRAY_KEYS}" "${XRAY_KEYS}/export" || {
+        log ERROR "Не удалось подготовить staging-каталог клиентских артефактов"
+        return 1
+    }
+
+    local stage_root
+    stage_root=$(mktemp -d "${XRAY_KEYS}/.client-artifacts.XXXXXX") || {
+        log ERROR "Не удалось создать staging-каталог клиентских артефактов"
+        return 1
+    }
+    printf '%s\n' "$stage_root"
+}
+
+client_artifacts_snapshot_target() {
+    local target="$1"
+    local backup_root="$2"
+    local label="$3"
+    local manifest_file="${backup_root}/manifest.env"
+
+    mkdir -p "$backup_root" || return 1
+    if [[ -e "$target" ]]; then
+        rm -rf -- "${backup_root:?}/${label:?}" 2> /dev/null || true
+        cp -a "$target" "${backup_root}/${label}" || return 1
+        printf '%s=present\n' "$label" >> "$manifest_file"
+    else
+        printf '%s=absent\n' "$label" >> "$manifest_file"
+    fi
+}
+
+client_artifacts_restore_target() {
+    local target="$1"
+    local backup_root="$2"
+    local label="$3"
+    local manifest_file="${backup_root}/manifest.env"
+    local state=""
+
+    if [[ -f "$manifest_file" ]]; then
+        state=$(awk -F= -v key="$label" '$1 == key { value=$2 } END { if (value != "") print value }' "$manifest_file")
     fi
 
+    case "$state" in
+        present)
+            mkdir -p "$(dirname "$target")" || return 1
+            rm -rf -- "$target" 2> /dev/null || true
+            cp -a "${backup_root}/${label}" "$target" || return 1
+            ;;
+        absent | "")
+            rm -rf -- "$target" 2> /dev/null || true
+            ;;
+    esac
+}
+
+save_client_configs_stage_qr_artifacts() {
+    local stage_root="$1"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n qr_links_v4_ref="$2"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n qr_links_v6_ref="$3"
+    local i
+
+    if [[ "$QR_ENABLED" != "true" ]] && { [[ "$QR_ENABLED" != "auto" ]] || ! command -v qrencode > /dev/null 2>&1; }; then
+        return 0
+    fi
+
+    if ! command -v qrencode > /dev/null 2>&1; then
+        log WARN "qrencode не найден; QR-коды пропущены"
+        return 0
+    fi
+
+    local qr_dir="${stage_root}/qr"
+    mkdir -p "$qr_dir" || {
+        log ERROR "Не удалось создать staging-каталог QR-кодов"
+        return 1
+    }
+
+    for ((i = 0; i < NUM_CONFIGS; i++)); do
+        if [[ -n "${qr_links_v4_ref[$i]:-}" ]]; then
+            qrencode -o "${qr_dir}/config-${i}-v4.png" -s 6 -m 2 "${qr_links_v4_ref[$i]}" > /dev/null 2>&1 || true
+        fi
+        if [[ -n "${qr_links_v6_ref[$i]:-}" ]]; then
+            qrencode -o "${qr_dir}/config-${i}-v6.png" -s 6 -m 2 "${qr_links_v6_ref[$i]}" > /dev/null 2>&1 || true
+        fi
+    done
+}
+
+save_client_configs_stage_inventory_outputs() {
+    local stage_root="$1"
+    local json_configs="$2"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n qr_links_v4_ref="$3"
+    # shellcheck disable=SC2034 # Used as nameref input parameter.
+    local -n qr_links_v6_ref="$4"
+
+    local json_stage="${stage_root}/clients.json"
+    local client_stage="${stage_root}/clients.txt"
+    local links_stage="${stage_root}/clients-links.txt"
+    local json_output
+    json_output=$(build_clients_json_output "$json_configs") || {
+        log ERROR "Не удалось собрать clients.json в staging"
+        return 1
+    }
+
+    if ! printf '%s\n' "$json_output" > "$json_stage"; then
+        log ERROR "Не удалось записать staging clients.json"
+        return 1
+    fi
+
+    if ! (
+        log() { :; }
+        backup_file() { :; }
+        render_clients_txt_from_json "$json_stage" "$client_stage"
+        render_clients_links_txt_from_json "$json_stage" "$links_stage"
+    ); then
+        log ERROR "Не удалось собрать staging client artifacts из clients.json"
+        return 1
+    fi
+
+    save_client_configs_stage_qr_artifacts "$stage_root" qr_links_v4_ref qr_links_v6_ref
+}
+
+publish_staged_client_file() {
+    local stage_file="$1"
+    local target_file="$2"
+    local mode="$3"
+    local kind="${4:-text}"
+
+    [[ -f "$stage_file" ]] || {
+        log ERROR "Не найден staging-файл клиента: ${stage_file}"
+        return 1
+    }
+
+    backup_file "$target_file"
+    if ! cat -- "$stage_file" | atomic_write "$target_file" "$mode"; then
+        log ERROR "Не удалось опубликовать клиентский артефакт: ${target_file}"
+        return 1
+    fi
+
+    case "$kind" in
+        json)
+            secure_clients_json_permissions "$target_file"
+            ;;
+        text)
+            chmod "$mode" "$target_file" 2> /dev/null || true
+            chown "root:${XRAY_GROUP}" "$target_file" 2> /dev/null || true
+            ;;
+        *) ;;
+    esac
+}
+
+publish_staged_client_directory() {
+    local stage_dir="$1"
+    local target_dir="$2"
+    local label="$3"
+
+    [[ -d "$stage_dir" ]] || return 0
+    mkdir -p "$(dirname "$target_dir")" || {
+        log ERROR "Не удалось подготовить каталог для ${label}: ${target_dir}"
+        return 1
+    }
+    rm -rf -- "$target_dir" 2> /dev/null || true
+    if ! mv -- "$stage_dir" "$target_dir"; then
+        log ERROR "Не удалось опубликовать ${label}: ${target_dir}"
+        return 1
+    fi
+}
+
+restore_client_artifact_publish() {
+    local backup_root="$1"
+    local json_file="$2"
+    local client_file="$3"
+    local links_file="$4"
+    local raw_xray_dir="$5"
+    local qr_dir="$6"
+
+    client_artifacts_restore_target "$json_file" "$backup_root" "clients.json" || return 1
+    client_artifacts_restore_target "$client_file" "$backup_root" "clients.txt" || return 1
+    client_artifacts_restore_target "$links_file" "$backup_root" "clients-links.txt" || return 1
+    client_artifacts_restore_target "$raw_xray_dir" "$backup_root" "raw-xray" || return 1
+    client_artifacts_restore_target "$qr_dir" "$backup_root" "qr" || return 1
+}
+
+save_client_configs_publish_staged_outputs() {
+    local stage_root="$1"
+    local json_file="$2"
+    local client_file="$3"
+    local links_file="${XRAY_KEYS}/clients-links.txt"
+    local raw_xray_dir="${XRAY_KEYS}/export/raw-xray"
+    local qr_dir="${XRAY_KEYS}/qr"
+    local backup_root="${stage_root}/publish-backup"
+
+    client_artifacts_snapshot_target "$json_file" "$backup_root" "clients.json" || return 1
+    client_artifacts_snapshot_target "$client_file" "$backup_root" "clients.txt" || return 1
+    client_artifacts_snapshot_target "$links_file" "$backup_root" "clients-links.txt" || return 1
+    client_artifacts_snapshot_target "$raw_xray_dir" "$backup_root" "raw-xray" || return 1
+    client_artifacts_snapshot_target "$qr_dir" "$backup_root" "qr" || return 1
+
+    if ! publish_staged_client_directory "${stage_root}/export/raw-xray" "$raw_xray_dir" "raw-xray"; then
+        restore_client_artifact_publish "$backup_root" "$json_file" "$client_file" "$links_file" "$raw_xray_dir" "$qr_dir" || true
+        return 1
+    fi
+    if ! publish_staged_client_file "${stage_root}/clients.json" "$json_file" 0640 json; then
+        restore_client_artifact_publish "$backup_root" "$json_file" "$client_file" "$links_file" "$raw_xray_dir" "$qr_dir" || true
+        return 1
+    fi
+    if ! publish_staged_client_file "${stage_root}/clients.txt" "$client_file" 0640 text; then
+        restore_client_artifact_publish "$backup_root" "$json_file" "$client_file" "$links_file" "$raw_xray_dir" "$qr_dir" || true
+        return 1
+    fi
+    if ! publish_staged_client_file "${stage_root}/clients-links.txt" "$links_file" 0640 text; then
+        restore_client_artifact_publish "$backup_root" "$json_file" "$client_file" "$links_file" "$raw_xray_dir" "$qr_dir" || true
+        return 1
+    fi
+    if [[ -d "${stage_root}/qr" ]]; then
+        if ! publish_staged_client_directory "${stage_root}/qr" "$qr_dir" "qr"; then
+            restore_client_artifact_publish "$backup_root" "$json_file" "$client_file" "$links_file" "$raw_xray_dir" "$qr_dir" || true
+            return 1
+        fi
+        log OK "QR-коды сохранены в ${qr_dir}"
+    fi
+
+    rm -rf -- "$backup_root" 2> /dev/null || true
     log OK "Конфигурации сохранены"
 }
 
@@ -915,6 +1129,19 @@ save_client_configs() {
     local -a qr_links_v4=()
     # shellcheck disable=SC2034 # Used via nameref helper.
     local -a qr_links_v6=()
-    save_client_configs_build_inventory "$required_count" json_configs qr_links_v4 qr_links_v6
-    save_client_configs_persist_inventory "$json_file" "$client_file" "$json_configs" qr_links_v4 qr_links_v6
+    local stage_root=""
+    stage_root=$(client_artifacts_create_stage_dir) || return 1
+    save_client_configs_build_inventory "$required_count" json_configs qr_links_v4 qr_links_v6 "${stage_root}/export" || {
+        rm -rf -- "$stage_root"
+        return 1
+    }
+    save_client_configs_stage_inventory_outputs "$stage_root" "$json_configs" qr_links_v4 qr_links_v6 || {
+        rm -rf -- "$stage_root"
+        return 1
+    }
+    save_client_configs_publish_staged_outputs "$stage_root" "$json_file" "$client_file" || {
+        rm -rf -- "$stage_root"
+        return 1
+    }
+    rm -rf -- "$stage_root"
 }

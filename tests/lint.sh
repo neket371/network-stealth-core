@@ -47,10 +47,19 @@ DEFAULT_SHELL_FILES=(
     "$SCRIPT_DIR/scripts/check-docs-commands.sh"
     "$SCRIPT_DIR/scripts/check-shell-complexity.sh"
     "$SCRIPT_DIR/scripts/check-shellcheck-advisory.sh"
+    "$SCRIPT_DIR/scripts/check-bats-quality.sh"
+    "$SCRIPT_DIR/scripts/check-powershell-syntax.sh"
     "$SCRIPT_DIR"/scripts/lab/*.sh
     "$SCRIPT_DIR"/modules/**/*.sh
     "$SCRIPT_DIR"/tests/e2e/*.sh
     "$SCRIPT_DIR/tests/lint.sh"
+)
+DEFAULT_BATS_FILES=(
+    "$SCRIPT_DIR"/tests/bats/*.bats
+)
+DEFAULT_PS1_FILES=(
+    "$SCRIPT_DIR"/scripts/*.ps1
+    "$SCRIPT_DIR"/scripts/windows/*.ps1
 )
 DEFAULT_MD_FILES=(
     "$SCRIPT_DIR/README.md"
@@ -64,6 +73,8 @@ DEFAULT_MD_FILES=(
 )
 
 FILES=("${DEFAULT_SHELL_FILES[@]}")
+BATS_FILES=("${DEFAULT_BATS_FILES[@]}")
+PS1_FILES=("${DEFAULT_PS1_FILES[@]}")
 MD_FILES=("${DEFAULT_MD_FILES[@]}")
 WORKFLOW_FILES=("$SCRIPT_DIR"/.github/workflows/*.yml)
 
@@ -79,9 +90,13 @@ if [[ "$FAST_MODE" == "true" ]]; then
     fi
 
     declare -A seen_shell=()
+    declare -A seen_bats=()
+    declare -A seen_ps1=()
     declare -A seen_md=()
     declare -A seen_workflows=()
     FILES=()
+    BATS_FILES=()
+    PS1_FILES=()
     MD_FILES=()
     WORKFLOW_FILES=()
 
@@ -93,6 +108,18 @@ if [[ "$FAST_MODE" == "true" ]]; then
                 if [[ -z "${seen_shell[$abs]:-}" ]]; then
                     seen_shell["$abs"]=1
                     FILES+=("$abs")
+                fi
+                ;;
+            *.bats)
+                if [[ -z "${seen_bats[$abs]:-}" ]]; then
+                    seen_bats["$abs"]=1
+                    BATS_FILES+=("$abs")
+                fi
+                ;;
+            *.ps1)
+                if [[ -z "${seen_ps1[$abs]:-}" ]]; then
+                    seen_ps1["$abs"]=1
+                    PS1_FILES+=("$abs")
                 fi
                 ;;
             *.md)
@@ -111,19 +138,23 @@ if [[ "$FAST_MODE" == "true" ]]; then
         esac
     done
 
-    if ((${#FILES[@]} == 0 && ${#MD_FILES[@]} == 0 && ${#WORKFLOW_FILES[@]} == 0)); then
+    if ((${#FILES[@]} == 0 && ${#BATS_FILES[@]} == 0 && ${#PS1_FILES[@]} == 0 && ${#MD_FILES[@]} == 0 && ${#WORKFLOW_FILES[@]} == 0)); then
         echo "lint --fast: нет измененных lint-целей"
         exit 0
     fi
 fi
 
 missing_tools=0
-for tool in shellcheck bashate shfmt actionlint; do
+for tool in shellcheck bashate shfmt actionlint bats; do
     if ! command -v "$tool" > /dev/null 2>&1; then
         echo "required tool not found: $tool" >&2
         missing_tools=1
     fi
 done
+if ! command -v pwsh > /dev/null 2>&1 && ! command -v powershell > /dev/null 2>&1; then
+    echo "required tool not found: pwsh (or powershell fallback)" >&2
+    missing_tools=1
+fi
 if ! command -v markdownlint > /dev/null 2>&1 && ! command -v npx > /dev/null 2>&1; then
     echo "required tool not found: markdownlint (or npx fallback)" >&2
     missing_tools=1
@@ -136,6 +167,14 @@ if ((${#FILES[@]} > 0)); then
     shellcheck -x -e SC1091 "${FILES[@]}"
     bashate -i E003,E006,E042,E043 "${FILES[@]}"
     shfmt -d -i 4 -ci -sr "${FILES[@]}"
+fi
+
+if ((${#BATS_FILES[@]} > 0)); then
+    bash "$SCRIPT_DIR/scripts/check-bats-quality.sh" "${BATS_FILES[@]}"
+fi
+
+if ((${#PS1_FILES[@]} > 0)); then
+    bash "$SCRIPT_DIR/scripts/check-powershell-syntax.sh" "${PS1_FILES[@]}"
 fi
 
 if ((${#WORKFLOW_FILES[@]} > 0)); then

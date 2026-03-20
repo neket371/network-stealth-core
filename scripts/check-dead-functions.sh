@@ -40,12 +40,19 @@ dead_function_is_ignored() {
 }
 
 declare -a DEFS=()
+declare -a FILTERED_DEFS=()
 declare -a DEAD=()
+declare -a FN_NAMES=()
+declare -A FN_SEEN=()
 
 for file in "${FILES[@]}"; do
     while IFS=: read -r line fn; do
         [[ -n "$line" && -n "$fn" ]] || continue
         DEFS+=("${file}|${line}|${fn}")
+        if [[ -z "${FN_SEEN[$fn]:-}" ]]; then
+            FN_SEEN["$fn"]=1
+            FN_NAMES+=("$fn")
+        fi
     done < <(rg -n -o --pcre2 '^[A-Za-z_][A-Za-z0-9_]*(?=\(\)\s*\{)' "$file" || true)
 done
 
@@ -54,11 +61,27 @@ for def in "${DEFS[@]}"; do
     if dead_function_is_ignored "$fn"; then
         continue
     fi
-    def_base="$(basename "$file")"
-    pattern="(^|[^A-Za-z0-9_])${fn}([^A-Za-z0-9_]|$)"
-    matches="$(rg -n --pcre2 "$pattern" "${FILES[@]}" || true)"
+    FILTERED_DEFS+=("$def")
+done
 
-    calls="$(printf '%s\n' "$matches" | awk -v fn="$fn" -v def_file="$file" -v def_line="$line" -v def_base="$def_base" '
+combined_pattern=""
+if ((${#FN_NAMES[@]} > 0)); then
+    combined_pattern="(^|[^A-Za-z0-9_])($(
+        IFS='|'
+        printf '%s' "${FN_NAMES[*]}"
+    ))([^A-Za-z0-9_]|$)"
+fi
+
+defs_tmp="$(mktemp)"
+matches_tmp="$(mktemp)"
+trap 'rm -f "$defs_tmp" "$matches_tmp"' EXIT
+
+printf '%s\n' "${FILTERED_DEFS[@]}" > "$defs_tmp"
+if [[ -n "$combined_pattern" ]]; then
+    rg -n --pcre2 "$combined_pattern" "${FILES[@]}" > "$matches_tmp" || true
+fi
+
+mapfile -t DEAD < <(awk '
         function strip_shell_literals(s,    out, i, ch, state, sq, cmd_depth) {
             out = ""
             state = "code"
@@ -136,7 +159,17 @@ for def in "${DEFS[@]}"; do
             }
             return out
         }
-        {
+        ARGIND == 1 {
+            split($0, def_parts, "|")
+            def_file = def_parts[1]
+            def_line = def_parts[2]
+            def_fn = def_parts[3]
+            def_present[def_fn] = 1
+            def_location[def_fn SUBSEP def_file SUBSEP def_line] = 1
+            def_records[++def_count] = $0
+            next
+        }
+        ARGIND == 2 {
             raw=$0
             if (match(raw, /:[0-9]+:/)) {
                 match_file=substr(raw, 1, RSTART - 1)
@@ -146,31 +179,37 @@ for def in "${DEFS[@]}"; do
                 next
             }
 
-            # Always ignore the exact function definition location.
-            # Fallback by basename+line keeps behavior stable when path renderings differ
-            # between shells (for example, /tmp/... vs C:/... under mingw).
-            if ((match_file == def_file || (match_file ~ ("(^|/)" def_base "$"))) && match_line == def_line) {
-                next
-            }
-
             clean=strip_shell_literals(text)
             if (clean ~ "^[[:space:]]*$") {
                 next
             }
-            if (clean ~ "^[[:space:]]*" fn "\\(\\)[[:space:]]*\\{") {
-                next
-            }
-            pattern="(^|[^A-Za-z0-9_])" fn "([^A-Za-z0-9_]|$)"
-            if (clean ~ pattern) {
-                print
+            remaining = clean
+            for (; match(remaining, /[A-Za-z_][A-Za-z0-9_]*/); remaining = substr(remaining, RSTART + RLENGTH)) {
+                token = substr(remaining, RSTART, RLENGTH)
+                if (!(token in def_present)) {
+                    continue
+                }
+                if ((token SUBSEP match_file SUBSEP match_line) in def_location) {
+                    continue
+                }
+                if (clean ~ ("^[[:space:]]*" token "\\(\\)[[:space:]]*\\{")) {
+                    continue
+                }
+                called[token] = 1
             }
         }
-    ')"
-
-    if [[ -z "$calls" ]]; then
-        DEAD+=("${fn} (${file}:${line})")
-    fi
-done
+        END {
+            for (i = 1; i <= def_count; i++) {
+                split(def_records[i], def_parts, "|")
+                def_file = def_parts[1]
+                def_line = def_parts[2]
+                def_fn = def_parts[3]
+                if (!(def_fn in called)) {
+                    printf "%s (%s:%s)\n", def_fn, def_file, def_line
+                }
+            }
+        }
+    ' "$defs_tmp" "$matches_tmp")
 
 if ((${#DEAD[@]} > 0)); then
     echo "dead-function-check: found functions without call sites" >&2

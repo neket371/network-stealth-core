@@ -47,7 +47,12 @@ cli_read_long_option_value() {
         printf '%s' "${optarg#*=}"
         return 0
     fi
-    printf '%s' "${!OPTIND:-}"
+    local next_value="${!OPTIND:-}"
+    if [[ -z "$next_value" || "$next_value" == --* || ("$next_value" == -* && "$next_value" != "-") ]]; then
+        log ERROR "Не указан параметр для --${optarg}"
+        exit 1
+    fi
+    printf '%s' "$next_value"
     OPTIND=$((OPTIND + 1))
 }
 
@@ -364,10 +369,15 @@ parse_args_collect_tokens() {
                     log ERROR "Не указан параметр для $a"
                     exit 1
                 fi
-                out_opts+=("${a}=${args[$i]}")
+                local next_value="${args[$i]}"
+                if [[ "$next_value" == --* || ("$next_value" == -* && "$next_value" != "-") ]]; then
+                    log ERROR "Не указан параметр для $a"
+                    exit 1
+                fi
+                out_opts+=("${a}=${next_value}")
             elif [[ "$a" == --rollback && "$a" != *=* ]]; then
                 local next="${args[$((i + 1))]:-}"
-                if [[ -n "$next" && "$next" != --* ]]; then
+                if [[ -n "$next" && "$next" != --* && "$next" != -* ]]; then
                     i=$((i + 1))
                     out_opts+=("${a}=${next}")
                 else
@@ -484,13 +494,7 @@ parse_args() {
     fi
 }
 
-apply_runtime_overrides() {
-    local action_is_add=false
-    AUTO_PROFILE_MODE=false
-    if [[ "$ACTION" == "add-clients" || "$ACTION" == "add-keys" ]]; then
-        action_is_add=true
-    fi
-
+apply_runtime_overrides_normalize_flags() {
     KEEP_LOCAL_BACKUPS=$(parse_bool "$KEEP_LOCAL_BACKUPS" true)
     REUSE_EXISTING=$(parse_bool "$REUSE_EXISTING" true)
     AUTO_ROLLBACK=$(parse_bool "$AUTO_ROLLBACK" true)
@@ -511,6 +515,9 @@ apply_runtime_overrides() {
     normalize_runtime_common_ranges
     normalize_runtime_schedule_settings
     normalize_primary_domain_controls
+}
+
+apply_runtime_overrides_seed_runtime_defaults() {
     if [[ -z "$DOMAIN_HEALTH_FILE" ]]; then
         DOMAIN_HEALTH_FILE="/var/lib/xray/domain-health.json"
     fi
@@ -543,6 +550,10 @@ apply_runtime_overrides() {
     if [[ -n "$XRAY_DOMAIN_TIER" ]] && is_legacy_global_profile_alias "$XRAY_DOMAIN_TIER"; then
         log WARN "Профиль ${XRAY_DOMAIN_TIER} является legacy-алиасом; используйте global-50 или global-50-auto"
     fi
+}
+
+apply_runtime_overrides_resolve_domain_selection() {
+    local action_is_add="${1:-false}"
 
     if [[ "$action_is_add" == "true" ]]; then
         local current_tier requested_tier="" raw_current_tier
@@ -591,6 +602,9 @@ apply_runtime_overrides() {
             fi
         fi
     fi
+}
+
+apply_runtime_overrides_apply_explicit_env_overrides() {
     if [[ -n "$XRAY_NUM_CONFIGS" ]]; then
         NUM_CONFIGS="$XRAY_NUM_CONFIGS"
     fi
@@ -603,6 +617,9 @@ apply_runtime_overrides() {
     if [[ -n "$XRAY_TRANSPORT" ]]; then
         TRANSPORT="$XRAY_TRANSPORT"
     fi
+}
+
+apply_runtime_overrides_enforce_transport_contract() {
     TRANSPORT="${TRANSPORT,,}"
     case "${ACTION:-install}" in
         migrate-stealth)
@@ -656,10 +673,15 @@ apply_runtime_overrides() {
     if [[ -n "${XRAY_TRANSPORT:-}" ]]; then
         XRAY_TRANSPORT="$TRANSPORT"
     fi
+}
+
+apply_runtime_overrides_finalize_modes() {
     ADVANCED_MODE=$(parse_bool "${XRAY_ADVANCED:-${ADVANCED_MODE:-false}}" false)
     MUX_MODE="${MUX_MODE,,}"
     QR_ENABLED="${QR_ENABLED,,}"
+}
 
+apply_runtime_overrides_rebind_data_paths() {
     if [[ -n "$XRAY_DATA_DIR" ]]; then
         if [[ -z "$XRAY_TIERS_FILE" || "$XRAY_TIERS_FILE" == "$DEFAULT_DATA_DIR/domains.tiers" ]]; then
             XRAY_TIERS_FILE="$XRAY_DATA_DIR/domains.tiers"
@@ -669,4 +691,20 @@ apply_runtime_overrides() {
         fi
         sync_transport_endpoint_file_contract
     fi
+}
+
+apply_runtime_overrides() {
+    local action_is_add=false
+    AUTO_PROFILE_MODE=false
+    if [[ "$ACTION" == "add-clients" || "$ACTION" == "add-keys" ]]; then
+        action_is_add=true
+    fi
+
+    apply_runtime_overrides_normalize_flags
+    apply_runtime_overrides_seed_runtime_defaults
+    apply_runtime_overrides_resolve_domain_selection "$action_is_add"
+    apply_runtime_overrides_apply_explicit_env_overrides
+    apply_runtime_overrides_enforce_transport_contract
+    apply_runtime_overrides_finalize_modes
+    apply_runtime_overrides_rebind_data_paths
 }

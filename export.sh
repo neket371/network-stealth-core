@@ -260,11 +260,18 @@ export_canary_bundle() {
     local out_dir="$2"
     local out_parent
     out_parent="$(dirname "$out_dir")"
+    mkdir -p "$out_parent" || {
+        log ERROR "export_canary_bundle: не удалось создать каталог: ${out_parent}"
+        return 1
+    }
     local bundle_tmp
-    bundle_tmp=$(mktemp -d "${out_dir}.tmp.XXXXXX")
+    bundle_tmp=$(mktemp -d "${out_dir}.tmp.XXXXXX") || {
+        log ERROR "export_canary_bundle: не удалось создать временный каталог: ${out_dir}"
+        return 1
+    }
     local manifest_file="${bundle_tmp}/manifest.json"
     local raw_dir="${bundle_tmp}/raw-xray"
-    mkdir -p "$out_parent" "$raw_dir"
+    mkdir -p "$raw_dir"
 
     local variant_rows
     variant_rows=$(jq -r '.configs[] | .variants[] | [.key, .xray_client_file_v4 // "", .xray_client_file_v6 // ""] | @tsv' "$json_file" 2> /dev/null) || {

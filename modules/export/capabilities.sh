@@ -15,8 +15,18 @@ source "$GLOBAL_CONTRACT_MODULE"
 export_capabilities_json() {
     local export_dir="$1"
     local out_file="$2"
+    local out_parent
+    out_parent="$(dirname "$out_file")"
+    mkdir -p "$out_parent" || {
+        echo "ERROR: не удалось создать каталог экспорта: $out_parent" >&2
+        return 1
+    }
     local tmp_out
-    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX")
+    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX") || {
+        echo "ERROR: не удалось создать временный файл экспорта: $out_file" >&2
+        return 1
+    }
+    trap 'rm -f "$tmp_out" 2>/dev/null' RETURN
 
     jq -n \
         --arg generated "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
@@ -112,16 +122,27 @@ export_capabilities_json() {
                     reason: "not generated for the strongest-direct contract to avoid misleading degraded templates"
                 }
             ]
-        }' > "$tmp_out"
+        }' > "$tmp_out" || return 1
 
     mv "$tmp_out" "$out_file"
+    trap - RETURN
 }
 
 export_capabilities_notes_from_json() {
     local capabilities_file="$1"
     local out_file="$2"
+    local out_parent
+    out_parent="$(dirname "$out_file")"
+    mkdir -p "$out_parent" || {
+        echo "ERROR: не удалось создать каталог экспорта: $out_parent" >&2
+        return 1
+    }
     local tmp_out
-    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX")
+    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX") || {
+        echo "ERROR: не удалось создать временный файл экспорта: $out_file" >&2
+        return 1
+    }
+    trap 'rm -f "$tmp_out" 2>/dev/null' RETURN
 
     {
         printf 'network stealth core export notes\n'
@@ -135,7 +156,8 @@ export_capabilities_notes_from_json() {
               + "\n  requires: " + ((.requires // []) | join(", "))
               + "\n  reason: " + (.reason // "n/a")
         ' "$capabilities_file"
-    } > "$tmp_out"
+    } > "$tmp_out" || return 1
 
     mv "$tmp_out" "$out_file"
+    trap - RETURN
 }
