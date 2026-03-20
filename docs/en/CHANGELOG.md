@@ -22,6 +22,9 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 - made rollback log the exact restore target before aborting on snapshot copy failures instead of failing silently inside the restore loop
 - made `status` warn explicitly when it sees an unrecognized inbound transport instead of showing `unknown` with no operator hint
 - added an `atomic_write` guard for accidental interactive calls without a pipe or heredoc
+- made explicit rollback replay symlink artifacts from backup sessions instead of restoring only regular files
+- made generated `xray-health.sh` normalize corrupted fail-count values to `0` with a warning instead of aborting before restart logic
+- made release consistency checks reject stale `TODO: summarize release changes` placeholders in released ru changelog sections too
 
 ## [7.5.6] - 2026-03-19
 

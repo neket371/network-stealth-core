@@ -385,6 +385,10 @@ FAIL_COUNT=$(read_count "$FAIL_COUNT_FILE") || {
     echo "[$(date)] WARN: could not read fail count, assuming 0" >> "$LOG"
     FAIL_COUNT=0
 }
+if [[ ! "$FAIL_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "[$(date)] WARN: invalid fail count '${FAIL_COUNT}', assuming 0" >> "$LOG"
+    FAIL_COUNT=0
+fi
 
 if ! check_xray_health; then
     FAIL_COUNT=$((FAIL_COUNT + 1))

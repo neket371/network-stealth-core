@@ -52,6 +52,53 @@
     [[ "$output" == *"restored-config"* ]]
 }
 
+@test "rollback_from_session restores symlink artifacts from session backup" {
+    local preflight_dir target_file link_file
+    preflight_dir="$(mktemp -d)"
+    target_file="${preflight_dir}/target.txt"
+    link_file="${preflight_dir}/link.txt"
+    printf "probe" > "$target_file"
+    ln -s "$target_file" "$link_file" 2> /dev/null || true
+    if [[ ! -L "$link_file" ]]; then
+        rm -rf "$preflight_dir"
+        skip "symlink creation unavailable in this environment"
+    fi
+    rm -rf "$preflight_dir"
+
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+    XRAY_BACKUP="$(mktemp -d)"
+    custom_root="$(mktemp -d)"
+    XRAY_CONFIG="${custom_root}/etc/xray/config.json"
+    XRAY_ENV="${custom_root}/etc/xray-reality/config.env"
+    XRAY_KEYS="${custom_root}/etc/xray/private/keys"
+    XRAY_LOGS="${custom_root}/var/log/xray"
+    XRAY_HOME="${custom_root}/var/lib/xray"
+    XRAY_DATA_DIR="${custom_root}/usr/local/share/xray-reality"
+    XRAY_BIN="${custom_root}/usr/local/bin/xray"
+    XRAY_SCRIPT_PATH="${custom_root}/usr/local/bin/xray-reality.sh"
+    XRAY_UPDATE_SCRIPT="${custom_root}/usr/local/bin/xray-reality-update.sh"
+    MINISIGN_KEY="${custom_root}/etc/xray/minisign.pub"
+
+    session_dir="${XRAY_BACKUP}/session-symlink"
+    mkdir -p "${session_dir}${XRAY_KEYS}"
+    target_file="${custom_root}/payload.txt"
+    printf "payload" > "$target_file"
+    link_path="${XRAY_KEYS}/raw-link.json"
+    ln -s "$target_file" "${session_dir}${link_path}"
+    rm -f "$link_path"
+
+    systemd_running() { return 1; }
+    rollback_from_session "$session_dir"
+    [[ -L "$link_path" ]]
+    [[ "$(readlink "$link_path")" == "$target_file" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "rollback_from_session logs restore target before failing" {
     run bash -eo pipefail -c '
     source ./lib.sh

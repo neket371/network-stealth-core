@@ -222,14 +222,23 @@ runtime_quiesce_for_restore() {
 restore_file_from_snapshot() {
     local source_path="$1"
     local dest_path="$2"
-    local dest_dir tmp_path
+    local dest_dir tmp_path link_target
 
     dest_dir="$(dirname "$dest_path")"
     mkdir -p "$dest_dir"
     tmp_path="$(mktemp "${dest_dir}/.$(basename "$dest_path").restore.XXXXXX")"
-    if ! cp -a "$source_path" "$tmp_path"; then
+    if [[ -L "$source_path" ]]; then
         rm -f "$tmp_path"
-        return 1
+        link_target="$(readlink "$source_path")" || return 1
+        if ! ln -s "$link_target" "$tmp_path"; then
+            rm -f "$tmp_path"
+            return 1
+        fi
+    else
+        if ! cp -a "$source_path" "$tmp_path"; then
+            rm -f "$tmp_path"
+            return 1
+        fi
     fi
     if ! mv -f "$tmp_path" "$dest_path"; then
         rm -f "$tmp_path"

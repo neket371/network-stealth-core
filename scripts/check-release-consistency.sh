@@ -186,6 +186,24 @@ if awk '
     exit 1
 fi
 
+if awk '
+    BEGIN { in_released = 0; bad = 0 }
+    $0 ~ /^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ { in_released = 1; next }
+    $0 ~ /^## \[/ {
+        in_released = 0
+        next
+    }
+    in_released && $0 == "- TODO: summarize release changes" {
+        bad = 1
+    }
+    END {
+        exit bad ? 0 : 1
+    }
+' "$CHANGELOG_FILE_RU"; then
+    echo "RU CHANGELOG contains TODO placeholder inside a released section" >&2
+    exit 1
+fi
+
 if ! awk -v ver="$script_version" '
     BEGIN { in_target = 0; has_bullet = 0 }
     $0 ~ "^## \\[" ver "\\]" { in_target = 1; next }

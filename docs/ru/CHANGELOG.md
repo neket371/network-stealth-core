@@ -22,6 +22,9 @@
 - rollback теперь логирует точный target восстановления перед аварийным выходом, если копирование snapshot-файла не удалось
 - `status` теперь явно предупреждает о нераспознанном inbound transport вместо немого `unknown`
 - `atomic_write` теперь режет случайные интерактивные вызовы без pipe/heredoc, чтобы не зависать на чтении из tty
+- explicit rollback теперь переигрывает и symlink-артефакты из backup session, а не только обычные файлы
+- generated `xray-health.sh` теперь нормализует битый fail-count к `0` с предупреждением вместо падения до restart path
+- release-consistency check теперь режет и stale placeholder `TODO: summarize release changes` внутри released секций `docs/ru/CHANGELOG.md`
 
 ## [7.5.6] - 2026-03-19
 

@@ -123,7 +123,7 @@ rollback_from_session() {
 
     (
         cd "$session_dir" || exit 1
-        find . -type f -print0 | while IFS= read -r -d '' file; do
+        while IFS= read -r -d '' file; do
             local rel="${file#./}"
             local dest="/${rel}"
 
@@ -160,7 +160,7 @@ rollback_from_session() {
                 }
             fi
             log INFO "Восстановлен: $dest"
-        done
+        done < <(find . \( -type f -o -type l \) -print0)
     )
 
     if declare -F reconcile_runtime_after_restore > /dev/null 2>&1; then

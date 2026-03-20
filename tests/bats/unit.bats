@@ -4401,11 +4401,103 @@ EOF
     grep -Fq '\''support template placeholder'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''RU CHANGELOG section [${script_version}] does not contain release bullet notes'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''CHANGELOG contains TODO placeholder inside a released section'\'' ./scripts/check-release-consistency.sh
+    grep -Fq '\''RU CHANGELOG contains TODO placeholder inside a released section'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''does not contain release bullet notes'\'' ./scripts/check-release-consistency.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
+}
+
+@test "release consistency check rejects TODO placeholder in released ru changelog section" {
+    run bash -eo pipefail -c '
+    tmp_repo=$(mktemp -d)
+    trap '\''rm -rf "$tmp_repo"'\'' EXIT
+
+    mkdir -p "$tmp_repo/scripts" "$tmp_repo/docs/en" "$tmp_repo/docs/ru" "$tmp_repo/.github/ISSUE_TEMPLATE"
+    cp ./scripts/check-release-consistency.sh "$tmp_repo/scripts/check-release-consistency.sh"
+    chmod +x "$tmp_repo/scripts/check-release-consistency.sh"
+
+    cat > "$tmp_repo/lib.sh" <<'\''EOF'\''
+#!/usr/bin/env bash
+# Network Stealth Core 1.0.0 - Example
+readonly SCRIPT_VERSION="1.0.0"
+EOF
+
+    cat > "$tmp_repo/xray-reality.sh" <<'\''EOF'\''
+#!/usr/bin/env bash
+# Network Stealth Core 1.0.0 - Wrapper
+EOF
+
+    cat > "$tmp_repo/README.md" <<'\''EOF'\''
+[![release](https://img.shields.io/badge/release-v1.0.0-blue)](https://example.invalid)
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v1.0.0/xray-reality.sh -o /tmp/xray-reality.sh
+XRAY_REPO_REF=v1.0.0 bash /tmp/xray-reality.sh install
+EOF
+
+    cat > "$tmp_repo/README.ru.md" <<'\''EOF'\''
+[![release](https://img.shields.io/badge/release-v1.0.0-blue)](https://example.invalid)
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v1.0.0/xray-reality.sh -o /tmp/xray-reality.sh
+XRAY_REPO_REF=v1.0.0 bash /tmp/xray-reality.sh install
+EOF
+
+    cat > "$tmp_repo/.github/ISSUE_TEMPLATE/bug_report.yml" <<'\''EOF'\''
+      placeholder: v1.0.0 / <full_commit_sha> / ubuntu@<sha>
+EOF
+
+    cat > "$tmp_repo/.github/ISSUE_TEMPLATE/support_request.yml" <<'\''EOF'\''
+      placeholder: v1.0.0 / <full_commit_sha> / ubuntu@<sha>
+EOF
+
+    cat > "$tmp_repo/.github/SECURITY.md" <<'\''EOF'\''
+# security policy
+| version line | status |
+|---|---|
+| `1.0.x` | supported |
+| `<1.0` | unsupported in this repository |
+EOF
+
+    cat > "$tmp_repo/.github/SECURITY.ru.md" <<'\''EOF'\''
+# политика безопасности
+| линейка версий | статус |
+|---|---|
+| `1.0.x` | поддерживается |
+| `<1.0` | не поддерживается в этом репозитории |
+EOF
+
+    cat > "$tmp_repo/docs/en/CHANGELOG.md" <<'\''EOF'\''
+# changelog
+
+## [unreleased]
+
+### Changed
+- unreleased note
+
+## [1.0.0] - 2026-03-20
+
+### Fixed
+- released note
+EOF
+
+    cat > "$tmp_repo/docs/ru/CHANGELOG.md" <<'\''EOF'\''
+# changelog
+
+## [unreleased]
+
+### Changed
+- unreleased note
+
+## [1.0.0] - 2026-03-20
+
+### Fixed
+- TODO: summarize release changes
+EOF
+
+    cd "$tmp_repo"
+    bash ./scripts/check-release-consistency.sh
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"RU CHANGELOG contains TODO placeholder inside a released section"* ]]
 }
 
 @test "os matrix workflow tracks supported ubuntu image" {
