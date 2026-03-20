@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.8] - 2026-03-20
+
 ### Fixed
 - made export template helpers clean temporary files on `jq` or validation failures instead of leaving orphaned `.tmp.*` artifacts behind
 - made `repair` fail closed when client-artifact rebuild or self-check artifact preparation degrades, instead of ending with a misleading successful recovery
