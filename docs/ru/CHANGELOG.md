@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.7] - 2026-03-20
+
 ### Fixed
 - generated `xray-health.sh` больше не падает на timeout блокировки fail-count файла: вместо silent abort теперь пишутся явные предупреждения
 - `diagnose` теперь собирает вывод в subshell, поэтому временный `set +e` больше не может протечь в вызывающий shell

@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.7] - 2026-03-20
+
 ### Fixed
 - made generated `xray-health.sh` survive fail-count lock timeouts with explicit warnings instead of aborting under `set -e`
 - made `diagnose` collect output in a subshell so temporary `set +e` no longer leaks into the caller shell state
