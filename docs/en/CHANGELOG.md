@@ -7,6 +7,13 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Fixed
+- made export template helpers clean temporary files on `jq` or validation failures instead of leaving orphaned `.tmp.*` artifacts behind
+- made `repair` fail closed when client-artifact rebuild or self-check artifact preparation degrades, instead of ending with a misleading successful recovery
+- clarified strict bootstrap pin diagnostics so failed auto-pin resolution now explains the `XRAY_REPO_COMMIT` fallback and likely `git ls-remote` / network cause
+- skipped empty optional runtime arrays during primary promotion so `PORTS_V6=()` no longer aborts a valid reorder
+- batched inbound JSON assembly in config build/rebuild paths instead of repeatedly re-parsing the whole array with per-item `jq` appends
+
 ## [7.5.7] - 2026-03-20
 
 ### Fixed

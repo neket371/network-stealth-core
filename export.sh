@@ -67,9 +67,12 @@ export_raw_xray_index() {
     local json_file="$1"
     local out_file="$2"
     local tmp_out
-    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX")
+    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX") || {
+        log ERROR "Не удалось создать временный файл экспорта: ${out_file}"
+        return 1
+    }
 
-    jq '{
+    if ! jq '{
         generated,
         transport,
         schema_version,
@@ -107,13 +110,21 @@ export_raw_xray_index() {
                 ]
             }
         ]
-    }' "$json_file" > "$tmp_out"
+    }' "$json_file" > "$tmp_out"; then
+        rm -f "$tmp_out"
+        log ERROR "Не удалось собрать raw-xray index из ${json_file}"
+        return 1
+    fi
 
     if ! validate_export_json_schema "$tmp_out" json; then
         rm -f "$tmp_out"
         return 1
     fi
-    mv "$tmp_out" "$out_file"
+    if ! mv "$tmp_out" "$out_file"; then
+        rm -f "$tmp_out"
+        log ERROR "Не удалось сохранить индекс raw Xray: ${out_file}"
+        return 1
+    fi
     log OK "Индекс raw Xray сохранён: $out_file"
 }
 
@@ -121,9 +132,12 @@ export_v2rayn_fragment_template() {
     local json_file="$1"
     local out_file="$2"
     local tmp_out
-    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX")
+    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX") || {
+        log ERROR "Не удалось создать временный файл экспорта: ${out_file}"
+        return 1
+    }
 
-    jq '{
+    if ! jq '{
         generated,
         transport,
         profiles: [
@@ -144,13 +158,21 @@ export_v2rayn_fragment_template() {
                 raw_xray_file_v6: .xray_client_file_v6
             }
         ]
-    }' "$json_file" > "$tmp_out"
+    }' "$json_file" > "$tmp_out"; then
+        rm -f "$tmp_out"
+        log ERROR "Не удалось собрать шаблон ссылок v2rayN из ${json_file}"
+        return 1
+    fi
 
     if ! validate_export_json_schema "$tmp_out" json; then
         rm -f "$tmp_out"
         return 1
     fi
-    mv "$tmp_out" "$out_file"
+    if ! mv "$tmp_out" "$out_file"; then
+        rm -f "$tmp_out"
+        log ERROR "Не удалось сохранить шаблон ссылок v2rayN: ${out_file}"
+        return 1
+    fi
     log OK "Шаблон ссылок v2rayN сохранён: $out_file"
 }
 
@@ -158,9 +180,12 @@ export_nekoray_fragment_template() {
     local json_file="$1"
     local out_file="$2"
     local tmp_out
-    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX")
+    tmp_out=$(mktemp "${out_file}.tmp.XXXXXX") || {
+        log ERROR "Не удалось создать временный файл экспорта: ${out_file}"
+        return 1
+    }
 
-    jq '{
+    if ! jq '{
         generated,
         transport,
         note: "xhttp-first export. import vless link or open raw xray json directly.",
@@ -182,13 +207,21 @@ export_nekoray_fragment_template() {
                 raw_xray_file_v6: .xray_client_file_v6
             }
         ]
-    }' "$json_file" > "$tmp_out"
+    }' "$json_file" > "$tmp_out"; then
+        rm -f "$tmp_out"
+        log ERROR "Не удалось собрать шаблон nekoray из ${json_file}"
+        return 1
+    fi
 
     if ! validate_export_json_schema "$tmp_out" json; then
         rm -f "$tmp_out"
         return 1
     fi
-    mv "$tmp_out" "$out_file"
+    if ! mv "$tmp_out" "$out_file"; then
+        rm -f "$tmp_out"
+        log ERROR "Не удалось сохранить шаблон nekoray: ${out_file}"
+        return 1
+    fi
     log OK "Шаблон nekoray сохранён: $out_file"
 }
 
@@ -240,7 +273,7 @@ export_canary_bundle() {
         return 1
     }
 
-    while IFS=$'\t' read -r _variant_key raw_v4 raw_v6; do
+    while IFS=$'\t' read -r _ raw_v4 raw_v6; do
         copy_canary_raw_file "$raw_v4" "$raw_dir" || {
             rm -rf -- "$bundle_tmp"
             return 1

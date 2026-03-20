@@ -25,6 +25,7 @@ LEGACY_BOOTSTRAP_BRANCH="main"
 BOOTSTRAP_DEFAULT_REF="${XRAY_BOOTSTRAP_DEFAULT_REF:-$CANONICAL_BOOTSTRAP_BRANCH}"
 INSTALL_DIR=""
 INSTALL_DIR_OWNED=false
+AUTO_PIN_RESOLVE_FAILED=false
 FORWARD_ARGS=()
 # keep this list compatible with historical tags used by migrate-stealth coverage.
 # newer module splits must not make older pinned trees look invalid to the wrapper.
@@ -545,17 +546,24 @@ if [[ -z "$LIB_PATH" ]] || { [[ -z "$SCRIPT_DIR" || ! -f "$SCRIPT_DIR/config.sh"
             REPO_COMMIT="$resolved_commit"
             echo "Resolved bootstrap commit: $REPO_COMMIT (ref: $REPO_REF)"
         else
+            AUTO_PIN_RESOLVE_FAILED=true
             echo "WARN: failed to resolve commit for ref '$REPO_REF'; falling back to ref clone" >&2
         fi
     fi
 
     if [[ "$BOOTSTRAP_REQUIRE_PIN" == "true" && -z "$REPO_COMMIT" ]]; then
-        echo "ERROR: XRAY_BOOTSTRAP_REQUIRE_PIN=true but XRAY_REPO_COMMIT is empty" >&2
+        if [[ "$AUTO_PIN_RESOLVE_FAILED" == "true" ]]; then
+            echo "ERROR: could not pin bootstrap source for ref '$REPO_REF'." >&2
+            echo "  Either set XRAY_REPO_COMMIT=<full_sha> explicitly," >&2
+            echo "  or check network access to github.com (git ls-remote failed)." >&2
+        else
+            echo "ERROR: XRAY_BOOTSTRAP_REQUIRE_PIN=true but XRAY_REPO_COMMIT is empty" >&2
+        fi
         exit 1
     fi
 
     prepare_install_dir
-    local_branch_args=()
+    declare -a local_branch_args=()
     if [[ -n "$REPO_REF" ]] && ! is_commit_ref "$REPO_REF"; then
         local_branch_args=(--branch "$REPO_REF")
     fi

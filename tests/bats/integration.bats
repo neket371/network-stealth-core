@@ -169,6 +169,36 @@
     [[ "$output" == *"XRAY_BOOTSTRAP_REQUIRE_PIN=true"* ]]
 }
 
+@test "wrapper strict pin mode explains auto-pin resolution failure" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    cp ./xray-reality.sh "$tmp/xray-reality.sh"
+    chmod +x "$tmp/xray-reality.sh"
+    mkdir -p "$tmp/mockbin"
+    cat > "$tmp/mockbin/git" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "ls-remote" ]]; then
+  exit 1
+fi
+echo "unexpected git invocation" >&2
+exit 1
+EOF
+    chmod +x "$tmp/mockbin/git"
+    PATH="$tmp/mockbin:$PATH" \
+      XRAY_BOOTSTRAP_REQUIRE_PIN=true \
+      XRAY_BOOTSTRAP_AUTO_PIN=true \
+      XRAY_REPO_REF=ubuntu \
+      bash "$tmp/xray-reality.sh" install
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"could not pin bootstrap source for ref"* ]]
+    [[ "$output" == *"XRAY_REPO_COMMIT=<full_sha>"* ]]
+    [[ "$output" == *"git ls-remote failed"* ]]
+}
+
 @test "wrapper warns when mutating action bootstrap is not pinned" {
     run bash -eo pipefail -c '
     set -euo pipefail

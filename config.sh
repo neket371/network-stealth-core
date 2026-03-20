@@ -126,6 +126,14 @@ write_xray_root_config_json() {
         }'
 }
 
+json_array_from_fragments() {
+    if (($# == 0)); then
+        printf '[]\n'
+        return 0
+    fi
+    printf '%s\n' "$@" | jq -s '.'
+}
+
 build_config() {
     log STEP "Собираем конфигурацию Xray (modular)..."
 
@@ -135,6 +143,7 @@ build_config() {
     fi
 
     local inbounds='[]'
+    local -a inbound_fragments=()
     # shellcheck disable=SC2034 # Used via nameref in pick_random_from_array.
     local -a fp_pool=("chrome" "chrome" "chrome" "firefox" "chrome" "firefox")
 
@@ -190,7 +199,7 @@ build_config() {
         inbound_v4=$(generate_profile_inbound_json \
             "${PORTS[$i]}" "${UUIDS[$i]}" "${PRIVATE_KEYS[$i]}" "${SHORT_IDS[$i]}" "${CONFIG_VLESS_DECRYPTIONS[$i]}")
 
-        inbounds=$(echo "$inbounds" | jq --argjson ib "$inbound_v4" '. + [$ib]')
+        inbound_fragments+=("$inbound_v4")
 
         if [[ "$HAS_IPV6" == true ]]; then
             if [[ -z "${PORTS_V6[$i]:-}" ]]; then
@@ -202,11 +211,16 @@ build_config() {
                 log ERROR "Ошибка генерации IPv6 inbound для конфига #$((i + 1)) (port=${PORTS_V6[$i]})"
                 exit 1
             fi
-            inbounds=$(echo "$inbounds" | jq --argjson ib "$inbound_v6" '. + [$ib]')
+            inbound_fragments+=("$inbound_v6")
         fi
 
         progress_bar $((i + 1)) "$NUM_CONFIGS"
     done
+
+    if ! inbounds=$(json_array_from_fragments "${inbound_fragments[@]}"); then
+        log ERROR "Не удалось собрать массив inbound-конфигураций"
+        exit 1
+    fi
 
     local outbounds
     outbounds=$(generate_outbounds_json)
@@ -265,6 +279,7 @@ rebuild_config_collect_inbounds() {
     # shellcheck disable=SC2034 # Used as nameref output parameter.
     local -n out_vless_decryptions="${11}"
     local i
+    local -a inbound_fragments=()
 
     for ((i = 0; i < NUM_CONFIGS; i++)); do
         local domain="${CONFIG_DOMAINS[$i]:-}"
@@ -326,12 +341,12 @@ rebuild_config_collect_inbounds() {
             "${PORTS[$i]}" "${UUIDS[$i]}" "$dest" "$sni_json" "${PRIVATE_KEYS[$i]}" "${SHORT_IDS[$i]}" \
             "$fp" "$transport_endpoint" "$keepalive" "$grpc_idle" "$grpc_health" \
             "$target_transport" "$payload" "$vless_decryption" "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}")
-        out_inbounds=$(echo "$out_inbounds" | jq --argjson ib "$inbound_v4" '. + [$ib]')
+        inbound_fragments+=("$inbound_v4")
 
         if [[ "$HAS_IPV6" == true && -n "${PORTS_V6[$i]:-}" ]]; then
             local inbound_v6
             inbound_v6=$(echo "$inbound_v4" | jq --arg port "${PORTS_V6[$i]}" '.listen = "::" | .port = ($port|tonumber)')
-            out_inbounds=$(echo "$out_inbounds" | jq --argjson ib "$inbound_v6" '. + [$ib]')
+            inbound_fragments+=("$inbound_v6")
         fi
 
         out_domains+=("$domain")
@@ -343,6 +358,13 @@ rebuild_config_collect_inbounds() {
         out_vless_encryptions+=("$vless_encryption")
         out_vless_decryptions+=("$vless_decryption")
     done
+
+    # shellcheck disable=SC2034 # nameref output assignment is the point of the helper.
+    if ! out_inbounds=$(json_array_from_fragments "${inbound_fragments[@]}"); then
+        TRANSPORT="$previous_transport"
+        log ERROR "Не удалось собрать inbound-конфигурации для rebuild transport"
+        return 1
+    fi
 }
 
 rebuild_config_write_candidate() {

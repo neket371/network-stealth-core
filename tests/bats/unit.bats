@@ -3169,6 +3169,173 @@ JSON
     [[ "$output" == *"ok"* ]]
 }
 
+@test "reorder_runtime_arrays_to_primary_index skips empty optional arrays" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./install.sh
+    PORTS=(1001 1002)
+    PORTS_V6=()
+    UUIDS=(u1 u2)
+    SHORT_IDS=(s1 s2)
+    PRIVATE_KEYS=(k1 k2)
+    PUBLIC_KEYS=(p1 p2)
+    CONFIG_DOMAINS=(d1 d2)
+    CONFIG_DESTS=(dst1 dst2)
+    CONFIG_SNIS=(sn1 sn2)
+    CONFIG_FPS=(fp1 fp2)
+    CONFIG_TRANSPORT_ENDPOINTS=(ep1 ep2)
+    CONFIG_PROVIDER_FAMILIES=(pf1 pf2)
+    CONFIG_VLESS_ENCRYPTIONS=(ve1 ve2)
+    CONFIG_VLESS_DECRYPTIONS=(vd1 vd2)
+    reorder_runtime_arrays_to_primary_index 1
+    [[ "${PORTS[0]}" == "1002" ]]
+    [[ "${UUIDS[0]}" == "u2" ]]
+    [[ "${CONFIG_DOMAINS[0]}" == "d2" ]]
+    [[ ${#PORTS_V6[@]} -eq 0 ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "repair_flow fails closed when client artifacts rebuild degrades" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./install.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_CONFIG="$tmp/config.json"
+    printf "{}\n" > "$XRAY_CONFIG"
+    XRAY_KEYS="$tmp/keys"
+    mkdir -p "$XRAY_KEYS"
+    XRAY_BIN="$tmp/xray"
+    printf "#!/usr/bin/env bash\nexit 0\n" > "$XRAY_BIN"
+    chmod +x "$XRAY_BIN"
+    LOG_CONTEXT=""
+    INSTALL_LOG="$tmp/repair.log"
+    setup_logging() { :; }
+    resolve_paths() { :; }
+    detect_distro() { :; }
+    install_dependencies() { :; }
+    require_cmd() { :; }
+    install_self() { :; }
+    setup_logrotate() { :; }
+    create_users() { :; }
+    install_minisign() { :; }
+    xray_config_test_ok() { return 0; }
+    create_systemd_service() { :; }
+    setup_diagnose_service() { :; }
+    load_existing_ports_from_config() { PORTS=(24443); PORTS_V6=(); }
+    load_existing_metadata_from_config() {
+      CONFIG_DOMAINS=(example.com); CONFIG_SNIS=(example.com); CONFIG_FPS=(chrome)
+      CONFIG_TRANSPORT_ENDPOINTS=(/edge/api/test); CONFIG_DESTS=(example.com:443)
+      CONFIG_PROVIDER_FAMILIES=(tier-test); CONFIG_VLESS_ENCRYPTIONS=(enc); CONFIG_VLESS_DECRYPTIONS=(dec)
+      TRANSPORT=xhttp
+    }
+    load_keys_from_config() { UUIDS=(u1); SHORT_IDS=(s1); PRIVATE_KEYS=(k1); PUBLIC_KEYS=(p1); }
+    build_public_keys_for_current_config() { return 0; }
+    maybe_promote_runtime_primary_from_observations() { return 0; }
+    configure_firewall() { :; }
+    setup_health_monitoring() { :; }
+    setup_auto_update() { :; }
+    start_services() { :; }
+    verify_ports_listening_after_start() { return 0; }
+    test_reality_connectivity() { return 0; }
+    fetch_ip() { printf "127.0.0.1\n"; }
+    save_environment() { :; }
+    save_policy_file() { :; }
+    rebuild_client_artifacts_from_loaded_state() { return 1; }
+    ensure_self_check_artifacts_ready() { return 0; }
+    post_action_verdict() { echo "unexpected-post-action"; return 0; }
+    log() { printf "%s %s\n" "$1" "$2"; }
+    repair_flow
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Не удалось полностью восстановить клиентские артефакты"* ]]
+    [[ "$output" == *"Восстановление завершилось с деградированными клиентскими или self-check артефактами"* ]]
+    [[ "$output" != *"unexpected-post-action"* ]]
+}
+
+@test "repair_flow fails closed when self-check artifacts degrade" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./install.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_CONFIG="$tmp/config.json"
+    printf "{}\n" > "$XRAY_CONFIG"
+    XRAY_KEYS="$tmp/keys"
+    mkdir -p "$XRAY_KEYS"
+    XRAY_BIN="$tmp/xray"
+    printf "#!/usr/bin/env bash\nexit 0\n" > "$XRAY_BIN"
+    chmod +x "$XRAY_BIN"
+    LOG_CONTEXT=""
+    INSTALL_LOG="$tmp/repair.log"
+    setup_logging() { :; }
+    resolve_paths() { :; }
+    detect_distro() { :; }
+    install_dependencies() { :; }
+    require_cmd() { :; }
+    install_self() { :; }
+    setup_logrotate() { :; }
+    create_users() { :; }
+    install_minisign() { :; }
+    xray_config_test_ok() { return 0; }
+    create_systemd_service() { :; }
+    setup_diagnose_service() { :; }
+    load_existing_ports_from_config() { PORTS=(24443); PORTS_V6=(); }
+    load_existing_metadata_from_config() {
+      CONFIG_DOMAINS=(example.com); CONFIG_SNIS=(example.com); CONFIG_FPS=(chrome)
+      CONFIG_TRANSPORT_ENDPOINTS=(/edge/api/test); CONFIG_DESTS=(example.com:443)
+      CONFIG_PROVIDER_FAMILIES=(tier-test); CONFIG_VLESS_ENCRYPTIONS=(enc); CONFIG_VLESS_DECRYPTIONS=(dec)
+      TRANSPORT=xhttp
+    }
+    load_keys_from_config() { UUIDS=(u1); SHORT_IDS=(s1); PRIVATE_KEYS=(k1); PUBLIC_KEYS=(p1); }
+    build_public_keys_for_current_config() { return 0; }
+    maybe_promote_runtime_primary_from_observations() { return 0; }
+    configure_firewall() { :; }
+    setup_health_monitoring() { :; }
+    setup_auto_update() { :; }
+    start_services() { :; }
+    verify_ports_listening_after_start() { return 0; }
+    test_reality_connectivity() { return 0; }
+    fetch_ip() { printf "127.0.0.1\n"; }
+    save_environment() { :; }
+    save_policy_file() { :; }
+    rebuild_client_artifacts_from_loaded_state() { return 0; }
+    ensure_self_check_artifacts_ready() { return 1; }
+    post_action_verdict() { echo "unexpected-post-action"; return 0; }
+    log() { printf "%s %s\n" "$1" "$2"; }
+    repair_flow
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Не удалось полностью подготовить self-check артефакты"* ]]
+    [[ "$output" == *"Восстановление завершилось с деградированными клиентскими или self-check артефактами"* ]]
+    [[ "$output" != *"unexpected-post-action"* ]]
+}
+
+@test "export helpers clean temp files when jq parsing fails" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./export.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    bad_json="$tmp/bad.json"
+    printf "{broken\n" > "$bad_json"
+    out1="$tmp/raw-index.json"
+    out2="$tmp/v2rayn.json"
+    out3="$tmp/nekoray.json"
+    log() { :; }
+    ! export_raw_xray_index "$bad_json" "$out1"
+    ! export_v2rayn_fragment_template "$bad_json" "$out2"
+    ! export_nekoray_fragment_template "$bad_json" "$out3"
+    compgen -G "$tmp/*.tmp.*" > /dev/null && exit 1
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "rebuild_config_for_transport fails closed when config domain is missing" {
     run bash -eo pipefail -c '
     source ./lib.sh

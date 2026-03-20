@@ -263,6 +263,9 @@ reorder_runtime_arrays_to_primary_index() {
     local name
     for name in PORTS PORTS_V6 UUIDS SHORT_IDS PRIVATE_KEYS PUBLIC_KEYS CONFIG_DOMAINS CONFIG_DESTS CONFIG_SNIS CONFIG_FPS CONFIG_TRANSPORT_ENDPOINTS CONFIG_PROVIDER_FAMILIES CONFIG_VLESS_ENCRYPTIONS CONFIG_VLESS_DECRYPTIONS; do
         if declare -p "$name" > /dev/null 2>&1; then
+            # Optional arrays like PORTS_V6 can be legitimately empty.
+            local -n _reorder_array_ref="$name"
+            ((${#_reorder_array_ref[@]} == 0)) && continue
             move_runtime_array_index_to_front "$index" "$name" || return 1
         fi
     done
@@ -438,6 +441,8 @@ repair_flow() {
     setup_health_monitoring
     setup_auto_update
 
+    local repair_artifacts_degraded=false
+
     if [[ "$config_ready" == "true" ]]; then
         start_services
         if ((${#PORTS[@]} > 0)); then
@@ -447,9 +452,13 @@ repair_flow() {
             test_reality_connectivity || true
         fi
         if ! rebuild_client_artifacts_from_loaded_state; then
-            log WARN "Не удалось полностью восстановить клиентские артефакты"
+            log ERROR "Не удалось полностью восстановить клиентские артефакты"
+            repair_artifacts_degraded=true
         fi
-        ensure_self_check_artifacts_ready || log WARN "Не удалось полностью подготовить self-check артефакты"
+        if ! ensure_self_check_artifacts_ready; then
+            log ERROR "Не удалось полностью подготовить self-check артефакты"
+            repair_artifacts_degraded=true
+        fi
 
         NUM_CONFIGS=${#PORTS[@]}
         if ((NUM_CONFIGS > 0)); then
@@ -463,6 +472,11 @@ repair_flow() {
         fi
         save_environment || log WARN "Не удалось обновить окружение после repair"
         save_policy_file || log WARN "Не удалось обновить policy.json после repair"
+    fi
+
+    if [[ "$repair_artifacts_degraded" == "true" ]]; then
+        log ERROR "Восстановление завершилось с деградированными клиентскими или self-check артефактами"
+        exit 1
     fi
 
     if ! post_action_verdict "repair"; then
