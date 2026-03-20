@@ -7,6 +7,11 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.10] - 2026-03-21
+
+### Fixed
+- shipped the queued export, transactional client-artifact publishing, CLI parser, and local QA hardening changes in a follow-up patch release so the tagged tree now matches the validated fix-pass
+
 ## [7.5.9] - 2026-03-21
 
 ### Fixed

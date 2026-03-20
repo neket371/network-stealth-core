@@ -7,6 +7,11 @@
 
 ## [unreleased]
 
+## [7.5.10] - 2026-03-21
+
+### Fixed
+- в follow-up patch release реально отгружен queued набор export, транзакционной публикации клиентских артефактов, CLI parser и local QA hardening-правок, чтобы tagged tree наконец совпадало с проверенным fix-pass
+
 ## [7.5.9] - 2026-03-21
 
 ### Fixed
