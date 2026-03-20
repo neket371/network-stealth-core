@@ -7,6 +7,16 @@
 
 ## [unreleased]
 
+## [7.5.9] - 2026-03-21
+
+### Fixed
+- в canary и capability export paths теперь сначала создаются parent-директории и только потом вызывается `mktemp`, поэтому first-run export больше не падает на отсутствующем output-каталоге
+- публикация клиентских артефактов стала транзакционной: `clients.json`, текстовые экспорты и `raw-xray` теперь сначала собираются в staging, а потом атомарно публикуются в рабочие пути
+- CLI parser теперь режет missing values у long-options вместо того, чтобы тихо съедать следующий флаг как аргумент
+- в локальный quality gate добавлены обязательные проверки для `tests/bats/*.bats` и PowerShell syntax, а coverage complexity-check расширен на `.bats` и `.ps1`
+- `check-dead-functions.sh` оптимизирован: вместо повторного полного сканирования репозитория для каждой функции теперь используется shared candidate scan
+- transport endpoint file contract helper дедуплицирован, а крупные CLI/test hotspots разрезаны на более мелкие phase-helpers и тематические bats-файлы
+
 ## [7.5.8] - 2026-03-20
 
 ### Fixed

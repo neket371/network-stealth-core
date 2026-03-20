@@ -7,6 +7,16 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.9] - 2026-03-21
+
+### Fixed
+- created export parents before `mktemp` in canary and capability export paths, so first-run exports no longer fail on missing output directories
+- made client artifact publishing transactional by staging `clients.json`, text exports, and `raw-xray` outputs before atomically publishing them into place
+- rejected missing long-option values in the CLI parser instead of silently consuming the next flag as an argument
+- added mandatory local quality gates for `tests/bats/*.bats` and PowerShell syntax, and extended shell complexity coverage to `.bats` and `.ps1`
+- optimized `check-dead-functions.sh` to use a shared candidate scan instead of repeatedly rescanning the full repository for each function
+- deduplicated the transport endpoint file contract helper and split large CLI/test hotspots into smaller phase helpers and themed bats files
+
 ## [7.5.8] - 2026-03-20
 
 ### Fixed

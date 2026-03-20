@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.5.8 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
+# Network Stealth Core 7.5.9 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.5.8"
+readonly SCRIPT_VERSION="7.5.9"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
@@ -187,30 +187,23 @@ declare -A CREATED_PATH_SET=()
 : "${PRIVATE_KEYS[@]}" "${PUBLIC_KEYS[@]}" "${UUIDS[@]}" "${SHORT_IDS[@]}"
 : "${CONFIG_DOMAINS[@]}" "${CONFIG_SNIS[@]}" "${CONFIG_TRANSPORT_ENDPOINTS[@]}" "${CONFIG_DESTS[@]}" "${CONFIG_FPS[@]}" "${CONFIG_PROVIDER_FAMILIES[@]}" "${CONFIG_VLESS_ENCRYPTIONS[@]}" "${CONFIG_VLESS_DECRYPTIONS[@]}" "${AVAILABLE_DOMAINS[@]}"
 
-sync_transport_endpoint_file_contract() {
-    local default_path="${XRAY_DATA_DIR:-/usr/local/share/xray-reality}/transport_endpoints.map"
-    local legacy_default_path="${XRAY_DATA_DIR:-/usr/local/share/xray-reality}/grpc_services.map"
-
-    if [[ -z "${XRAY_TRANSPORT_ENDPOINTS_FILE:-}" ]]; then
-        if [[ -n "${XRAY_GRPC_SERVICES_FILE:-}" ]]; then
-            XRAY_TRANSPORT_ENDPOINTS_FILE="$XRAY_GRPC_SERVICES_FILE"
-        elif [[ -f "$default_path" || ! -f "$legacy_default_path" ]]; then
-            XRAY_TRANSPORT_ENDPOINTS_FILE="$default_path"
-        else
-            XRAY_TRANSPORT_ENDPOINTS_FILE="$legacy_default_path"
-        fi
-    fi
-
-    if [[ -z "${XRAY_GRPC_SERVICES_FILE:-}" ]]; then
-        XRAY_GRPC_SERVICES_FILE="$XRAY_TRANSPORT_ENDPOINTS_FILE"
-    fi
-}
-
 DEFAULT_DATA_DIR="/usr/local/share/xray-reality"
 if [[ -z "${XRAY_DATA_DIR:-}" ]]; then
     XRAY_DATA_DIR="$DEFAULT_DATA_DIR"
 fi
 export XRAY_DATA_DIR
+
+GLOBAL_CONTRACT_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/lib/globals_contract.sh"
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
+fi
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
+    echo "ERROR: не найден модуль global contract: $GLOBAL_CONTRACT_MODULE" >&2
+    exit 1
+fi
+# shellcheck source=modules/lib/globals_contract.sh
+source "$GLOBAL_CONTRACT_MODULE"
+
 XRAY_TIERS_FILE="${XRAY_TIERS_FILE:-$XRAY_DATA_DIR/domains.tiers}"
 XRAY_SNI_POOLS_FILE="${XRAY_SNI_POOLS_FILE:-$XRAY_DATA_DIR/sni_pools.map}"
 XRAY_TRANSPORT_ENDPOINTS_FILE="${XRAY_TRANSPORT_ENDPOINTS_FILE:-$XRAY_DATA_DIR/transport_endpoints.map}"
