@@ -19,6 +19,9 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 - clarified grpc/mux defaults as legacy compatibility knobs for `migrate-stealth` and explicit legacy rebuild paths
 - bounded `rand_between` retry sampling and added a deterministic fallback path instead of leaving an unbounded rejection loop
 - hardened `atomic_write` to restore `umask` when temporary file creation fails and made install warn explicitly when export hooks are unavailable after load
+- made rollback log the exact restore target before aborting on snapshot copy failures instead of failing silently inside the restore loop
+- made `status` warn explicitly when it sees an unrecognized inbound transport instead of showing `unknown` with no operator hint
+- added an `atomic_write` guard for accidental interactive calls without a pipe or heredoc
 
 ## [7.5.6] - 2026-03-19
 

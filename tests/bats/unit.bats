@@ -3972,6 +3972,16 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "atomic_write guards against interactive stdin" {
+    run bash -eo pipefail -c '
+    grep -q '\''if \[\[ -t 0 \]\]; then'\'' ./lib.sh
+    grep -q '\''atomic_write: вызван без stdin'\'' ./lib.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "status_flow verbose degrades gracefully when free/df are unavailable" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -3984,6 +3994,36 @@ EOF
   '
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
+}
+
+@test "status_flow_render_config_summary warns on unknown transport" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+    tmp=$(mktemp)
+    trap "rm -f \"$tmp\"" EXIT
+    XRAY_CONFIG="$tmp"
+    cat > "$XRAY_CONFIG" <<JSON
+{
+  "inbounds": [
+    {
+      "listen": "0.0.0.0",
+      "port": 443,
+      "streamSettings": {
+        "network": "quic",
+        "realitySettings": {
+          "dest": "example.com:443"
+        }
+      }
+    }
+  ]
+}
+JSON
+    status_flow_render_config_summary
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Transport: unknown"* ]]
+    [[ "$output" == *"нераспознанный транспорт"* ]]
 }
 
 @test "status_flow keeps major sections in stable order" {

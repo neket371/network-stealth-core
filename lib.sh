@@ -528,6 +528,11 @@ atomic_write() {
         target_existed=true
     fi
 
+    if [[ -t 0 ]]; then
+        log ERROR "atomic_write: вызван без stdin (используйте pipe или heredoc): $target"
+        return 1
+    fi
+
     if _path_has_parent_segments "$target"; then
         log ERROR "atomic_write: путь содержит traversal-сегменты ..: $target"
         return 1

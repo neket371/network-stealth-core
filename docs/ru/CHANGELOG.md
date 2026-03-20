@@ -19,6 +19,9 @@
 - grpc/mux defaults явно помечены как legacy compatibility knobs для `migrate-stealth` и explicit legacy rebuild paths
 - `rand_between` получил bounded retry sampling и детерминированный fallback вместо потенциально бесконечного rejection loop
 - `atomic_write` теперь явно восстанавливает `umask` при провале `mktemp`, а install теперь предупреждает, если export hooks после загрузки недоступны
+- rollback теперь логирует точный target восстановления перед аварийным выходом, если копирование snapshot-файла не удалось
+- `status` теперь явно предупреждает о нераспознанном inbound transport вместо немого `unknown`
+- `atomic_write` теперь режет случайные интерактивные вызовы без pipe/heredoc, чтобы не зависать на чтении из tty
 
 ## [7.5.6] - 2026-03-19
 

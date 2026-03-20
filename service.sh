@@ -148,10 +148,16 @@ rollback_from_session() {
             fi
 
             if declare -F restore_file_from_snapshot > /dev/null 2>&1; then
-                restore_file_from_snapshot "$session_dir/$rel" "$dest" || exit 1
+                restore_file_from_snapshot "$session_dir/$rel" "$dest" || {
+                    log ERROR "Не удалось восстановить: $dest"
+                    exit 1
+                }
             else
                 mkdir -p "$(dirname "$dest")"
-                cp -a "$session_dir/$rel" "$dest"
+                cp -a "$session_dir/$rel" "$dest" || {
+                    log ERROR "Не удалось восстановить: $dest"
+                    exit 1
+                }
             fi
             log INFO "Восстановлен: $dest"
         done
@@ -218,6 +224,8 @@ status_flow_render_config_summary() {
     echo -e "  Transport: ${transport_mode}"
     if [[ "$transport_mode" == "grpc" || "$transport_mode" == "http2" ]]; then
         echo -e "  Режим: legacy transport (рекомендуется xray-reality.sh migrate-stealth)"
+    elif [[ "$transport_mode" == "unknown" ]]; then
+        echo -e "  Режим: ${YELLOW}нераспознанный транспорт${NC}"
     fi
     if [[ "$(normalize_domain_tier "${DOMAIN_TIER:-${DOMAIN_PROFILE:-tier_ru}}" 2> /dev/null || echo "")" == "custom" ]]; then
         if [[ -n "${XRAY_DOMAINS_FILE:-}" ]]; then
