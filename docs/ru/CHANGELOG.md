@@ -7,6 +7,9 @@
 
 ## [unreleased]
 
+### Fixed
+- download-failure e2e smoke теперь проверяет новый fail-closed текст про официальный `.dgst`, а не старую формулировку про mirror-only SHA256 path
+
 ## [7.5.15] - 2026-03-22
 
 ### Changed

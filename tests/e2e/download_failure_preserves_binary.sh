@@ -48,8 +48,8 @@ if ((rc == 0)); then
     exit 1
 fi
 
-if ! grep -q "Не удалось скачать Xray с проверкой SHA256" "$WORK_ROOT/install.log"; then
-    echo "Expected download failure message in install log" >&2
+if ! grep -q "Не удалось получить официальный .dgst для Xray release" "$WORK_ROOT/install.log"; then
+    echo "Expected official digest failure message in install log" >&2
     cat "$WORK_ROOT/install.log" >&2 || true
     exit 1
 fi
