@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.15] - 2026-03-22
+
 ### Changed
 - managed version contract defaults вынесены в один shared helper, а `XRAY_FAILURE_PROOF_DIR` теперь явно оформлен как maintainer-only debug hook вместо неявной env-ручки
 

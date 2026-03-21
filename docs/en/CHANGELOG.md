@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.15] - 2026-03-22
+
 ### Changed
 - moved the managed version contract defaults into one shared helper and documented `XRAY_FAILURE_PROOF_DIR` as a maintainer-only debug hook instead of leaving it as an implicit environment knob
 
