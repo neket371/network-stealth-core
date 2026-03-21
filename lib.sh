@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.5.13 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
+# Network Stealth Core 7.5.14 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.5.13"
+readonly SCRIPT_VERSION="7.5.14"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
@@ -69,6 +69,7 @@ XRAY_UPDATE_SCRIPT="${XRAY_UPDATE_SCRIPT:-/usr/local/bin/xray-reality-update.sh}
 UPDATE_LOG="${UPDATE_LOG:-/var/log/xray-update.log}"
 DIAG_LOG="${DIAG_LOG:-/var/log/xray-diagnose.log}"
 HEALTH_LOG="${HEALTH_LOG:-}"
+XRAY_FAILURE_PROOF_DIR="${XRAY_FAILURE_PROOF_DIR:-}"
 XRAY_GEOIP_URL="${XRAY_GEOIP_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat}"
 XRAY_GEOSITE_URL="${XRAY_GEOSITE_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat}"
 XRAY_GEOIP_SHA256_URL="${XRAY_GEOIP_SHA256_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat.sha256sum}"
@@ -113,9 +114,9 @@ PRIMARY_ADAPTIVE_TOP_N="${PRIMARY_ADAPTIVE_TOP_N:-5}"
 MEASUREMENTS_DIR="${MEASUREMENTS_DIR:-/var/lib/xray/measurements}"
 MEASUREMENTS_SUMMARY_FILE="${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}"
 SELF_CHECK_HISTORY_FILE="${SELF_CHECK_HISTORY_FILE:-/var/lib/xray/self-check-history.ndjson}"
-# managed strongest-direct contract epoch; this is independent from the release tag.
-STEALTH_CONTRACT_VERSION="${STEALTH_CONTRACT_VERSION:-7.3.8}"
-XRAY_CLIENT_MIN_VERSION="${XRAY_CLIENT_MIN_VERSION:-25.9.5}"
+# managed strongest-direct contract epoch is sourced from modules/lib/version_contract.sh.
+STEALTH_CONTRACT_VERSION="${STEALTH_CONTRACT_VERSION:-}"
+XRAY_CLIENT_MIN_VERSION="${XRAY_CLIENT_MIN_VERSION:-}"
 XRAY_DIRECT_FLOW="${XRAY_DIRECT_FLOW:-xtls-rprx-vision}"
 BROWSER_DIALER_ENV_NAME="${BROWSER_DIALER_ENV_NAME:-xray.browser.dialer}"
 XRAY_BROWSER_DIALER_ADDRESS="${XRAY_BROWSER_DIALER_ADDRESS:-}"

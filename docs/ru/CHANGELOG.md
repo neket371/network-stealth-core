@@ -7,6 +7,18 @@
 
 ## [unreleased]
 
+## [7.5.14] - 2026-03-22
+
+### Changed
+- managed version contract defaults вынесены в один shared helper, а `XRAY_FAILURE_PROOF_DIR` теперь явно оформлен как maintainer-only debug hook вместо неявной env-ручки
+
+### Fixed
+- из generated inbound JSON убран дублирующийся серверный `settings.flow`, а в server root config больше не пишется нестандартный `version.min`
+- `systemctl_uninstall_bounded` теперь реально передаёт все requested unit’ы и больше не теряет хвост аргументов при uninstall cleanup
+- SNI pool для `googleapis.com` дедуплицирован, а для catalog, tiers и fallback map добавлен отдельный consistency gate
+- rebuild/self-check helper’ы переведены с скрытой multi-output-сцепки на явный контракт, а repeated `jq`-нагрузка в client artifact rendering/inventory assembly снижена
+- проверка Xray release теперь по умолчанию предпочитает official digest/signature sidecars, а mirror digest fallback остаётся только в explicit insecure path
+
 ## [7.5.13] - 2026-03-21
 
 ### Changed

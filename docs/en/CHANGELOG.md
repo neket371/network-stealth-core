@@ -7,6 +7,18 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.14] - 2026-03-22
+
+### Changed
+- moved the managed version contract defaults into one shared helper and documented `XRAY_FAILURE_PROOF_DIR` as a maintainer-only debug hook instead of leaving it as an implicit environment knob
+
+### Fixed
+- removed duplicate server-side `settings.flow` from generated inbound JSON and stopped writing non-standard `version.min` into the server root config
+- made `systemctl_uninstall_bounded` forward every requested unit instead of silently dropping trailing arguments during uninstall cleanup
+- deduplicated the `googleapis.com` SNI pool and added a domain-data consistency gate for catalog, tiers, and fallback map files
+- switched rebuild/self-check helpers away from hidden multi-output coupling, and reduced repeated `jq` work in client artifact rendering/inventory assembly
+- tightened Xray release verification so official digest/signature sidecars are preferred by default, with mirror digest fallback only in the explicit insecure path
+
 ## [7.5.13] - 2026-03-21
 
 ### Changed
