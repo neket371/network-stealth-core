@@ -7,6 +7,10 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Fixed
+- made `check-update` degrade with an explicit warning instead of crashing if the version comparator helper is unavailable in a degraded service-shell context
+- narrowed `atomic_write` `/usr/local` permissions to managed subpaths so unrelated `/usr/local/*` targets are no longer implicitly writable
+
 ## [7.5.10] - 2026-03-21
 
 ### Fixed

@@ -529,6 +529,9 @@ check_update_flow() {
         elif [[ ! "$current_version" =~ ^[0-9]+(\.[0-9]+){1,3}([-.][0-9A-Za-z]+)*$ ]]; then
             echo -e "${YELLOW}Нестандартный формат версии: ${current_version}${NC}"
             echo -e "  Для обновления выполните: ${CYAN}xray-reality.sh update${NC}"
+        elif ! declare -F version_lt > /dev/null 2>&1; then
+            echo -e "${YELLOW}Не удалось сравнить версии автоматически${NC}"
+            echo -e "  Для обновления выполните: ${CYAN}xray-reality.sh update${NC}"
         elif version_lt "$current_version" "$latest_version"; then
             echo -e "${YELLOW}Доступно обновление!${NC}"
             echo -e "  Выполните: ${CYAN}xray-reality.sh update${NC}"

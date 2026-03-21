@@ -3648,6 +3648,20 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "atomic_write restricts /usr/local to managed subpaths" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    log() { printf "%s\n" "$*"; }
+    result=$({ printf "x\n" | atomic_write /usr/local/lib/xray-reality-test 0644; } 2>&1 || true)
+    [[ "$result" == *"вне разрешённых директорий"* ]]
+    grep -Fq '\''"/usr/local/bin"'\'' ./lib.sh
+    grep -Fq '\''"/usr/local/share/xray-reality"'\'' ./lib.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "status_flow verbose degrades gracefully when free/df are unavailable" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -5016,6 +5030,32 @@ EOF
     run bash -eo pipefail -c '
     grep -Fq '\''([-.][0-9A-Za-z]+)*$'\'' ./service.sh
     ! grep -Fq '\''([.-][0-9A-Za-z]+)*$'\'' ./service.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "check_update_flow degrades gracefully when version comparator is unavailable" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./service.sh
+    tmpbin=$(mktemp)
+    trap "rm -f \"$tmpbin\"" EXIT
+    cat > "$tmpbin" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+echo "Xray 1.2.3"
+EOF
+    chmod +x "$tmpbin"
+    XRAY_BIN="$tmpbin"
+    curl_fetch_text_allowlist() {
+      printf "%s\n" "{\"tag_name\":\"v1.2.4\"}"
+    }
+    unset -f version_lt
+    result=$(check_update_flow)
+    [[ "$result" == *"Текущая версия Xray:"* ]]
+    [[ "$result" == *"Последняя версия Xray:"* ]]
+    [[ "$result" == *"Не удалось сравнить версии автоматически"* ]]
     echo "ok"
   '
     [ "$status" -eq 0 ]

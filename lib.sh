@@ -539,7 +539,7 @@ atomic_write() {
 
     local -a safe_prefixes=(
         "/etc/xray" "/etc/systemd" "/usr/lib/systemd" "/lib/systemd" "/var/log" "/var/backups/xray"
-        "/usr/local" "/var/lib/xray" "/etc/logrotate.d"
+        "/usr/local/bin" "/usr/local/share/xray-reality" "/var/lib/xray" "/etc/logrotate.d"
         "/etc/xray-reality" "/etc/sysctl.d" "/etc/security"
         "/opt/xray"
     )
