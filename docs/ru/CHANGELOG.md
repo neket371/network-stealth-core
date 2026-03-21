@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.11] - 2026-03-21
+
 ### Fixed
 - `check-update` теперь деградирует с явным warning вместо crash, если в degraded service-shell context недоступен helper сравнения версий
 - `atomic_write` больше не считает весь `/usr/local` разрешённым: доступ сужен до managed subpaths, и посторонние `/usr/local/*` пути больше не проходят неявно
