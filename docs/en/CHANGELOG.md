@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.13] - 2026-03-21
+
 ### Changed
 - documented the strongest-direct DNS contract as intentionally IPv4-first on dual-stack hosts, instead of leaving `queryStrategy: UseIPv4` to look like an accidental mismatch
 

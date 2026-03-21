@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.13] - 2026-03-21
+
 ### Changed
 - strongest-direct DNS-контракт теперь явно задокументирован как намеренно IPv4-first на dual-stack хостах, чтобы `queryStrategy: UseIPv4` не выглядела случайным рассинхроном
 
