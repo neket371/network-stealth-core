@@ -13,6 +13,7 @@ strongest-direct defaults:
 - variants: `recommended`, `rescue`, `emergency`
 - self-check: enabled by default
 - measurement storage: enabled by default when you save reports
+- server-side DNS remains intentionally IPv4-first (`queryStrategy: UseIPv4`) even on dual-stack hosts; IPv6 support here means IPv6 listeners for clients, not IPv6-preferred outbound resolution
 
 ## install
 

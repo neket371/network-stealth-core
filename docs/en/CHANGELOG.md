@@ -7,6 +7,12 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- documented the strongest-direct DNS contract as intentionally IPv4-first on dual-stack hosts, instead of leaving `queryStrategy: UseIPv4` to look like an accidental mismatch
+
+### Fixed
+- strengthened the container `HEALTHCHECK` so it verifies wrapper bootability instead of only checking that the main files exist
+
 ## [7.5.12] - 2026-03-21
 
 ### Changed

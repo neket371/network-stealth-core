@@ -43,7 +43,7 @@ RUN chmod +x \
     && chown -R xray:xray "$XRAY_HOME"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD bash -c 'test -x /opt/xray-reality/xray-reality.sh && test -f /opt/xray-reality/lib.sh'
+    CMD bash -lc 'test -x /opt/xray-reality/xray-reality.sh && /opt/xray-reality/xray-reality.sh help >/dev/null 2>&1'
 
 USER xray
 ENTRYPOINT ["/usr/bin/tini", "--", "/opt/xray-reality/xray-reality.sh"]

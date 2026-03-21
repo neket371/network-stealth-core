@@ -7,6 +7,12 @@
 
 ## [unreleased]
 
+### Changed
+- strongest-direct DNS-контракт теперь явно задокументирован как намеренно IPv4-first на dual-stack хостах, чтобы `queryStrategy: UseIPv4` не выглядела случайным рассинхроном
+
+### Fixed
+- container `HEALTHCHECK` усилен: теперь он проверяет bootability wrapper’а, а не просто наличие главных файлов
+
 ## [7.5.12] - 2026-03-21
 
 ### Changed

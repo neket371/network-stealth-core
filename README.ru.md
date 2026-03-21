@@ -112,6 +112,7 @@ sudo xray-reality.sh install --advanced
 - `recommended` и `rescue` валидируются post-action self-check
 - `emergency` экспортируется честно только как raw xray и предназначен для полевых проверок, а не для фейковых ссылок
 - `update --replan` и `repair` могут повышать более сильный spare-config на основе self-check history и сохранённых field measurements
+- server-side DNS здесь намеренно остаётся IPv4-first (`queryStrategy: UseIPv4`) даже при включённых IPv6 listeners; dual-stack в этом контракте означает покрытие входящих соединений, а не IPv6-preferred outbound resolution
 
 ## поверхность state и артефактов
 

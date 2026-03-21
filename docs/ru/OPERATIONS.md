@@ -13,6 +13,7 @@ strongest-direct defaults:
 - варианты: `recommended`, `rescue`, `emergency`
 - self-check: включён по умолчанию
 - measurement storage: работает по умолчанию, когда ты сохраняешь reports
+- server-side DNS здесь намеренно остаётся IPv4-first (`queryStrategy: UseIPv4`) даже на dual-stack хостах; поддержка IPv6 в этом контракте означает IPv6 listeners для клиентов, а не IPv6-preferred outbound resolution
 
 ## установка
 

@@ -112,6 +112,7 @@ sudo xray-reality.sh install --advanced
 - `recommended` and `rescue` are validated by post-action self-check
 - `emergency` is exported honestly as raw xray only and is meant for field testing, not fake link templates
 - `update --replan` and `repair` may promote a stronger spare config using self-check history and saved field measurements
+- server-side DNS stays intentionally IPv4-first (`queryStrategy: UseIPv4`) even when IPv6 listeners are enabled; dual-stack here means client ingress coverage, not IPv6-preferred outbound resolution
 
 ## state and artifact surface
 

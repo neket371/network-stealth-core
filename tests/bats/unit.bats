@@ -4841,13 +4841,26 @@ EOF
     [[ "$output" == *"ok"* ]]
 }
 
-@test "dockerfile runs non-root and defines healthcheck" {
+@test "dockerfile runs non-root and uses executable healthcheck" {
     run bash -eo pipefail -c '
     grep -Eq '\''^FROM debian:bookworm-[0-9]+-slim(@sha256:[a-f0-9]{64})?$'\'' ./Dockerfile
     grep -q '\''^HEALTHCHECK '\'' ./Dockerfile
+    grep -Fq "xray-reality.sh help >/dev/null 2>&1" ./Dockerfile
     grep -q '\''^USER xray$'\'' ./Dockerfile
     grep -q '\''logrotate'\'' ./Dockerfile
     grep -q '\''unzip'\'' ./Dockerfile
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "docs describe strongest-direct dns as ipv4-first policy" {
+    run bash -eo pipefail -c '
+    grep -Fq "queryStrategy: UseIPv4" ./README.md
+    grep -Fq "queryStrategy: UseIPv4" ./README.ru.md
+    grep -Fq "server-side DNS remains intentionally IPv4-first" ./docs/en/OPERATIONS.md
+    grep -Fq "server-side DNS здесь намеренно остаётся IPv4-first" ./docs/ru/OPERATIONS.md
     echo "ok"
   '
     [ "$status" -eq 0 ]
