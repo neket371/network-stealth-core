@@ -46,10 +46,10 @@ policy_json_from_runtime() {
 
     jq -n \
         --arg generated "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-        --arg contract "${STEALTH_CONTRACT_VERSION:-7.3.8}" \
+        --arg contract "${STEALTH_CONTRACT_VERSION}" \
         --arg transport "${TRANSPORT:-xhttp}" \
         --arg flow "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}" \
-        --arg xray_min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
+        --arg xray_min_version "${XRAY_CLIENT_MIN_VERSION}" \
         --arg tier "${DOMAIN_TIER:-tier_ru}" \
         --arg domain_profile "$domain_profile" \
         --argjson num_configs "${NUM_CONFIGS:-0}" \

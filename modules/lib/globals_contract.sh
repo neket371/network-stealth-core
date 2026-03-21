@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
+VERSION_CONTRACT_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/version_contract.sh"
+if [[ ! -f "$VERSION_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    VERSION_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/version_contract.sh"
+fi
+if [[ ! -f "$VERSION_CONTRACT_MODULE" ]]; then
+    echo "ERROR: не найден модуль version contract: $VERSION_CONTRACT_MODULE" >&2
+    exit 1
+fi
+# shellcheck source=modules/lib/version_contract.sh
+source "$VERSION_CONTRACT_MODULE"
+
 : "${SCRIPT_DIR:=}"
 : "${MODULE_DIR:=}"
 : "${DEFAULT_DATA_DIR:=/usr/local/share/xray-reality}"
@@ -135,9 +146,6 @@
 : "${PRIMARY_DOMAIN_MODE:=adaptive}"
 : "${PRIMARY_PIN_DOMAIN:=}"
 : "${PRIMARY_ADAPTIVE_TOP_N:=5}"
-# managed strongest-direct contract epoch; this is independent from the release tag.
-: "${STEALTH_CONTRACT_VERSION:=7.3.8}"
-: "${XRAY_CLIENT_MIN_VERSION:=25.9.5}"
 : "${XRAY_DIRECT_FLOW:=xtls-rprx-vision}"
 : "${BROWSER_DIALER_ENV_NAME:=xray.browser.dialer}"
 : "${XRAY_BROWSER_DIALER_ADDRESS:=}"

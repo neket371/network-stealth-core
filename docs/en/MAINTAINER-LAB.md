@@ -136,5 +136,6 @@ the proof-pack intentionally excludes:
 - use `make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z` for tagged bootstrap validation in the nat-backed guest
 - use `make vm-proof-pack` when you need a shareable maintainer/operator evidence bundle from that vm-lab run
 - use canary bundle exports for testing from another machine or another network
+- use `XRAY_FAILURE_PROOF_DIR=/path` only as a maintainer/debug env hook when you need a local failure bundle from `cleanup_on_error`; do not persist it in `config.env`
 - treat `Nightly Smoke` self-hosted as the regular scheduled proof path
 - treat `.github/workflows/self-hosted-smoke.yml` as manual/on-demand only

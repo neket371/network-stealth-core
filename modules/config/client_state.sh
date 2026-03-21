@@ -56,6 +56,8 @@ update_env_num_configs() {
 validate_clients_json_file() {
     local json_file="$1"
     local clients_shape_filter=""
+    local contract_version="${STEALTH_CONTRACT_VERSION}"
+    local min_version="${XRAY_CLIENT_MIN_VERSION}"
     [[ -f "$json_file" ]] || return 0
 
     clients_shape_filter=$(
@@ -83,11 +85,13 @@ JQ
         log WARN "Некорректный формат ${json_file}; файл будет пересоздан в схеме .configs"
     fi
 
-    normalized_json=$(printf '%s\n' "$normalized_json" | jq '
+    normalized_json=$(printf '%s\n' "$normalized_json" | jq \
+        --arg contract_version "$contract_version" \
+        --arg min_version "$min_version" '
         .schema_version = 3
-        | .stealth_contract_version = (.stealth_contract_version // "7.3.8")
+        | .stealth_contract_version = (.stealth_contract_version // $contract_version)
         | .transport = (.transport // "xhttp")
-        | .xray_min_version = (.xray_min_version // "25.9.5")
+        | .xray_min_version = (.xray_min_version // $min_version)
         | .configs = (
             (.configs // [])
             | map(

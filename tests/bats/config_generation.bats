@@ -36,6 +36,18 @@
     [ "$output" = "myprivkey" ]
 }
 
+@test "generate_inbound_json keeps flow only inside clients array" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    json=$(generate_inbound_json 443 "uuid" "d.com:443" "d.com" \
+      "pk" "sid" "chrome" "/edge/api/demo" 30 45 10)
+    echo "$json" | jq -r "[.settings.clients[0].flow, (.settings | has(\"flow\"))] | @tsv"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "xtls-rprx-vision	false" ]
+}
+
 @test "generate_inbound_json includes bbr congestion in sockopt" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -59,6 +71,17 @@
   '
     [ "$status" -eq 0 ]
     [ "$output" = '"freedom"' ]
+}
+
+@test "write_xray_root_config_json omits server-side version metadata" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    json=$(write_xray_root_config_json "[]" "[]" "{}")
+    echo "$json" | jq -r "has(\"version\")"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "false" ]
 }
 
 @test "generate_outbounds_json does not emit server-side mux field" {

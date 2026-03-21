@@ -149,46 +149,46 @@ install_dependencies() {
     log OK "Все зависимости установлены"
 }
 
+install_self_sync_tree() {
+    local src_dir="$1"
+    local dest_root="$2"
+    local tree_name="$3"
+    [[ -d "$src_dir" ]] || return 0
+
+    local tree_tmp tree_backup
+    tree_tmp=$(mktemp -d "${dest_root}/.${tree_name}.new.XXXXXX")
+    if ! cp -a "$src_dir/." "$tree_tmp/"; then
+        rm -rf "$tree_tmp"
+        log ERROR "Не удалось скопировать ${tree_name} во временную директорию"
+        exit 1
+    fi
+
+    tree_backup=""
+    if [[ -d "${dest_root}/${tree_name}" ]]; then
+        tree_backup=$(mktemp -d "${dest_root}/.${tree_name}.backup.XXXXXX")
+        if ! mv "${dest_root}/${tree_name}" "${tree_backup}/${tree_name}"; then
+            rm -rf "$tree_tmp" "$tree_backup"
+            log ERROR "Не удалось подготовить backup текущего ${tree_name}"
+            exit 1
+        fi
+    fi
+
+    if ! mv "$tree_tmp" "${dest_root}/${tree_name}"; then
+        rm -rf "${dest_root:?}/${tree_name}" "$tree_tmp"
+        if [[ -n "$tree_backup" && -d "${tree_backup}/${tree_name}" ]]; then
+            mv "${tree_backup}/${tree_name}" "${dest_root}/${tree_name}" || true
+        fi
+        rm -rf "$tree_backup"
+        log ERROR "Не удалось обновить ${tree_name} в ${dest_root}"
+        exit 1
+    fi
+    rm -rf "$tree_backup"
+}
+
 install_self() {
     log STEP "Устанавливаем скрипт управления..."
 
     if [[ -n "$XRAY_DATA_DIR" ]]; then
-        install_self_sync_tree() {
-            local src_dir="$1"
-            local dest_root="$2"
-            local tree_name="$3"
-            [[ -d "$src_dir" ]] || return 0
-
-            local tree_tmp tree_backup
-            tree_tmp=$(mktemp -d "${dest_root}/.${tree_name}.new.XXXXXX")
-            if ! cp -a "$src_dir/." "$tree_tmp/"; then
-                rm -rf "$tree_tmp"
-                log ERROR "Не удалось скопировать ${tree_name} во временную директорию"
-                exit 1
-            fi
-
-            tree_backup=""
-            if [[ -d "${dest_root}/${tree_name}" ]]; then
-                tree_backup=$(mktemp -d "${dest_root}/.${tree_name}.backup.XXXXXX")
-                if ! mv "${dest_root}/${tree_name}" "${tree_backup}/${tree_name}"; then
-                    rm -rf "$tree_tmp" "$tree_backup"
-                    log ERROR "Не удалось подготовить backup текущего ${tree_name}"
-                    exit 1
-                fi
-            fi
-
-            if ! mv "$tree_tmp" "${dest_root}/${tree_name}"; then
-                rm -rf "${dest_root:?}/${tree_name}" "$tree_tmp"
-                if [[ -n "$tree_backup" && -d "${tree_backup}/${tree_name}" ]]; then
-                    mv "${tree_backup}/${tree_name}" "${dest_root}/${tree_name}" || true
-                fi
-                rm -rf "$tree_backup"
-                log ERROR "Не удалось обновить ${tree_name} в ${dest_root}"
-                exit 1
-            fi
-            rm -rf "$tree_backup"
-        }
-
         mkdir -p "$XRAY_DATA_DIR"
         install_self_sync_tree "$SCRIPT_DIR/modules" "$XRAY_DATA_DIR" "modules"
         install_self_sync_tree "$SCRIPT_DIR/data" "$XRAY_DATA_DIR" "data"

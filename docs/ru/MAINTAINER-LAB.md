@@ -136,5 +136,6 @@ proof-pack намеренно не включает:
 - `make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z` — tagged bootstrap validation в nat-backed guest
 - `make vm-proof-pack` — shareable maintainer/operator evidence bundle из последнего vm-lab run
 - canary bundle exports — проверка с другой машины или другой сети
+- `XRAY_FAILURE_PROOF_DIR=/path` — только maintainer/debug env hook для локального failure bundle из `cleanup_on_error`; не сохраняй это в `config.env`
 - `Nightly Smoke` self-hosted — регулярный scheduled proof-path
 - `.github/workflows/self-hosted-smoke.yml` — только manual/on-demand workflow

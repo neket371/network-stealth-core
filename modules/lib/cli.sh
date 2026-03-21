@@ -287,12 +287,6 @@ cli_handle_long_option_action() {
             ACTION="rollback"
             if [[ "$optarg" == *=* ]]; then
                 ROLLBACK_DIR="${optarg#*=}"
-            else
-                local next="${!OPTIND:-}"
-                if [[ -n "$next" && "$next" != --* ]]; then
-                    ROLLBACK_DIR="$next"
-                    OPTIND=$((OPTIND + 1))
-                fi
             fi
             ;;
         uninstall)

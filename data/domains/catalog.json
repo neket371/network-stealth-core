@@ -3843,7 +3843,6 @@
         "risk": "normal",
         "sni_pool": [
           "googleapis.com",
-          "www.googleapis.com",
           "m.googleapis.com",
           "maps.googleapis.com",
           "www.googleapis.com",

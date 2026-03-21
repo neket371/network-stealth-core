@@ -19,14 +19,14 @@
 : "${LOGGING_FIFO:=}"
 : "${LOGGING_TEE_PID:=}"
 
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly CYAN='\033[0;36m'
-readonly BOLD='\033[1m'
-readonly DIM='\033[2m'
-readonly NC='\033[0m'
+: "${RED:=\033[0;31m}"
+: "${GREEN:=\033[0;32m}"
+: "${YELLOW:=\033[1;33m}"
+: "${BLUE:=\033[0;34m}"
+: "${CYAN:=\033[0;36m}"
+: "${BOLD:=\033[1m}"
+: "${DIM:=\033[2m}"
+: "${NC:=\033[0m}"
 
 UI_GLYPHS_INITIALIZED=false
 UI_BOX_TL="+"

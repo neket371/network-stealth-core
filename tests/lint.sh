@@ -45,6 +45,7 @@ DEFAULT_SHELL_FILES=(
     "$SCRIPT_DIR/scripts/check-workflow-pinning.sh"
     "$SCRIPT_DIR/scripts/check-security-baseline.sh"
     "$SCRIPT_DIR/scripts/check-docs-commands.sh"
+    "$SCRIPT_DIR/scripts/check-domain-data-consistency.sh"
     "$SCRIPT_DIR/scripts/check-shell-complexity.sh"
     "$SCRIPT_DIR/scripts/check-shellcheck-advisory.sh"
     "$SCRIPT_DIR/scripts/check-bats-quality.sh"
@@ -213,4 +214,5 @@ if [[ "$FAST_MODE" != "true" ]]; then
     bash "$SCRIPT_DIR/scripts/check-workflow-pinning.sh"
     bash "$SCRIPT_DIR/scripts/check-security-baseline.sh"
     bash "$SCRIPT_DIR/scripts/check-docs-commands.sh"
+    bash "$SCRIPT_DIR/scripts/check-domain-data-consistency.sh"
 fi

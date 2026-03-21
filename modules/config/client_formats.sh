@@ -25,6 +25,7 @@ client_variant_catalog() {
             printf '%s\n' "emergency	stream-up"
             ;;
         *)
+            # legacy-only compatibility branch for migrate-stealth / explicit legacy rebuilds.
             printf '%s\n' "standard	"
             ;;
     esac
@@ -173,7 +174,7 @@ build_xray_client_variant_json() {
     esac
 
     jq -n \
-        --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
+        --arg min_version "${XRAY_CLIENT_MIN_VERSION}" \
         --arg server "$server" \
         --argjson port "$port" \
         --arg uuid "$uuid" \
@@ -260,6 +261,67 @@ write_client_variant_json_file() {
     chown "root:${XRAY_GROUP}" "$target_file" 2> /dev/null || true
 }
 
+client_json_config_rows_tsv() {
+    local json_file="$1"
+    jq -r \
+        --arg default_flow "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}" \
+        '
+        .configs
+        | to_entries[]
+        | [
+            (.key | tostring),
+            (.value.domain // "unknown"),
+            (.value.sni // .value.domain // "unknown"),
+            (.value.fingerprint // "chrome"),
+            (.value.transport // "xhttp"),
+            (.value.transport_endpoint // .value.grpc_service // "-"),
+            ((.value.port_ipv4 // "N/A") | tostring),
+            ((.value.port_ipv6 // null) | if . == null then "" else tostring end),
+            (.value.provider_family // "-"),
+            (.value.flow // $default_flow),
+            (.value.vless_encryption // "none"),
+            (((.value.variants // []) | if length > 0 then length else 1 end) | tostring)
+        ]
+        | map(tostring)
+        | join("\u001f")
+        ' "$json_file"
+}
+
+client_json_variant_rows_tsv() {
+    local json_file="$1"
+    local config_index="$2"
+    jq -r \
+        --argjson idx "$config_index" \
+        '
+        .configs[$idx] as $cfg
+        | (($cfg.variants // []) | if length > 0 then . else [
+            {
+                key: ($cfg.recommended_variant // "recommended"),
+                note: null,
+                mode: null,
+                requires: { browser_dialer: false },
+                xray_client_file_v4: null,
+                xray_client_file_v6: null,
+                vless_v4: ($cfg.vless_v4 // null),
+                vless_v6: ($cfg.vless_v6 // null)
+            }
+          ] end)
+        | .[]
+        | [
+            (.key // ($cfg.recommended_variant // "recommended")),
+            (.note // ""),
+            (.mode // ""),
+            (.xray_client_file_v4 // ""),
+            (.xray_client_file_v6 // ""),
+            ((.requires.browser_dialer // false) | tostring),
+            (.vless_v4 // ""),
+            (.vless_v6 // "")
+        ]
+        | map(tostring)
+        | join("\u001f")
+        ' "$json_file"
+}
+
 render_clients_txt_from_json() {
     local json_file="$1"
     local client_file="$2"
@@ -318,29 +380,27 @@ render_clients_txt_from_json() {
         echo ""
     } > "$tmp_client"
 
-    local config_count
-    config_count=$(jq -r '.configs | length' "$json_file" 2> /dev/null || echo 0)
-
-    local i
-    for ((i = 0; i < config_count; i++)); do
-        local domain sni fp transport_value endpoint port_v4 port_v6 provider_family flow_value encryption_value
-        domain=$(jq -r ".configs[$i].domain // \"unknown\"" "$json_file" 2> /dev/null || echo "unknown")
-        sni=$(jq -r ".configs[$i].sni // .configs[$i].domain // \"unknown\"" "$json_file" 2> /dev/null || echo "unknown")
-        fp=$(jq -r ".configs[$i].fingerprint // \"chrome\"" "$json_file" 2> /dev/null || echo "chrome")
-        transport_value=$(jq -r ".configs[$i].transport // \"xhttp\"" "$json_file" 2> /dev/null || echo "xhttp")
-        endpoint=$(jq -r ".configs[$i].transport_endpoint // .configs[$i].grpc_service // \"-\"" "$json_file" 2> /dev/null || echo "-")
-        port_v4=$(jq -r ".configs[$i].port_ipv4 // \"N/A\"" "$json_file" 2> /dev/null || echo "N/A")
-        port_v6=$(jq -r ".configs[$i].port_ipv6 // empty | tostring" "$json_file" 2> /dev/null || true)
-        provider_family=$(jq -r ".configs[$i].provider_family // \"-\"" "$json_file" 2> /dev/null || echo "-")
-        flow_value=$(jq -r ".configs[$i].flow // \"${XRAY_DIRECT_FLOW:-xtls-rprx-vision}\"" "$json_file" 2> /dev/null || echo "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}")
-        encryption_value=$(jq -r ".configs[$i].vless_encryption // \"none\"" "$json_file" 2> /dev/null || echo "none")
-
-        [[ -n "$port_v6" && "$port_v6" != "null" ]] || port_v6="N/A"
+    local config_index domain sni fp transport_value endpoint port_v4 port_v6 provider_family flow_value encryption_value variant_count
+    while IFS=$'\x1f' read -r config_index domain sni fp transport_value endpoint port_v4 port_v6 provider_family flow_value encryption_value variant_count; do
+        [[ -n "$config_index" ]] || continue
+        config_index="${config_index//$'\r'/}"
+        domain="${domain//$'\r'/}"
+        sni="${sni//$'\r'/}"
+        fp="${fp//$'\r'/}"
+        transport_value="${transport_value//$'\r'/}"
+        endpoint="${endpoint//$'\r'/}"
+        port_v4="${port_v4//$'\r'/}"
+        port_v6="${port_v6//$'\r'/}"
+        provider_family="${provider_family//$'\r'/}"
+        flow_value="${flow_value//$'\r'/}"
+        encryption_value="${encryption_value//$'\r'/}"
+        variant_count="${variant_count//$'\r'/}"
+        [[ -n "$port_v6" ]] || port_v6="N/A"
 
         local priority=""
-        if [[ $i -eq 0 ]]; then
+        if [[ "$config_index" -eq 0 ]]; then
             priority=" ★ основной"
-        elif [[ $i -eq 1 ]]; then
+        elif [[ "$config_index" -eq 1 ]]; then
             priority=" ☆ запасной"
         fi
 
@@ -353,7 +413,7 @@ render_clients_txt_from_json() {
         esac
 
         {
-            print_client_config_box "config $((i + 1)): ${domain}${priority}" \
+            print_client_config_box "config $((config_index + 1)): ${domain}${priority}" \
                 "порт ipv4: ${port_v4}" \
                 "порт ipv6: ${port_v6}" \
                 "sni: ${sni}" \
@@ -368,21 +428,19 @@ render_clients_txt_from_json() {
             echo "варианты:"
         } >> "$tmp_client"
 
-        local variant_count
-        variant_count=$(jq -r ".configs[$i].variants | length" "$json_file" 2> /dev/null || echo 0)
         if [[ ! "$variant_count" =~ ^[0-9]+$ ]] || ((variant_count < 1)); then
             variant_count=1
         fi
 
-        local j
-        for ((j = 0; j < variant_count; j++)); do
-            local variant_key variant_note variant_mode raw_v4 raw_v6 requires_browser_dialer
-            variant_key=$(jq -r ".configs[$i].variants[$j].key // .configs[$i].recommended_variant // \"recommended\"" "$json_file" 2> /dev/null || echo "recommended")
-            variant_note=$(jq -r ".configs[$i].variants[$j].note // empty" "$json_file" 2> /dev/null || true)
-            variant_mode=$(jq -r ".configs[$i].variants[$j].mode // empty" "$json_file" 2> /dev/null || true)
-            raw_v4=$(jq -r ".configs[$i].variants[$j].xray_client_file_v4 // empty" "$json_file" 2> /dev/null || true)
-            raw_v6=$(jq -r ".configs[$i].variants[$j].xray_client_file_v6 // empty" "$json_file" 2> /dev/null || true)
-            requires_browser_dialer=$(jq -r ".configs[$i].variants[$j].requires.browser_dialer // false" "$json_file" 2> /dev/null || echo "false")
+        local variant_key variant_note variant_mode raw_v4 raw_v6 requires_browser_dialer
+        while IFS=$'\x1f' read -r variant_key variant_note variant_mode raw_v4 raw_v6 requires_browser_dialer _variant_v4 _variant_v6; do
+            [[ -n "$variant_key" ]] || continue
+            variant_key="${variant_key//$'\r'/}"
+            variant_note="${variant_note//$'\r'/}"
+            variant_mode="${variant_mode//$'\r'/}"
+            raw_v4="${raw_v4//$'\r'/}"
+            raw_v6="${raw_v6//$'\r'/}"
+            requires_browser_dialer="${requires_browser_dialer//$'\r'/}"
             [[ -n "$variant_note" && "$variant_note" != "null" ]] || variant_note=$(client_variant_note "$variant_key")
 
             {
@@ -405,13 +463,13 @@ render_clients_txt_from_json() {
                 fi
                 echo ""
             } >> "$tmp_client"
-        done
+        done < <(client_json_variant_rows_tsv "$json_file" "$config_index")
 
         {
             echo "${rule58}"
             echo ""
         } >> "$tmp_client"
-    done
+    done < <(client_json_config_rows_tsv "$json_file")
 
     cat >> "$tmp_client" << EOF
 
@@ -477,46 +535,43 @@ render_clients_links_txt_from_json() {
         echo ""
     } > "$tmp_links"
 
-    local config_count
-    config_count=$(jq -r '.configs | length' "$json_file" 2> /dev/null || echo 0)
-
-    local i
-    for ((i = 0; i < config_count; i++)); do
-        local domain port_v4 port_v6
-        domain=$(jq -r ".configs[$i].domain // \"unknown\"" "$json_file" 2> /dev/null || echo "unknown")
-        port_v4=$(jq -r ".configs[$i].port_ipv4 // \"N/A\"" "$json_file" 2> /dev/null || echo "N/A")
-        port_v6=$(jq -r ".configs[$i].port_ipv6 // empty | tostring" "$json_file" 2> /dev/null || true)
-        [[ -n "$port_v6" && "$port_v6" != "null" ]] || port_v6="N/A"
+    local config_index domain sni fp transport_value endpoint port_v4 port_v6 provider_family flow_value encryption_value variant_count
+    while IFS=$'\x1f' read -r config_index domain sni fp transport_value endpoint port_v4 port_v6 provider_family flow_value encryption_value variant_count; do
+        [[ -n "$config_index" ]] || continue
+        config_index="${config_index//$'\r'/}"
+        domain="${domain//$'\r'/}"
+        port_v4="${port_v4//$'\r'/}"
+        port_v6="${port_v6//$'\r'/}"
+        variant_count="${variant_count//$'\r'/}"
+        [[ -n "$port_v6" ]] || port_v6="N/A"
 
         local priority=""
-        if [[ $i -eq 0 ]]; then
+        if [[ "$config_index" -eq 0 ]]; then
             priority=" ★ основной"
-        elif [[ $i -eq 1 ]]; then
+        elif [[ "$config_index" -eq 1 ]]; then
             priority=" ☆ запасной"
         fi
 
         {
-            echo "config $((i + 1)): ${domain}${priority}"
+            echo "config $((config_index + 1)): ${domain}${priority}"
             echo "порт ipv4: ${port_v4}"
             echo "порт ipv6: ${port_v6}"
             echo ""
         } >> "$tmp_links"
 
-        local variant_count
-        variant_count=$(jq -r ".configs[$i].variants | length" "$json_file" 2> /dev/null || echo 0)
         if [[ ! "$variant_count" =~ ^[0-9]+$ ]] || ((variant_count < 1)); then
             variant_count=1
         fi
 
-        local j
-        for ((j = 0; j < variant_count; j++)); do
-            local variant_key vless_v4 vless_v6 raw_v4 raw_v6 requires_browser_dialer
-            variant_key=$(jq -r ".configs[$i].variants[$j].key // .configs[$i].recommended_variant // \"recommended\"" "$json_file" 2> /dev/null || echo "recommended")
-            vless_v4=$(jq -r ".configs[$i].variants[$j].vless_v4 // empty" "$json_file" 2> /dev/null || true)
-            vless_v6=$(jq -r ".configs[$i].variants[$j].vless_v6 // empty" "$json_file" 2> /dev/null || true)
-            raw_v4=$(jq -r ".configs[$i].variants[$j].xray_client_file_v4 // empty" "$json_file" 2> /dev/null || true)
-            raw_v6=$(jq -r ".configs[$i].variants[$j].xray_client_file_v6 // empty" "$json_file" 2> /dev/null || true)
-            requires_browser_dialer=$(jq -r ".configs[$i].variants[$j].requires.browser_dialer // false" "$json_file" 2> /dev/null || echo "false")
+        local variant_key variant_note variant_mode raw_v4 raw_v6 requires_browser_dialer vless_v4 vless_v6
+        while IFS=$'\x1f' read -r variant_key variant_note variant_mode raw_v4 raw_v6 requires_browser_dialer vless_v4 vless_v6; do
+            [[ -n "$variant_key" ]] || continue
+            variant_key="${variant_key//$'\r'/}"
+            raw_v4="${raw_v4//$'\r'/}"
+            raw_v6="${raw_v6//$'\r'/}"
+            requires_browser_dialer="${requires_browser_dialer//$'\r'/}"
+            vless_v4="${vless_v4//$'\r'/}"
+            vless_v6="${vless_v6//$'\r'/}"
 
             {
                 case "$variant_key" in
@@ -548,13 +603,13 @@ render_clients_links_txt_from_json() {
                 fi
                 echo ""
             } >> "$tmp_links"
-        done
+        done < <(client_json_variant_rows_tsv "$json_file" "$config_index")
 
         {
             echo "${rule58}"
             echo ""
         } >> "$tmp_links"
-    done
+    done < <(client_json_config_rows_tsv "$json_file")
 
     mv "$tmp_links" "$links_file"
     chmod 640 "$links_file"
@@ -658,12 +713,12 @@ save_client_configs_build_inventory() {
     local -n out_qr_links_v6="$4"
     local stage_export_root="${5:-${XRAY_KEYS}/export}"
 
-    local json_configs_acc
-    json_configs_acc=$(jq -n '[]')
+    local json_configs_acc='[]'
     local link_prefix
     link_prefix=$(client_link_prefix_for_tier "$DOMAIN_TIER")
     local raw_xray_dir="${stage_export_root}/raw-xray"
     mkdir -p "$raw_xray_dir"
+    local -a json_config_fragments=()
 
     local i
     for ((i = 0; i < required_count; i++)); do
@@ -688,6 +743,7 @@ save_client_configs_build_inventory() {
         fi
         transport_extra_value="$endpoint"
         local variants='[]'
+        local -a variant_fragments=()
         local default_variant_key="recommended"
         local primary_vless_v4=""
         local primary_vless_v6=""
@@ -759,8 +815,7 @@ save_client_configs_build_inventory() {
                 primary_vless_v6="$variant_v6"
             fi
 
-            variants=$(jq -n \
-                --argjson arr "$variants" \
+            variant_fragments+=("$(jq -n \
                 --arg key "$variant_key" \
                 --arg category "$variant_category" \
                 --arg label "$variant_label" \
@@ -777,7 +832,7 @@ save_client_configs_build_inventory() {
                 --arg vless_v6 "$variant_v6" \
                 --argjson requires_browser_dialer "$variant_requires_browser_dialer" \
                 --argjson requires_vless_encryption "$(if [[ "$vless_encryption" != "none" ]]; then echo true; else echo false; fi)" \
-                '$arr + [{
+                '{
                     key: $key,
                     category: $category,
                     label: $label,
@@ -796,14 +851,18 @@ save_client_configs_build_inventory() {
                     vless_encryption: $vless_encryption,
                     xray_client_file_v4: (if ($raw_v4 | length) > 0 then $raw_v4 else null end),
                     xray_client_file_v6: (if ($raw_v6 | length) > 0 then $raw_v6 else null end)
-                }]')
+                }')")
         done < <(client_variant_catalog "$transport_value")
+
+        if ! variants=$(json_array_from_fragments "${variant_fragments[@]}"); then
+            log ERROR "Не удалось собрать список client-variants для ${domain}"
+            return 1
+        fi
 
         out_qr_links_v4+=("$primary_vless_v4")
         out_qr_links_v6+=("$primary_vless_v6")
 
-        json_configs_acc=$(jq -n \
-            --argjson arr "$json_configs_acc" \
+        json_config_fragments+=("$(jq -n \
             --arg name "Config $((i + 1))" \
             --arg domain "$domain" \
             --arg sni "$sni" \
@@ -825,7 +884,7 @@ save_client_configs_build_inventory() {
             --arg vless_encryption "$vless_encryption" \
             --arg vless_decryption "$vless_decryption" \
             --argjson variants "$variants" \
-            '$arr + [{
+            '{
                 name: $name,
                 domain: $domain,
                 provider_family: $provider_family,
@@ -847,8 +906,12 @@ save_client_configs_build_inventory() {
                 vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end),
                 recommended_variant: $default_variant_key,
                 variants: $variants
-            }]')
+            }')")
     done
+    if ! json_configs_acc=$(json_array_from_fragments "${json_config_fragments[@]}"); then
+        log ERROR "Не удалось собрать inventory client-configs"
+        return 1
+    fi
     printf -v "$out_json_configs_name" '%s' "$json_configs_acc"
 }
 
@@ -861,8 +924,8 @@ build_clients_json_output() {
         --arg generated "$(format_generated_timestamp)" \
         --arg transport "$TRANSPORT" \
         --arg spider "${SPIDER_MODE:-false}" \
-        --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
-        --arg contract_version "${STEALTH_CONTRACT_VERSION:-7.3.8}" \
+        --arg min_version "${XRAY_CLIENT_MIN_VERSION}" \
+        --arg contract_version "${STEALTH_CONTRACT_VERSION}" \
         --argjson configs "$json_configs" \
         '{
             schema_version: 3,

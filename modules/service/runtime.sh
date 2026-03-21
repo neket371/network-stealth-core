@@ -180,22 +180,23 @@ EOF
 
 systemctl_uninstall_bounded() {
     local action="$1"
-    local unit="${2:-}"
+    shift
+    local -a units=("$@")
     local timeout_s="${XRAY_SYSTEMCTL_UNINSTALL_TIMEOUT:-30}"
     if [[ ! "$timeout_s" =~ ^[0-9]+$ ]] || ((timeout_s < 5 || timeout_s > 300)); then
         timeout_s=30
     fi
 
     local cmd_desc="systemctl ${action}"
-    if [[ -n "$unit" ]]; then
-        cmd_desc+=" ${unit}"
+    if ((${#units[@]} > 0)); then
+        cmd_desc+=" ${units[*]}"
     fi
 
     local rc=0
     local err=""
     if command -v timeout > /dev/null 2>&1; then
-        if [[ -n "$unit" ]]; then
-            err=$(timeout --signal=TERM --kill-after=10s "${timeout_s}s" systemctl "$action" "$unit" 2>&1) || rc=$?
+        if ((${#units[@]} > 0)); then
+            err=$(timeout --signal=TERM --kill-after=10s "${timeout_s}s" systemctl "$action" "${units[@]}" 2>&1) || rc=$?
         else
             err=$(timeout --signal=TERM --kill-after=10s "${timeout_s}s" systemctl "$action" 2>&1) || rc=$?
         fi
@@ -205,8 +206,8 @@ systemctl_uninstall_bounded() {
             return "$rc"
         fi
     else
-        if [[ -n "$unit" ]]; then
-            err=$(systemctl "$action" "$unit" 2>&1) || rc=$?
+        if ((${#units[@]} > 0)); then
+            err=$(systemctl "$action" "${units[@]}" 2>&1) || rc=$?
         else
             err=$(systemctl "$action" 2>&1) || rc=$?
         fi

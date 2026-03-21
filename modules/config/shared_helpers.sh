@@ -160,3 +160,10 @@ client_link_prefix_for_tier() {
             ;;
     esac
 }
+
+client_fingerprint_pool_init() {
+    local out_name="$1"
+    local -n out_ref="$out_name"
+    # shellcheck disable=SC2034 # out_ref is written via nameref for the caller.
+    out_ref=("chrome" "chrome" "chrome" "firefox" "chrome" "firefox")
+}

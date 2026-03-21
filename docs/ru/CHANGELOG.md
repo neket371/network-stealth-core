@@ -7,8 +7,6 @@
 
 ## [unreleased]
 
-## [7.5.14] - 2026-03-22
-
 ### Changed
 - managed version contract defaults вынесены в один shared helper, а `XRAY_FAILURE_PROOF_DIR` теперь явно оформлен как maintainer-only debug hook вместо неявной env-ручки
 
@@ -18,6 +16,14 @@
 - SNI pool для `googleapis.com` дедуплицирован, а для catalog, tiers и fallback map добавлен отдельный consistency gate
 - rebuild/self-check helper’ы переведены с скрытой multi-output-сцепки на явный контракт, а repeated `jq`-нагрузка в client artifact rendering/inventory assembly снижена
 - проверка Xray release теперь по умолчанию предпочитает official digest/signature sidecars, а mirror digest fallback остаётся только в explicit insecure path
+
+## [7.5.14] - 2026-03-22
+
+### Changed
+- это был только release-prep tag; actual validated code changes вышли уже в `7.5.15`
+
+### Fixed
+- в тег попали только release-метаданные, а сам проверенный code-pass в него не вошёл
 
 ## [7.5.13] - 2026-03-21
 

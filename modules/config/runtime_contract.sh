@@ -54,8 +54,7 @@ generate_inbound_json() {
                     id: $uuid,
                     flow: $direct_flow
                 }],
-                decryption: $decryption_value,
-                flow: $direct_flow
+                decryption: $decryption_value
             },
             streamSettings: (
                 {
@@ -170,9 +169,9 @@ ensure_xray_feature_contract() {
 
     local version
     version=$(xray_installed_version || true)
-    if [[ -n "$version" ]] && version_lt "$version" "${XRAY_CLIENT_MIN_VERSION:-25.9.5}"; then
+    if [[ -n "$version" ]] && version_lt "$version" "${XRAY_CLIENT_MIN_VERSION}"; then
         log ERROR "Xray ${version} слишком старый для strongest direct stack"
-        log ERROR "требуется версия >= ${XRAY_CLIENT_MIN_VERSION:-25.9.5}"
+        log ERROR "требуется версия >= ${XRAY_CLIENT_MIN_VERSION}"
         return 1
     fi
 

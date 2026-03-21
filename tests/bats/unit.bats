@@ -1184,7 +1184,7 @@ EOF
     run bash -eo pipefail -c '
     grep -Fq '\''sig_err_file=$(mktemp "${tmp_workdir}/xray-${version}.XXXXXX.sigerr"'\'' ./modules/install/xray_runtime.sh
     grep -Fq '\''download_file_allowlist "${base}/Xray-linux-${arch}.zip.minisig" "$sig_file" "Скачиваем minisign подпись..." 2> "$sig_err_file"'\'' ./modules/install/xray_runtime.sh
-    grep -Fq '\''debug_file "minisign signature missing at ${base} (404)"'\'' ./modules/install/xray_runtime.sh
+    grep -Fq '\''debug_file "official minisign signature missing at ${base} (404)"'\'' ./modules/install/xray_runtime.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -3858,7 +3858,7 @@ EOF
     grep -Fq '\''self_check_run_variant_probe_prepare_runtime() {'\'' ./modules/health/self_check.sh
     grep -Fq '\''self_check_run_variant_probe_result_json() {'\'' ./modules/health/self_check.sh
     grep -Fq '\''rebuild_config_prepare_transport_context() {'\'' ./config.sh
-    grep -Fq '\''rebuild_config_commit_runtime_state() {'\'' ./config.sh
+    grep -Fq '\''rebuild_config_commit_runtime_state_from_payload() {'\'' ./config.sh
     grep -Fq '\''save_client_configs_validate_prerequisites() {'\'' ./modules/config/client_formats.sh
     grep -Fq '\''save_client_configs_build_inventory() {'\'' ./modules/config/client_formats.sh
     echo "ok"

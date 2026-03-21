@@ -5,8 +5,10 @@
     grep -Fq "command -v bats >/dev/null" ./Makefile
     grep -Fq "bash scripts/check-bats-quality.sh" ./Makefile
     grep -Fq "bash scripts/check-powershell-syntax.sh" ./Makefile
+    grep -Fq "bash scripts/check-domain-data-consistency.sh" ./Makefile
     grep -Fq "\"\$SCRIPT_DIR/scripts/check-bats-quality.sh\"" ./tests/lint.sh
     grep -Fq "\"\$SCRIPT_DIR/scripts/check-powershell-syntax.sh\"" ./tests/lint.sh
+    grep -Fq "\"\$SCRIPT_DIR/scripts/check-domain-data-consistency.sh\"" ./tests/lint.sh
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -43,6 +45,27 @@
     grep -Fq "combined_pattern" ./scripts/check-dead-functions.sh
     grep -Fq "matches_tmp" ./scripts/check-dead-functions.sh
     grep -Fq "def_location" ./scripts/check-dead-functions.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "domain data consistency checker is wired and passes on current repo" {
+    run bash -eo pipefail -c '
+    grep -Fq "catalog.json" ./scripts/check-domain-data-consistency.sh
+    grep -Fq "sni_pools.map" ./scripts/check-domain-data-consistency.sh
+    bash ./scripts/check-domain-data-consistency.sh
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"domain-data-check: ok"* ]]
+}
+
+@test "xray installer verifies sidecars from official release origin first" {
+    run bash -eo pipefail -c '
+    grep -Fq "install_xray_official_release_base()" ./modules/install/xray_runtime.sh
+    grep -Fq "Скачиваем официальный SHA256" ./modules/install/xray_runtime.sh
+    grep -Fq "Официальная minisign подпись недоступна" ./modules/install/xray_runtime.sh
     echo ok
   '
     [ "$status" -eq 0 ]

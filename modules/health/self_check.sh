@@ -631,50 +631,60 @@ self_check_status_summary_tsv() {
 }
 
 self_check_post_action_runtime_preflight() {
+    local verdict_name="$1"
+    local runtime_ok_name="$2"
+    local transport_probe_required_name="$3"
+    local reasons_name="$4"
+    local -n verdict_ref="$verdict_name"
+    local -n runtime_ok_ref="$runtime_ok_name"
+    local -n transport_probe_required_ref="$transport_probe_required_name"
+    # shellcheck disable=SC2178 # reasons_ref intentionally aliases an array in the caller.
+    local -n reasons_ref="$reasons_name"
+
     if [[ ! -x "$XRAY_BIN" ]]; then
-        verdict="BROKEN"
-        runtime_ok=false
-        reasons+=("бинарник xray не найден: ${XRAY_BIN}")
+        verdict_ref="BROKEN"
+        runtime_ok_ref=false
+        reasons_ref+=("бинарник xray не найден: ${XRAY_BIN}")
     fi
     if [[ ! -f "$XRAY_CONFIG" ]]; then
-        verdict="BROKEN"
-        runtime_ok=false
-        reasons+=("конфиг не найден: ${XRAY_CONFIG}")
+        verdict_ref="BROKEN"
+        runtime_ok_ref=false
+        reasons_ref+=("конфиг не найден: ${XRAY_CONFIG}")
     fi
-    if [[ "$runtime_ok" == true ]] && declare -F xray_config_test_ok > /dev/null 2>&1; then
+    if [[ "$runtime_ok_ref" == true ]] && declare -F xray_config_test_ok > /dev/null 2>&1; then
         if ! xray_config_test_ok "$XRAY_CONFIG"; then
-            verdict="BROKEN"
-            runtime_ok=false
-            reasons+=("xray -test отклонил текущий config.json")
+            verdict_ref="BROKEN"
+            runtime_ok_ref=false
+            reasons_ref+=("xray -test отклонил текущий config.json")
         fi
     fi
-    if [[ "$runtime_ok" == true ]] && declare -F systemctl_available > /dev/null 2>&1 && declare -F systemd_running > /dev/null 2>&1; then
+    if [[ "$runtime_ok_ref" == true ]] && declare -F systemctl_available > /dev/null 2>&1 && declare -F systemd_running > /dev/null 2>&1; then
         if systemctl_available && systemd_running; then
             if ! systemctl is-active --quiet xray 2> /dev/null; then
-                verdict="BROKEN"
-                runtime_ok=false
-                reasons+=("systemd unit xray не active")
+                verdict_ref="BROKEN"
+                runtime_ok_ref=false
+                reasons_ref+=("systemd unit xray не active")
             fi
         elif self_check_is_loopback_runtime; then
-            transport_probe_required=false
-            if [[ "$verdict" != "BROKEN" ]]; then
-                verdict="WARNING"
+            transport_probe_required_ref=false
+            if [[ "$verdict_ref" != "BROKEN" ]]; then
+                verdict_ref="WARNING"
             fi
-            reasons+=("loopback install detected: transport-aware self-check пропущен")
+            reasons_ref+=("loopback install detected: transport-aware self-check пропущен")
         else
-            transport_probe_required=false
-            if [[ "$verdict" != "BROKEN" ]]; then
-                verdict="WARNING"
+            transport_probe_required_ref=false
+            if [[ "$verdict_ref" != "BROKEN" ]]; then
+                verdict_ref="WARNING"
             fi
-            reasons+=("systemd недоступен: transport-aware self-check пропущен")
+            reasons_ref+=("systemd недоступен: transport-aware self-check пропущен")
         fi
     fi
-    if [[ "$runtime_ok" == true && "$transport_probe_required" == true ]] && self_check_is_loopback_runtime; then
-        transport_probe_required=false
-        if [[ "$verdict" != "BROKEN" ]]; then
-            verdict="WARNING"
+    if [[ "$runtime_ok_ref" == true && "$transport_probe_required_ref" == true ]] && self_check_is_loopback_runtime; then
+        transport_probe_required_ref=false
+        if [[ "$verdict_ref" != "BROKEN" ]]; then
+            verdict_ref="WARNING"
         fi
-        reasons+=("loopback install detected: transport-aware self-check пропущен")
+        reasons_ref+=("loopback install detected: transport-aware self-check пропущен")
     fi
 }
 
@@ -706,18 +716,31 @@ self_check_post_action_missing_raw_probe_result() {
 self_check_post_action_probe_variants() {
     local action="$1"
     local json_file="$2"
+    local verdict_name="$3"
+    local runtime_ok_name="$4"
+    local transport_probe_required_name="$5"
+    local reasons_name="$6"
+    local selected_variant_name="$7"
+    local attempted_variants_name="$8"
+    local -n verdict_ref="$verdict_name"
+    local -n runtime_ok_ref="$runtime_ok_name"
+    local -n transport_probe_required_ref="$transport_probe_required_name"
+    # shellcheck disable=SC2178 # reasons_ref intentionally aliases an array in the caller.
+    local -n reasons_ref="$reasons_name"
+    local -n selected_variant_ref="$selected_variant_name"
+    local -n attempted_variants_ref="$attempted_variants_name"
 
-    if [[ "$runtime_ok" != true || "$transport_probe_required" != true ]]; then
+    if [[ "$runtime_ok_ref" != true || "$transport_probe_required_ref" != true ]]; then
         return 0
     fi
     if [[ ! -f "$json_file" ]]; then
-        verdict="BROKEN"
-        reasons+=("clients.json не найден: ${json_file}")
+        verdict_ref="BROKEN"
+        reasons_ref+=("clients.json не найден: ${json_file}")
         return 0
     fi
     if ! jq -e 'type == "object" and (.configs | type == "array") and (.configs | length) >= 1' "$json_file" > /dev/null 2>&1; then
-        verdict="BROKEN"
-        reasons+=("clients.json повреждён или пуст")
+        verdict_ref="BROKEN"
+        reasons_ref+=("clients.json повреждён или пуст")
         return 0
     fi
 
@@ -743,7 +766,7 @@ self_check_post_action_probe_variants() {
             if ! raw_pair=$(self_check_first_raw_file_for_job "$job_json"); then
                 local probe_result=""
                 probe_result=$(self_check_post_action_missing_raw_probe_result "$action" "$job_json" "$variant_key")
-                attempted_variants=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants")
+                attempted_variants_ref=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants_ref")
                 continue
             fi
 
@@ -759,23 +782,23 @@ self_check_post_action_probe_variants() {
                 "$(jq -r '.mode' <<< "$job_json")" \
                 "$ip_family" \
                 "$raw_file")
-            attempted_variants=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants")
+            attempted_variants_ref=$(jq --argjson item "$probe_result" '. + [$item]' <<< "$attempted_variants_ref")
 
             if jq -e '.success == true' <<< "$probe_result" > /dev/null 2>&1; then
-                selected_variant="$probe_result"
+                selected_variant_ref="$probe_result"
                 if [[ "$config_index" == "0" ]]; then
-                    if [[ "$variant_key" != "$primary_recommended_variant" && "$verdict" != "BROKEN" ]]; then
-                        verdict="WARNING"
-                        reasons+=("recommended-вариант не прошёл self-check; используем rescue")
+                    if [[ "$variant_key" != "$primary_recommended_variant" && "$verdict_ref" != "BROKEN" ]]; then
+                        verdict_ref="WARNING"
+                        reasons_ref+=("recommended-вариант не прошёл self-check; используем rescue")
                     fi
                 else
-                    if [[ "$verdict" != "BROKEN" ]]; then
-                        verdict="WARNING"
+                    if [[ "$verdict_ref" != "BROKEN" ]]; then
+                        verdict_ref="WARNING"
                     fi
                     if [[ "$variant_key" == "rescue" ]]; then
-                        reasons+=("primary-конфиг не прошёл self-check; используем запасной rescue-вариант $(jq -r '.config_name' <<< "$job_json")")
+                        reasons_ref+=("primary-конфиг не прошёл self-check; используем запасной rescue-вариант $(jq -r '.config_name' <<< "$job_json")")
                     else
-                        reasons+=("primary-конфиг не прошёл self-check; используем запасной конфиг $(jq -r '.config_name' <<< "$job_json")")
+                        reasons_ref+=("primary-конфиг не прошёл self-check; используем запасной конфиг $(jq -r '.config_name' <<< "$job_json")")
                     fi
                 fi
                 return 0
@@ -783,9 +806,9 @@ self_check_post_action_probe_variants() {
         done < <(self_check_preferred_variant_keys "$json_file" "$config_index")
     done < <(jq -r '.configs | keys[]' "$json_file" 2> /dev/null)
 
-    if [[ "$selected_variant" == "null" ]]; then
-        verdict="BROKEN"
-        reasons+=("ни recommended, ни rescue не прошли transport-aware self-check")
+    if [[ "$selected_variant_ref" == "null" ]]; then
+        verdict_ref="BROKEN"
+        reasons_ref+=("ни recommended, ни rescue не прошли transport-aware self-check")
     fi
 }
 
@@ -846,15 +869,20 @@ self_check_post_action_verdict() {
 
     local verdict="OK"
     local -a reasons=()
+    # shellcheck disable=SC2034 # Mutated through explicit nameref helpers below.
     local runtime_ok=true
+    # shellcheck disable=SC2034 # Mutated through explicit nameref helpers below.
     local transport_probe_required=true
     local state_json=""
     local selected_variant='null'
     local attempted_variants='[]'
     local json_file="${XRAY_KEYS}/clients.json"
 
-    self_check_post_action_runtime_preflight
-    self_check_post_action_probe_variants "$action" "$json_file"
+    self_check_post_action_runtime_preflight \
+        verdict runtime_ok transport_probe_required reasons
+    self_check_post_action_probe_variants \
+        "$action" "$json_file" \
+        verdict runtime_ok transport_probe_required reasons selected_variant attempted_variants
 
     state_json=$(self_check_post_action_build_state_json "$action" "$state_file")
     self_check_write_state_json "$state_json" || self_check_log WARN "не удалось сохранить self-check state"

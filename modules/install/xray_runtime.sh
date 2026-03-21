@@ -286,6 +286,10 @@ install_xray_prepare_download_workspace() {
     dgst_file="${tmp_workdir}/Xray-linux-${arch}.zip.dgst"
 }
 
+install_xray_official_release_base() {
+    printf 'https://github.com/XTLS/Xray-core/releases/download/v%s\n' "$version"
+}
+
 install_xray_download_release_with_sha256() {
     used_base=""
     bases=()
@@ -300,6 +304,34 @@ install_xray_download_release_with_sha256() {
     gh_proxy_base="${gh_proxy_base%/}"
     if [[ -n "$gh_proxy_base" ]]; then
         bases+=("${gh_proxy_base}/XTLS/Xray-core/releases/download/v${version}")
+    fi
+
+    local official_base
+    official_base="$(install_xray_official_release_base)"
+    local expected_sha256=""
+    local official_dgst_available=false
+    local mirror_digest_allowed=false
+
+    rm -f "$dgst_file"
+    if download_file_allowlist "${official_base}/Xray-linux-${arch}.zip.dgst" "$dgst_file" "Скачиваем официальный SHA256..."; then
+        expected_sha256=$(awk -F'= *' 'toupper($1) ~ /SHA(2-)?256/ {print $2; exit}' "$dgst_file" 2> /dev/null || true)
+        if [[ -n "$expected_sha256" ]]; then
+            official_dgst_available=true
+        else
+            log WARN "Официальный .dgst скачан, но SHA256 не удалось прочитать"
+            rm -f "$dgst_file"
+        fi
+    fi
+
+    if [[ "$official_dgst_available" != true ]]; then
+        if [[ "$ALLOW_INSECURE_SHA256" == "true" ]]; then
+            mirror_digest_allowed=true
+            log WARN "Официальный .dgst недоступен; разрешён небезопасный fallback к mirror-provided digest (ALLOW_INSECURE_SHA256=true)"
+        else
+            log ERROR "Не удалось получить официальный .dgst для Xray release"
+            hint "Проверьте доступ к github.com или явно разрешите небезопасный fallback: --allow-insecure-sha256"
+            return 1
+        fi
     fi
 
     declare -A seen=()
@@ -318,33 +350,33 @@ install_xray_download_release_with_sha256() {
             continue
         fi
 
-        local expected_sha256=""
-        local dgst_ok=false
-        local dgst_base=""
-        local -A dgst_seen=()
-        for dgst_base in "$base" "${bases[@]}"; do
-            dgst_base="${dgst_base%/}"
-            [[ -z "$dgst_base" || -n "${dgst_seen[$dgst_base]:-}" ]] && continue
-            dgst_seen["$dgst_base"]=1
-            if ! download_file_allowlist "${dgst_base}/Xray-linux-${arch}.zip.dgst" "$dgst_file" "Скачиваем SHA256..."; then
+        local candidate_sha256="$expected_sha256"
+        if [[ "$mirror_digest_allowed" == "true" ]]; then
+            candidate_sha256=""
+            local dgst_base=""
+            local -A dgst_seen=()
+            for dgst_base in "$base" "${bases[@]}"; do
+                dgst_base="${dgst_base%/}"
+                [[ -z "$dgst_base" || -n "${dgst_seen[$dgst_base]:-}" ]] && continue
+                dgst_seen["$dgst_base"]=1
+                if ! download_file_allowlist "${dgst_base}/Xray-linux-${arch}.zip.dgst" "$dgst_file" "Скачиваем mirror SHA256..."; then
+                    continue
+                fi
+                candidate_sha256=$(awk -F'= *' 'toupper($1) ~ /SHA(2-)?256/ {print $2; exit}' "$dgst_file" 2> /dev/null || true)
+                if [[ -n "$candidate_sha256" ]]; then
+                    break
+                fi
+                log WARN "Не удалось прочитать SHA256 из $dgst_file ($dgst_base)"
+            done
+            if [[ -z "$candidate_sha256" ]]; then
+                log WARN "Не удалось скачать/прочитать mirror .dgst из доступных источников"
                 continue
             fi
-            expected_sha256=$(awk -F'= *' 'toupper($1) ~ /SHA(2-)?256/ {print $2; exit}' "$dgst_file" 2> /dev/null || true)
-            if [[ -n "$expected_sha256" ]]; then
-                dgst_ok=true
-                break
-            fi
-            expected_sha256=""
-            log WARN "Не удалось прочитать SHA256 из $dgst_file ($dgst_base)"
-        done
-        if [[ "$dgst_ok" != true ]]; then
-            log WARN "Не удалось скачать/прочитать .dgst из доступных источников"
-            continue
         fi
 
         local actual_sha256
         actual_sha256=$(sha256sum "$zip_file" | awk '{print $1}')
-        if [[ "$expected_sha256" != "$actual_sha256" ]]; then
+        if [[ "$candidate_sha256" != "$actual_sha256" ]]; then
             log WARN "SHA256 не совпадает ($base)"
             continue
         fi
@@ -359,7 +391,11 @@ install_xray_download_release_with_sha256() {
         return 1
     fi
 
-    log OK "✓ SHA256 проверка пройдена"
+    if [[ "$mirror_digest_allowed" == "true" ]]; then
+        log OK "✓ SHA256 проверка пройдена через явно разрешённый mirror digest fallback"
+    else
+        log OK "✓ SHA256 проверка пройдена по официальному .dgst"
+    fi
 }
 
 install_xray_is_minisig_file() {
@@ -398,8 +434,9 @@ install_xray_verify_release_signature() {
 
     local sig_downloaded=false
     local base
-    local -a sig_bases=("$used_base")
-    sig_bases+=("${bases[@]}")
+    local official_base
+    official_base="$(install_xray_official_release_base)"
+    local -a sig_bases=("$official_base")
     declare -A sig_seen=()
     for base in "${sig_bases[@]}"; do
         [[ -n "$sig_file" ]] || break
@@ -416,7 +453,7 @@ install_xray_verify_release_signature() {
 
         if download_file_allowlist "${base}/Xray-linux-${arch}.zip.minisig" "$sig_file" "Скачиваем minisign подпись..." 2> "$sig_err_file"; then
             if ! install_xray_is_minisig_file "$sig_file"; then
-                log INFO "Источник minisign подписи вернул невалидный формат, пропускаем: $base"
+                log INFO "Официальный источник minisign подписи вернул невалидный формат, пропускаем: $base"
                 debug_file "invalid minisig payload from ${base}"
                 rm -f "$sig_file"
                 [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
@@ -432,22 +469,22 @@ install_xray_verify_release_signature() {
             sig_err_line=$(head -n 1 "$sig_err_file" 2> /dev/null | tr -d '\r' || true)
         fi
         if [[ "$sig_err_line" == *"requested URL returned error: 404"* ]]; then
-            debug_file "minisign signature missing at ${base} (404)"
+            debug_file "official minisign signature missing at ${base} (404)"
         elif [[ -n "$sig_err_line" ]]; then
-            log WARN "Источник minisign подписи недоступен: ${base}"
+            log WARN "Официальный источник minisign подписи недоступен: ${base}"
             debug_file "minisign download failed from ${base}: ${sig_err_line}"
         fi
         [[ "$sig_err_file" != "/dev/null" ]] && rm -f "$sig_err_file"
     done
 
     if [[ "$sig_downloaded" != true ]]; then
-        if ! confirm_minisign_fallback "Minisign подпись не найдена в релизе"; then
+        if ! confirm_minisign_fallback "Официальная minisign подпись недоступна для релиза"; then
             return 1
         fi
         if [[ "$ALLOW_INSECURE_SHA256" == "true" ]]; then
-            log INFO "Minisign подпись не найдена в релизе; продолжаем только с SHA256 (ALLOW_INSECURE_SHA256=true)"
+            log INFO "Официальная minisign подпись недоступна; продолжаем только с SHA256 (ALLOW_INSECURE_SHA256=true)"
         else
-            log INFO "Minisign подпись не найдена в релизе; продолжаем только с SHA256 после подтверждения"
+            log INFO "Официальная minisign подпись недоступна; продолжаем только с SHA256 после подтверждения"
         fi
         return 0
     fi
@@ -546,6 +583,7 @@ install_xray() {
     local version=""
     local zip_file=""
     local dgst_file=""
+    # shellcheck disable=SC2034 # Shared across install_xray_* helpers in the same shell.
     local used_base=""
     local downloaded=false
     local -a bases=()

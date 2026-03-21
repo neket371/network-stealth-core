@@ -283,7 +283,8 @@ build_add_clients_inbounds() {
     fi
 
     # shellcheck disable=SC2034 # Used via nameref in pick_random_from_array.
-    local -a fp_pool=("chrome" "chrome" "chrome" "firefox" "chrome" "firefox")
+    local -a fp_pool=()
+    client_fingerprint_pool_init fp_pool
     local tmp_inbounds
     if ! tmp_inbounds=$(mktemp "${TMPDIR:-/tmp}/xray-add-inbounds.XXXXXX"); then
         log ERROR "Не удалось создать временный файл для add-clients inbounds"

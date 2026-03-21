@@ -87,7 +87,6 @@ write_xray_root_config_json() {
         --argjson inbounds "$inbounds" \
         --argjson outbounds "$outbounds" \
         --argjson routing "$routing" \
-        --arg min_version "${XRAY_CLIENT_MIN_VERSION:-25.9.5}" \
         '{
             log: {
                 loglevel: "warning",
@@ -101,9 +100,6 @@ write_xray_root_config_json() {
                     "localhost"
                 ],
                 queryStrategy: "UseIPv4"
-            },
-            version: {
-                min: $min_version
             },
             inbounds: $inbounds,
             outbounds: $outbounds,
@@ -134,6 +130,23 @@ json_array_from_fragments() {
     printf '%s\n' "$@" | jq -s '.'
 }
 
+json_string_array_from_values() {
+    if (($# == 0)); then
+        printf '[]\n'
+        return 0
+    fi
+    printf '%s\n' "$@" | jq -R . | jq -s '.'
+}
+
+strip_cr_from_array_items() {
+    local array_name="$1"
+    local -n array_ref="$array_name"
+    local idx
+    for idx in "${!array_ref[@]}"; do
+        array_ref[idx]="${array_ref[idx]//$'\r'/}"
+    done
+}
+
 build_config() {
     log STEP "Собираем конфигурацию Xray (modular)..."
 
@@ -145,7 +158,8 @@ build_config() {
     local inbounds='[]'
     local -a inbound_fragments=()
     # shellcheck disable=SC2034 # Used via nameref in pick_random_from_array.
-    local -a fp_pool=("chrome" "chrome" "chrome" "firefox" "chrome" "firefox")
+    local -a fp_pool=()
+    client_fingerprint_pool_init fp_pool
 
     CONFIG_DOMAINS=()
     CONFIG_SNIS=()
@@ -257,29 +271,19 @@ rebuild_config_prepare_transport_context() {
     setup_mux_settings
 }
 
-rebuild_config_collect_inbounds() {
+rebuild_config_collect_payload() {
     local target_transport="$1"
     local previous_transport="$2"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_inbounds="$3"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_domains="$4"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_snis="$5"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_endpoints="$6"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_dests="$7"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_fps="$8"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_provider_families="$9"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_vless_encryptions="${10}"
-    # shellcheck disable=SC2034 # Used as nameref output parameter.
-    local -n out_vless_decryptions="${11}"
     local i
     local -a inbound_fragments=()
+    local -a next_domains=()
+    local -a next_snis=()
+    local -a next_endpoints=()
+    local -a next_dests=()
+    local -a next_fps=()
+    local -a next_provider_families=()
+    local -a next_vless_encryptions=()
+    local -a next_vless_decryptions=()
 
     for ((i = 0; i < NUM_CONFIGS; i++)); do
         local domain="${CONFIG_DOMAINS[$i]:-}"
@@ -349,22 +353,55 @@ rebuild_config_collect_inbounds() {
             inbound_fragments+=("$inbound_v6")
         fi
 
-        out_domains+=("$domain")
-        out_snis+=("$sni")
-        out_endpoints+=("$transport_endpoint")
-        out_dests+=("$dest")
-        out_fps+=("$fp")
-        out_provider_families+=("$provider_family")
-        out_vless_encryptions+=("$vless_encryption")
-        out_vless_decryptions+=("$vless_decryption")
+        next_domains+=("$domain")
+        next_snis+=("$sni")
+        next_endpoints+=("$transport_endpoint")
+        next_dests+=("$dest")
+        next_fps+=("$fp")
+        next_provider_families+=("$provider_family")
+        next_vless_encryptions+=("$vless_encryption")
+        next_vless_decryptions+=("$vless_decryption")
     done
 
-    # shellcheck disable=SC2034 # nameref output assignment is the point of the helper.
-    if ! out_inbounds=$(json_array_from_fragments "${inbound_fragments[@]}"); then
+    local inbounds_payload
+    if ! inbounds_payload=$(json_array_from_fragments "${inbound_fragments[@]}"); then
         TRANSPORT="$previous_transport"
         log ERROR "Не удалось собрать inbound-конфигурации для rebuild transport"
         return 1
     fi
+
+    local domains_json snis_json endpoints_json dests_json fps_json provider_families_json
+    local vless_encryptions_json vless_decryptions_json
+    domains_json=$(json_string_array_from_values "${next_domains[@]}") || return 1
+    snis_json=$(json_string_array_from_values "${next_snis[@]}") || return 1
+    endpoints_json=$(json_string_array_from_values "${next_endpoints[@]}") || return 1
+    dests_json=$(json_string_array_from_values "${next_dests[@]}") || return 1
+    fps_json=$(json_string_array_from_values "${next_fps[@]}") || return 1
+    provider_families_json=$(json_string_array_from_values "${next_provider_families[@]}") || return 1
+    vless_encryptions_json=$(json_string_array_from_values "${next_vless_encryptions[@]}") || return 1
+    vless_decryptions_json=$(json_string_array_from_values "${next_vless_decryptions[@]}") || return 1
+
+    jq -n \
+        --argjson inbounds "$inbounds_payload" \
+        --argjson domains "$domains_json" \
+        --argjson snis "$snis_json" \
+        --argjson endpoints "$endpoints_json" \
+        --argjson dests "$dests_json" \
+        --argjson fps "$fps_json" \
+        --argjson provider_families "$provider_families_json" \
+        --argjson vless_encryptions "$vless_encryptions_json" \
+        --argjson vless_decryptions "$vless_decryptions_json" \
+        '{
+            inbounds: $inbounds,
+            domains: $domains,
+            snis: $snis,
+            endpoints: $endpoints,
+            dests: $dests,
+            fps: $fps,
+            provider_families: $provider_families,
+            vless_encryptions: $vless_encryptions,
+            vless_decryptions: $vless_decryptions
+        }'
 }
 
 rebuild_config_write_candidate() {
@@ -386,65 +423,47 @@ rebuild_config_write_candidate() {
     TRANSPORT="$target_transport"
 }
 
-rebuild_config_commit_runtime_state() {
+rebuild_config_commit_runtime_state_from_payload() {
     local target_transport="$1"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_domains_ref="$2"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_snis_ref="$3"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_endpoints_ref="$4"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_dests_ref="$5"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_fps_ref="$6"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_provider_families_ref="$7"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_vless_encryptions_ref="$8"
-    # shellcheck disable=SC2034 # Used as nameref input parameter.
-    local -n next_vless_decryptions_ref="$9"
+    local payload="$2"
 
-    CONFIG_DOMAINS=("${next_domains_ref[@]}")
-    CONFIG_SNIS=("${next_snis_ref[@]}")
-    CONFIG_TRANSPORT_ENDPOINTS=("${next_endpoints_ref[@]}")
-    CONFIG_DESTS=("${next_dests_ref[@]}")
-    CONFIG_FPS=("${next_fps_ref[@]}")
-    CONFIG_PROVIDER_FAMILIES=("${next_provider_families_ref[@]}")
-    CONFIG_VLESS_ENCRYPTIONS=("${next_vless_encryptions_ref[@]}")
-    CONFIG_VLESS_DECRYPTIONS=("${next_vless_decryptions_ref[@]}")
+    mapfile -t CONFIG_DOMAINS < <(jq -r '.domains[]?' <<< "$payload")
+    mapfile -t CONFIG_SNIS < <(jq -r '.snis[]?' <<< "$payload")
+    mapfile -t CONFIG_TRANSPORT_ENDPOINTS < <(jq -r '.endpoints[]?' <<< "$payload")
+    mapfile -t CONFIG_DESTS < <(jq -r '.dests[]?' <<< "$payload")
+    mapfile -t CONFIG_FPS < <(jq -r '.fps[]?' <<< "$payload")
+    mapfile -t CONFIG_PROVIDER_FAMILIES < <(jq -r '.provider_families[]?' <<< "$payload")
+    mapfile -t CONFIG_VLESS_ENCRYPTIONS < <(jq -r '.vless_encryptions[]?' <<< "$payload")
+    mapfile -t CONFIG_VLESS_DECRYPTIONS < <(jq -r '.vless_decryptions[]?' <<< "$payload")
+    strip_cr_from_array_items CONFIG_DOMAINS
+    strip_cr_from_array_items CONFIG_SNIS
+    strip_cr_from_array_items CONFIG_TRANSPORT_ENDPOINTS
+    strip_cr_from_array_items CONFIG_DESTS
+    strip_cr_from_array_items CONFIG_FPS
+    strip_cr_from_array_items CONFIG_PROVIDER_FAMILIES
+    strip_cr_from_array_items CONFIG_VLESS_ENCRYPTIONS
+    strip_cr_from_array_items CONFIG_VLESS_DECRYPTIONS
     TRANSPORT="$target_transport"
 }
 
 rebuild_config_for_transport() {
     local target_transport="${1:-xhttp}"
     local inbounds='[]'
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_domains=()
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_snis=()
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_endpoints=()
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_dests=()
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_fps=()
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_provider_families=()
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_vless_encryptions=()
-    # shellcheck disable=SC2034 # Used via nameref helpers.
-    local -a next_vless_decryptions=()
+    local payload=""
     local previous_transport="${TRANSPORT:-xhttp}"
     rebuild_config_prepare_transport_context "$target_transport" previous_transport || return 1
-    rebuild_config_collect_inbounds \
-        "$target_transport" "$previous_transport" \
-        inbounds next_domains next_snis next_endpoints next_dests next_fps next_provider_families \
-        next_vless_encryptions next_vless_decryptions || return 1
+    payload=$(rebuild_config_collect_payload "$target_transport" "$previous_transport") || {
+        TRANSPORT="$previous_transport"
+        return 1
+    }
+    inbounds=$(jq -c '.inbounds' <<< "$payload") || {
+        TRANSPORT="$previous_transport"
+        return 1
+    }
     rebuild_config_write_candidate "$target_transport" "$previous_transport" "$inbounds" || return 1
-    rebuild_config_commit_runtime_state \
-        "$target_transport" \
-        next_domains next_snis next_endpoints next_dests next_fps next_provider_families \
-        next_vless_encryptions next_vless_decryptions
+    rebuild_config_commit_runtime_state_from_payload "$target_transport" "$payload" || {
+        TRANSPORT="$previous_transport"
+        return 1
+    }
     return 0
 }

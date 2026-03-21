@@ -320,6 +320,41 @@
     [[ "$output" != *"Не удалось выполнить systemctl reset-failed"* ]]
 }
 
+@test "systemctl_uninstall_bounded forwards all requested units" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    local calls_file="${tmpdir}/systemctl-calls.txt"
+
+    run env CALLS_FILE="$calls_file" bash -eo pipefail -c '
+    source ./modules/service/runtime.sh
+    log() { :; }
+    debug_file() { :; }
+    timeout() {
+      while (($# > 0)); do
+        case "$1" in
+          --signal=* | --kill-after=* | *s)
+            shift
+            ;;
+          *)
+            break
+            ;;
+        esac
+      done
+      "$@"
+    }
+    systemctl() {
+      printf "%s\n" "$*" >> "$CALLS_FILE"
+      return 0
+    }
+    systemctl_uninstall_bounded reset-failed xray.service xray-health.service xray-health.timer
+    cat "$CALLS_FILE"
+  '
+
+    rm -rf "$tmpdir"
+    [ "$status" -eq 0 ]
+    [ "$output" = "reset-failed xray.service xray-health.service xray-health.timer" ]
+}
+
 @test "atomic_write creates file atomically" {
     local tmpdir
     tmpdir="$(mktemp -d)"

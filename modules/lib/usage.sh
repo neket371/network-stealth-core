@@ -70,6 +70,7 @@ Environment variables:
   PROGRESS_MODE                  Progress output mode: auto|bar|plain|none (default: auto)
   DOWNLOAD_HOST_ALLOWLIST        Allowlist for critical download hosts (comma-separated)
   GH_PROXY_BASE                  Optional proxy base for github release mirrors
+  XRAY_FAILURE_PROOF_DIR         Maintainer-only directory for failure proof artifacts
   ALLOW_UNVERIFIED_MINISIGN_BOOTSTRAP
                                   Allow minisign bootstrap download (default: false)
   REQUIRE_MINISIGN               Require minisign on install/update/repair (default: false)
