@@ -7,6 +7,9 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- moved service/atomic-write guard tests out of `tests/bats/unit.bats` into themed bats coverage so the stage-3 complexity gate stays honest without relaxing its file-size limit
+
 ## [7.5.11] - 2026-03-21
 
 ### Fixed

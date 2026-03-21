@@ -7,6 +7,9 @@
 
 ## [unreleased]
 
+### Changed
+- guard-тесты для service и `atomic_write` вынесены из `tests/bats/unit.bats` в тематический bats-набор, чтобы stage-3 complexity gate снова оставался честным без ослабления лимита размера файла
+
 ## [7.5.11] - 2026-03-21
 
 ### Fixed
