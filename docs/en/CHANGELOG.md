@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.16] - 2026-03-22
+
 ### Fixed
 - aligned the download-failure e2e smoke with the hardened installer path so release jobs now expect the official `.dgst` fail-closed message instead of the older mirror-only SHA256 wording
 
