@@ -4,9 +4,10 @@
 здесь описаны изолированные сценарии проверки проекта на занятых хостах без захода в namespace живого хоста.
 
 обычному пользователю эти команды для стандартной установки не нужны.
+начинай с самого лёгкого слоя, который отвечает на твой вопрос, и переходи к vm-lab только когда нужен полный `systemd` lifecycle.
 
-регулярное self-hosted evidence живёт в workflow `Nightly Smoke` и его job `nightly smoke self-hosted`.
-отдельный self-hosted workflow — только manual/on-demand инструмент для точечных проверок runner'а и воспроизведения maintainer-багов.
+регулярные self-hosted прогоны живут в workflow `Nightly Smoke` и его job `nightly smoke self-hosted`.
+отдельный self-hosted workflow — только ручной on-demand инструмент для точечных проверок runner'а и воспроизведения maintainer-багов.
 
 ## host-safe container smoke
 
@@ -35,7 +36,7 @@ bash scripts/lab/collect-container-artifacts.sh
 
 ## полный vm-lab lifecycle на занятом сервере
 
-если нужен уже настоящий `systemd` lifecycle без захода в namespace занятого хоста, используй kvm-backed vm lab:
+если нужен уже настоящий `systemd` lifecycle без захода в namespace занятого хоста, переходи к kvm-backed vm lab:
 
 ```bash
 make vm-lab-prepare
@@ -88,7 +89,7 @@ nsc-vm-install-release vX.Y.Z --num-configs 1
 nsc-vm-install-repo --advanced
 ```
 
-raw `curl ... xray-reality.sh` install внутри гостя не используй как evidence path.
+raw `curl ... xray-reality.sh` install внутри гостя не используй как основной путь валидации.
 в nat-backed vm-lab такой путь может автоопределить public ip хоста вместо guest ip и завалить финальный self-check.
 для release/bootstrap validation используй `nsc-vm-install-release` или `make vm-lab-release-smoke RELEASE_TAG=...`.
 
@@ -130,11 +131,13 @@ proof-pack намеренно не включает:
 
 ## какой слой когда использовать
 
+простое правило такое:
+
 - `make ci-fast` и `make ci-full` — локальная валидация репозитория
 - `make lab-smoke` — безопасный первый smoke на занятом хосте
 - `make vm-lab-smoke` — полный prod-like lifecycle на том же занятом хосте
 - `make vm-lab-release-smoke RELEASE_TAG=vX.Y.Z` — tagged bootstrap validation в nat-backed guest
-- `make vm-proof-pack` — shareable maintainer/operator evidence bundle из последнего vm-lab run
+- `make vm-proof-pack` — bundle с артефактами из последнего vm-lab run, если его нужно кому-то передать
 - canary bundle exports — проверка с другой машины или другой сети
 - `XRAY_FAILURE_PROOF_DIR=/path` — только maintainer/debug env hook для локального failure bundle из `cleanup_on_error`; не сохраняй это в `config.env`
 - `Nightly Smoke` self-hosted — регулярный scheduled proof-path

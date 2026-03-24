@@ -68,17 +68,27 @@ github issue and pull-request templates live under:
 - `.github/ISSUE_TEMPLATE/`
 - `.github/PULL_REQUEST_TEMPLATE.md`
 
-## mandatory local checks
+## recommended local checks
 
-run before push:
+for a typical push, the normal minimum is:
 
 ```bash
 make lint
 make test
 make release-check
+```
+
+add the broader repo matrix when behavior changed beyond a narrow docs-only or comment-only edit:
+
+```bash
 make ci-fast
 make ci
 make ci-full
+```
+
+maintainer-only host or vm validation belongs here and is not expected for every small change:
+
+```bash
 make lab-smoke
 make vm-lab-smoke
 ```

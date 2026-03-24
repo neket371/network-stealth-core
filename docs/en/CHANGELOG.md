@@ -14,6 +14,7 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 ### Fixed
 - switched config and add-clients runtime-profile generation away from hidden `PROFILE_*` global side effects to explicit output values
 - split contract-level bats coverage out of `tests/bats/unit.bats`, wired the new generator/module into smoke coverage, and added regression checks for generated domain fallbacks
+- cleaned up duplicated busy-host faq entries, softened maintainer check wording, and polished ru maintainer/docs phrasing without changing the product contract
 
 ## [7.5.16] - 2026-03-22
 

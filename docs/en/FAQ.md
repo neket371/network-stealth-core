@@ -85,16 +85,15 @@ it reuses the same probe engine as runtime self-check and adds report workflows:
 
 saved reports feed the measurement summary used by `status --verbose`, `diagnose`, `repair`, and `update --replan`.
 
-## how do i smoke-test this on a busy host?
+## how do i validate this on a busy host?
 
-use the dedicated maintainer-only lab docs:
+use the maintainer-only lab docs and pick the lightest layer that answers your question:
 
-- [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
-- [.github/CONTRIBUTING.md](../../.github/CONTRIBUTING.md)
+- `make lab-smoke` for a safe first smoke in an isolated container
+- `make vm-lab-smoke` for the full prod-like `systemd` lifecycle in an isolated vm
+- `make vm-proof-pack` when you need a shareable bundle from that vm-lab run
 
-## how do i run a full `systemd` lifecycle test on a busy host?
-
-use the dedicated maintainer-only lab docs:
+references:
 
 - [MAINTAINER-LAB.md](MAINTAINER-LAB.md)
 - [.github/CONTRIBUTING.md](../../.github/CONTRIBUTING.md)

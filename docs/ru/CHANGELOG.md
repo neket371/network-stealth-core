@@ -14,6 +14,7 @@
 ### Fixed
 - build config и add-clients больше не зависят от скрытых `PROFILE_*` global side-effects: runtime-profile значения теперь передаются явно
 - contract-level bats coverage вынесена из `tests/bats/unit.bats`, а новый generator/module подключены в smoke и regression-проверки для generated domain fallbacks
+- убраны дубли в busy-host faq, смягчены формулировки maintainer-проверок и приглажен ru-текст в maintainer/docs без изменения продуктового контракта
 
 ## [7.5.16] - 2026-03-22
 

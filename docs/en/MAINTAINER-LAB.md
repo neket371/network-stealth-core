@@ -4,6 +4,7 @@ this document is for maintainers and contributors.
 it describes isolated test flows for validating the project on busy hosts without touching the live host namespace.
 
 ordinary users do not need these commands for a normal install.
+start with the lightest layer that answers your question and move to vm-lab only when you need the full `systemd` lifecycle.
 
 regular self-hosted evidence belongs to the `Nightly Smoke` workflow and its `nightly smoke self-hosted` job.
 the standalone self-hosted workflow is manual/on-demand only and exists for targeted runner checks or maintainer repros.
@@ -35,7 +36,7 @@ this flow:
 
 ## full vm-lab lifecycle on a busy server
 
-when you need the real `systemd` lifecycle without touching the busy host namespace, use the kvm-backed vm lab:
+when you need the real `systemd` lifecycle without touching the busy host namespace, move up to the kvm-backed vm lab:
 
 ```bash
 make vm-lab-prepare
@@ -129,6 +130,8 @@ the proof-pack intentionally excludes:
 - reusable `uuid`, `short_id`, or `public_key` values
 
 ## when to use which layer
+
+a simple rule of thumb:
 
 - use `make ci-fast` and `make ci-full` for local repo validation
 - use `make lab-smoke` for a safe first smoke on a busy host

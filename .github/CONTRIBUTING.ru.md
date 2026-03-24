@@ -14,16 +14,16 @@
 до изменения поведения считай публичными такие контракты текущей strongest-direct линии `v7`:
 
 - `install` = минимальный strongest-direct путь
-- `install --advanced` = явный manual compatibility flow
+- `install --advanced` = явный ручной compatibility-flow
 - дефолтный стек = `vless + reality + xhttp + vless encryption + xtls-rprx-vision`
 - `migrate-stealth` = единственный поддерживаемый mutating-мост для managed legacy или pre-v7 install
 - `clients.json` = schema v3 с `variants[]` для каждого конфига
 - `policy.json` = source of truth для managed policy
 - `export/raw-xray/` = canonical per-variant xray artifacts
-- `export/canary/` = bundle для полевых тестов, включая `emergency`
+- `export/canary/` = пакет для полевых тестов, включая `emergency`
 - `export/capabilities.json` = capability matrix schema v2
 - `/var/lib/xray/self-check.json` и `/var/lib/xray/measurements/latest-summary.json` = операторский verdict state
-- `scripts/measure-stealth.sh run|import|compare|prune|summarize` = локальный и импортируемый measurement-workflow
+- `scripts/measure-stealth.sh run|import|compare|prune|summarize` = локальный и импортируемый workflow измерений
 
 если изменение затрагивает что-то из этого, обнови код, тесты, документацию и release metadata в одном проходе.
 
@@ -68,17 +68,27 @@ github issue и pull-request templates лежат здесь:
 - `.github/ISSUE_TEMPLATE/`
 - `.github/PULL_REQUEST_TEMPLATE.md`
 
-## обязательные локальные проверки
+## рекомендуемые локальные проверки
 
-перед push:
+для обычного push нормальный минимум такой:
 
 ```bash
 make lint
 make test
 make release-check
+```
+
+более широкий прогон нужен, когда меняется поведение, а не только текст или комментарии:
+
+```bash
 make ci-fast
 make ci
 make ci-full
+```
+
+проверки занятых хостов и vm-lab относятся уже к maintainer-слою и не требуются для каждого мелкого изменения:
+
+```bash
 make lab-smoke
 make vm-lab-smoke
 ```
@@ -89,7 +99,7 @@ make vm-lab-smoke
 pwsh ./scripts/windows/run-validation.ps1 -SkipRemote
 ```
 
-документация по smoke-проверкам для сопровождающих и busy-host lifecycle лежит здесь:
+документация по smoke-проверкам для сопровождающих и lifecycle на занятых хостах лежит здесь:
 
 - `docs/ru/MAINTAINER-LAB.md`
 
@@ -97,8 +107,8 @@ pwsh ./scripts/windows/run-validation.ps1 -SkipRemote
 
 - `make vm-proof-pack`
 
-регулярное self-hosted evidence должно идти через `Nightly Smoke`.
-`.github/workflows/self-hosted-smoke.yml` — только manual/on-demand workflow, а не scheduled proof-source.
+регулярные self-hosted прогоны должны идти через `Nightly Smoke`.
+`.github/workflows/self-hosted-smoke.yml` — только ручной on-demand workflow, а не постоянный scheduled proof-source.
 
 ## coding standards
 
