@@ -52,12 +52,12 @@
 }
 
 @test "domain data consistency checker is wired and passes on current repo" {
-    run bash -eo pipefail -c '
     grep -Fq "catalog.json" ./scripts/check-domain-data-consistency.sh
     grep -Fq "sni_pools.map" ./scripts/check-domain-data-consistency.sh
     grep -Fq "generate-domain-fallbacks.sh" ./scripts/check-domain-data-consistency.sh
-    bash ./scripts/check-domain-data-consistency.sh
-  '
+
+    run bash ./scripts/check-domain-data-consistency.sh
+
     [ "$status" -eq 0 ]
     [[ "$output" == *"domain-data-check: ok"* ]]
 }
