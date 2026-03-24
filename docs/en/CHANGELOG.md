@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.5.17] - 2026-03-24
+
 ### Changed
 - moved legacy grpc/mux compatibility defaults into a dedicated shared contract module instead of keeping that surface duplicated across the main globals layer
 - made `data/domains/catalog.json` the enforced canon for committed `domains.tiers` and `sni_pools.map` fallbacks via a checked generator path

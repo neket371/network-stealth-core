@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.17] - 2026-03-24
+
 ### Changed
 - legacy grpc/mux compatibility defaults вынесены в отдельный shared contract module вместо дублирования этого слоя в главном globals-контуре
 - `data/domains/catalog.json` теперь жёстко считается каноном для committed fallback-файлов `domains.tiers` и `sni_pools.map` через отдельный generator + consistency check
