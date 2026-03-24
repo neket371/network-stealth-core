@@ -294,7 +294,12 @@ build_add_clients_inbounds() {
     local i
     for ((i = 0; i < add_count; i++)); do
         local domain="${DOMAIN_SELECTION_PLAN[$i]:-${AVAILABLE_DOMAINS[0]}}"
-        build_inbound_profile_for_domain "$domain" fp_pool
+        local profile_sni="" profile_sni_json="" profile_transport_endpoint="" profile_fp="" profile_dest=""
+        local profile_keepalive="" profile_grpc_idle="" profile_grpc_health="" profile_transport_payload=""
+        build_inbound_profile_for_domain_values \
+            "$domain" fp_pool \
+            profile_sni profile_sni_json profile_transport_endpoint profile_fp profile_dest \
+            profile_keepalive profile_grpc_idle profile_grpc_health profile_transport_payload
         local provider_family
         provider_family=$(domain_provider_family_for "$domain" 2> /dev/null || printf '%s' "$domain")
         local vless_pair="" vless_decryption="none" vless_encryption="none"
@@ -305,21 +310,23 @@ build_add_clients_inbounds() {
         }
         IFS=$'\t' read -r vless_decryption vless_encryption <<< "$vless_pair"
         _out_domains+=("$domain")
-        _out_snis+=("$PROFILE_SNI")
-        _out_transport_endpoints+=("$PROFILE_TRANSPORT_ENDPOINT")
-        _out_fps+=("$PROFILE_FP")
+        _out_snis+=("$profile_sni")
+        _out_transport_endpoints+=("$profile_transport_endpoint")
+        _out_fps+=("$profile_fp")
         _out_provider_families+=("$provider_family")
         _out_vless_encryptions+=("$vless_encryption")
         _out_vless_decryptions+=("$vless_decryption")
 
         local config_num=$((existing_count + i + 1))
         local sni_count
-        sni_count=$(echo "$PROFILE_SNI_JSON" | jq 'length' 2> /dev/null || echo 1)
-        log INFO "Config ${config_num}: ${domain} -> ${PROFILE_DEST} (${PROFILE_FP}, ${TRANSPORT}, SNIs: ${sni_count})"
+        sni_count=$(echo "$profile_sni_json" | jq 'length' 2> /dev/null || echo 1)
+        log INFO "Config ${config_num}: ${domain} -> ${profile_dest} (${profile_fp}, ${TRANSPORT}, SNIs: ${sni_count})"
 
         local inbound_v4
         if ! inbound_v4=$(generate_profile_inbound_json \
-            "${_new_ports[$i]}" "${_new_uuids[$i]}" "${_new_private_keys[$i]}" "${_new_short_ids[$i]}" "$vless_decryption"); then
+            "${_new_ports[$i]}" "${_new_uuids[$i]}" "${_new_private_keys[$i]}" "${_new_short_ids[$i]}" "$vless_decryption" \
+            "$profile_dest" "$profile_sni_json" "$profile_fp" "$profile_transport_endpoint" \
+            "$profile_keepalive" "$profile_grpc_idle" "$profile_grpc_health" "$TRANSPORT" "$profile_transport_payload"); then
             rm -f "$tmp_inbounds"
             log ERROR "Ошибка генерации IPv4 inbound для add-clients config #${config_num}"
             return 1

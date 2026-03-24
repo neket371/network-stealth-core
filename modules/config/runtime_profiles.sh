@@ -353,9 +353,18 @@ generate_xhttp_path_for_domain() {
     printf '%s' "$candidate"
 }
 
-build_inbound_profile_for_domain() {
+build_inbound_profile_for_domain_values() {
     local domain="$1"
     local fp_pool_name="$2"
+    local out_sni_name="$3"
+    local out_sni_json_name="$4"
+    local out_transport_endpoint_name="$5"
+    local out_fp_name="$6"
+    local out_dest_name="$7"
+    local out_keepalive_name="$8"
+    local out_grpc_idle_name="$9"
+    local out_grpc_health_name="${10}"
+    local out_transport_payload_name="${11}"
     local -n _fp_pool="$fp_pool_name"
 
     local sni_pool="${SNI_POOLS[$domain]:-$domain}"
@@ -373,49 +382,64 @@ build_inbound_profile_for_domain() {
     fi
     sni_array=("${safe_sni_array[@]}")
 
-    PROFILE_SNI=""
-    if ! PROFILE_SNI=$(pick_random_from_array sni_array); then
-        PROFILE_SNI="$domain"
+    local selected_sni=""
+    if ! selected_sni=$(pick_random_from_array sni_array); then
+        selected_sni="$domain"
         sni_array=("$domain")
     fi
-    if [[ "$DOMAIN_CHECK" == "true" && "$PROFILE_SNI" != "$domain" ]]; then
-        if ! check_domain_alive "$PROFILE_SNI"; then
-            log WARN "SNI ${PROFILE_SNI} недоступен; fallback на ${domain}"
-            PROFILE_SNI="$domain"
+    if [[ "$DOMAIN_CHECK" == "true" && "$selected_sni" != "$domain" ]]; then
+        if ! check_domain_alive "$selected_sni"; then
+            log WARN "SNI ${selected_sni} недоступен; fallback на ${domain}"
+            selected_sni="$domain"
         fi
     fi
 
-    local -a server_names=("$PROFILE_SNI")
+    local -a server_names=("$selected_sni")
     local _sn
     for _sn in "${sni_array[@]}"; do
-        [[ "$_sn" == "$PROFILE_SNI" ]] && continue
+        [[ "$_sn" == "$selected_sni" ]] && continue
         server_names+=("$_sn")
         [[ ${#server_names[@]} -ge 3 ]] && break
     done
-    PROFILE_SNI_JSON=$(printf '%s\n' "${server_names[@]}" | jq -R . | jq -s .)
+    local selected_sni_json=""
+    selected_sni_json=$(printf '%s\n' "${server_names[@]}" | jq -R . | jq -s .)
 
-    PROFILE_TRANSPORT_ENDPOINT=""
+    local selected_transport_endpoint=""
     if [[ "$TRANSPORT" == "xhttp" ]]; then
-        PROFILE_TRANSPORT_ENDPOINT=$(generate_xhttp_path_for_domain "$domain")
+        selected_transport_endpoint=$(generate_xhttp_path_for_domain "$domain")
     else
-        PROFILE_TRANSPORT_ENDPOINT=$(select_legacy_transport_endpoint "$domain")
+        selected_transport_endpoint=$(select_legacy_transport_endpoint "$domain")
     fi
-    if ! PROFILE_FP=$(pick_random_from_array _fp_pool); then
-        PROFILE_FP="chrome"
+    local selected_fp=""
+    if ! selected_fp=$(pick_random_from_array _fp_pool); then
+        selected_fp="chrome"
     fi
 
     local dest_port
     dest_port=$(detect_reality_dest "$domain")
-    PROFILE_DEST="${domain}:${dest_port}"
+    local selected_dest="${domain}:${dest_port}"
 
-    PROFILE_KEEPALIVE=$(rand_between "$TCP_KEEPALIVE_MIN" "$TCP_KEEPALIVE_MAX")
-    PROFILE_GRPC_IDLE=$(rand_between "$GRPC_IDLE_TIMEOUT_MIN" "$GRPC_IDLE_TIMEOUT_MAX")
-    PROFILE_GRPC_HEALTH=$(rand_between "$GRPC_HEALTH_TIMEOUT_MIN" "$GRPC_HEALTH_TIMEOUT_MAX")
+    local selected_keepalive
+    local selected_grpc_idle
+    local selected_grpc_health
+    selected_keepalive=$(rand_between "$TCP_KEEPALIVE_MIN" "$TCP_KEEPALIVE_MAX")
+    selected_grpc_idle=$(rand_between "$GRPC_IDLE_TIMEOUT_MIN" "$GRPC_IDLE_TIMEOUT_MAX")
+    selected_grpc_health=$(rand_between "$GRPC_HEALTH_TIMEOUT_MIN" "$GRPC_HEALTH_TIMEOUT_MAX")
 
-    PROFILE_TRANSPORT_PAYLOAD="$PROFILE_TRANSPORT_ENDPOINT"
+    local selected_transport_payload="$selected_transport_endpoint"
     if [[ "$TRANSPORT" == "http2" ]]; then
-        PROFILE_TRANSPORT_PAYLOAD=$(legacy_transport_endpoint_to_http2_path "$PROFILE_TRANSPORT_ENDPOINT")
+        selected_transport_payload=$(legacy_transport_endpoint_to_http2_path "$selected_transport_endpoint")
     fi
+
+    printf -v "$out_sni_name" '%s' "$selected_sni"
+    printf -v "$out_sni_json_name" '%s' "$selected_sni_json"
+    printf -v "$out_transport_endpoint_name" '%s' "$selected_transport_endpoint"
+    printf -v "$out_fp_name" '%s' "$selected_fp"
+    printf -v "$out_dest_name" '%s' "$selected_dest"
+    printf -v "$out_keepalive_name" '%s' "$selected_keepalive"
+    printf -v "$out_grpc_idle_name" '%s' "$selected_grpc_idle"
+    printf -v "$out_grpc_health_name" '%s' "$selected_grpc_health"
+    printf -v "$out_transport_payload_name" '%s' "$selected_transport_payload"
 }
 
 generate_profile_inbound_json() {
@@ -424,11 +448,20 @@ generate_profile_inbound_json() {
     local private_key="$3"
     local short_id="$4"
     local decryption_value="${5:-none}"
+    local profile_dest="$6"
+    local profile_sni_json="$7"
+    local profile_fp="$8"
+    local profile_transport_endpoint="$9"
+    local profile_keepalive="${10}"
+    local profile_grpc_idle="${11}"
+    local profile_grpc_health="${12}"
+    local profile_transport_value="${13:-$TRANSPORT}"
+    local profile_transport_payload="${14:-$profile_transport_endpoint}"
 
     generate_inbound_json \
-        "$port" "$uuid" "$PROFILE_DEST" "$PROFILE_SNI_JSON" "$private_key" "$short_id" \
-        "$PROFILE_FP" "$PROFILE_TRANSPORT_ENDPOINT" "$PROFILE_KEEPALIVE" "$PROFILE_GRPC_IDLE" "$PROFILE_GRPC_HEALTH" \
-        "$TRANSPORT" "$PROFILE_TRANSPORT_PAYLOAD" "$decryption_value" "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}"
+        "$port" "$uuid" "$profile_dest" "$profile_sni_json" "$private_key" "$short_id" \
+        "$profile_fp" "$profile_transport_endpoint" "$profile_keepalive" "$profile_grpc_idle" "$profile_grpc_health" \
+        "$profile_transport_value" "$profile_transport_payload" "$decryption_value" "${XRAY_DIRECT_FLOW:-xtls-rprx-vision}"
 }
 
 generate_keys() {
@@ -465,12 +498,3 @@ generate_keys() {
 
     log OK "Ключи сгенерированы"
 }
-
-PROFILE_SNI=""
-PROFILE_SNI_JSON='[]'
-PROFILE_FP="chrome"
-PROFILE_DEST=""
-PROFILE_KEEPALIVE=30
-PROFILE_GRPC_IDLE=60
-PROFILE_GRPC_HEALTH=20
-PROFILE_TRANSPORT_PAYLOAD=""

@@ -5,9 +5,14 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 CATALOG_FILE="$ROOT_DIR/data/domains/catalog.json"
 TIERS_FILE="$ROOT_DIR/domains.tiers"
 POOLS_FILE="$ROOT_DIR/sni_pools.map"
+GENERATOR_SCRIPT="$ROOT_DIR/scripts/generate-domain-fallbacks.sh"
 
 if ! command -v jq > /dev/null 2>&1; then
     echo "domain-data-check: jq is required in PATH" >&2
+    exit 2
+fi
+if [[ ! -f "$GENERATOR_SCRIPT" ]]; then
+    echo "domain-data-check: generator script is missing: $GENERATOR_SCRIPT" >&2
     exit 2
 fi
 
@@ -102,6 +107,22 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$TIERS_FILE"
 
 if ((fail != 0)); then
+    exit 1
+fi
+
+tmp_dir="$(mktemp -d)"
+cleanup_domain_data_tmp() {
+    rm -rf "$tmp_dir"
+}
+trap cleanup_domain_data_tmp EXIT
+
+"$GENERATOR_SCRIPT" --out-dir "$tmp_dir"
+if ! diff -u "$tmp_dir/domains.tiers" "$TIERS_FILE" > /dev/null; then
+    echo "domain-data-check: domains.tiers drifted from catalog.json; run scripts/generate-domain-fallbacks.sh" >&2
+    exit 1
+fi
+if ! diff -u "$tmp_dir/sni_pools.map" "$POOLS_FILE" > /dev/null; then
+    echo "domain-data-check: sni_pools.map drifted from catalog.json; run scripts/generate-domain-fallbacks.sh" >&2
     exit 1
 fi
 

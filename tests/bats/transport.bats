@@ -37,7 +37,7 @@
     [ "$output" = "h2:/my/api/v1/Service" ]
 }
 
-@test "build_inbound_profile_for_domain generates xhttp path for xhttp mode" {
+@test "build_inbound_profile_for_domain_values generates xhttp path for xhttp mode" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
@@ -47,15 +47,15 @@
     declare -A TRANSPORT_ENDPOINT_SEEDS
     SNI_POOLS["yandex.ru"]="yandex.ru"
     declare -a fp_pool=("chrome")
-    build_inbound_profile_for_domain "yandex.ru" fp_pool
-    [[ "$PROFILE_TRANSPORT_ENDPOINT" == /* ]]
-    echo "${PROFILE_FP}|${PROFILE_DEST}"
+    build_inbound_profile_for_domain_values "yandex.ru" fp_pool sni sni_json endpoint fp dest keepalive grpc_idle grpc_health payload
+    [[ "$endpoint" == /* ]]
+    echo "${fp}|${dest}"
   '
     [ "$status" -eq 0 ]
     [ "$output" = "chrome|yandex.ru:443" ]
 }
 
-@test "generate_profile_inbound_json uses prepared xhttp profile fields" {
+@test "generate_profile_inbound_json uses explicit xhttp profile fields" {
     run bash -eo pipefail -c '
     source ./lib.sh
     source ./config.sh
@@ -65,8 +65,8 @@
     declare -A TRANSPORT_ENDPOINT_SEEDS
     SNI_POOLS["yandex.ru"]="yandex.ru"
     declare -a fp_pool=("chrome")
-    build_inbound_profile_for_domain "yandex.ru" fp_pool
-    json=$(generate_profile_inbound_json 443 "test-uuid" "privkey" "abcd")
+    build_inbound_profile_for_domain_values "yandex.ru" fp_pool sni sni_json endpoint fp dest keepalive grpc_idle grpc_health payload
+    json=$(generate_profile_inbound_json 443 "test-uuid" "privkey" "abcd" "none" "$dest" "$sni_json" "$fp" "$endpoint" "$keepalive" "$grpc_idle" "$grpc_health" "$TRANSPORT" "$payload")
     net=$(echo "$json" | jq -r ".streamSettings.network")
     path=$(echo "$json" | jq -r ".streamSettings.xhttpSettings.path")
     echo "${net}:${path}"

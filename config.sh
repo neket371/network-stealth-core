@@ -190,13 +190,17 @@ build_config() {
 
     for ((i = 0; i < NUM_CONFIGS; i++)); do
         local domain="${DOMAIN_SELECTION_PLAN[$i]:-${AVAILABLE_DOMAINS[0]}}"
-
-        build_inbound_profile_for_domain "$domain" fp_pool
+        local profile_sni="" profile_sni_json="" profile_transport_endpoint="" profile_fp="" profile_dest=""
+        local profile_keepalive="" profile_grpc_idle="" profile_grpc_health="" profile_transport_payload=""
+        build_inbound_profile_for_domain_values \
+            "$domain" fp_pool \
+            profile_sni profile_sni_json profile_transport_endpoint profile_fp profile_dest \
+            profile_keepalive profile_grpc_idle profile_grpc_health profile_transport_payload
         CONFIG_DOMAINS+=("$domain")
-        CONFIG_SNIS+=("$PROFILE_SNI")
-        CONFIG_TRANSPORT_ENDPOINTS+=("$PROFILE_TRANSPORT_ENDPOINT")
-        CONFIG_DESTS+=("$PROFILE_DEST")
-        CONFIG_FPS+=("$PROFILE_FP")
+        CONFIG_SNIS+=("$profile_sni")
+        CONFIG_TRANSPORT_ENDPOINTS+=("$profile_transport_endpoint")
+        CONFIG_DESTS+=("$profile_dest")
+        CONFIG_FPS+=("$profile_fp")
         CONFIG_PROVIDER_FAMILIES+=("$(domain_provider_family_for "$domain" 2> /dev/null || printf '%s' "$domain")")
 
         local vless_pair vless_decryption vless_encryption
@@ -206,12 +210,14 @@ build_config() {
         CONFIG_VLESS_ENCRYPTIONS+=("$vless_encryption")
 
         local sni_count
-        sni_count=$(echo "$PROFILE_SNI_JSON" | jq 'length' 2> /dev/null || echo 1)
-        log INFO "Config $((i + 1)): ${domain} -> ${PROFILE_DEST} (${PROFILE_FP}, ${TRANSPORT}, SNIs: ${sni_count})"
+        sni_count=$(echo "$profile_sni_json" | jq 'length' 2> /dev/null || echo 1)
+        log INFO "Config $((i + 1)): ${domain} -> ${profile_dest} (${profile_fp}, ${TRANSPORT}, SNIs: ${sni_count})"
 
         local inbound_v4
         inbound_v4=$(generate_profile_inbound_json \
-            "${PORTS[$i]}" "${UUIDS[$i]}" "${PRIVATE_KEYS[$i]}" "${SHORT_IDS[$i]}" "${CONFIG_VLESS_DECRYPTIONS[$i]}")
+            "${PORTS[$i]}" "${UUIDS[$i]}" "${PRIVATE_KEYS[$i]}" "${SHORT_IDS[$i]}" "${CONFIG_VLESS_DECRYPTIONS[$i]}" \
+            "$profile_dest" "$profile_sni_json" "$profile_fp" "$profile_transport_endpoint" \
+            "$profile_keepalive" "$profile_grpc_idle" "$profile_grpc_health" "$TRANSPORT" "$profile_transport_payload")
 
         inbound_fragments+=("$inbound_v4")
 

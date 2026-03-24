@@ -1,13 +1,15 @@
 # Domain tiers for Network Stealth Core.
-# Extended tier_ru pool (150 domains) for broader Spider Mode rotation.
-# Format:
-#   [tier_name]
-#   domain1
-#   domain2
-# Lines starting with # are comments.
+# Generated from data/domains/catalog.json. Edit catalog.json, not this file.
+
+[priority]
+yandex.ru
+disk.yandex.ru
+mail.ru
+market.yandex.ru
+vk.com
+sberbank.ru
 
 [tier_ru]
-# Search and ecosystem
 yandex.ru
 disk.yandex.ru
 mail.ru
@@ -23,8 +25,6 @@ maps.yandex.ru
 travel.yandex.ru
 pogoda.yandex.ru
 afisha.ru
-
-# Social and content
 vk.com
 ok.ru
 rutube.ru
@@ -45,8 +45,6 @@ e1.ru
 59.ru
 66.ru
 161.ru
-
-# Marketplaces and retail
 ozon.ru
 wildberries.ru
 avito.ru
@@ -67,8 +65,6 @@ vprok.ru
 samokat.ru
 sbermarket.ru
 chitai-gorod.ru
-
-# Banks and fintech
 sberbank.ru
 tbank.ru
 tinkoff.ru
@@ -86,8 +82,6 @@ akbars.ru
 domrfbank.ru
 cbr.ru
 rshb.ru
-
-# Government services
 gosuslugi.ru
 mos.ru
 nalog.ru
@@ -103,8 +97,6 @@ minzdrav.gov.ru
 minfin.gov.ru
 edu.gov.ru
 customs.gov.ru
-
-# Telecom and IT
 megafon.ru
 mts.ru
 beeline.ru
@@ -123,8 +115,6 @@ kaspersky.ru
 drweb.ru
 1c.ru
 kontur.ru
-
-# Media and corporate
 ria.ru
 lenta.ru
 gazprom.ru
@@ -140,8 +130,6 @@ forbes.ru
 interfax.ru
 m24.ru
 newizv.ru
-
-# Maps jobs travel logistics education health
 2gis.ru
 hh.ru
 tutu.ru
@@ -174,7 +162,6 @@ magnit.ru
 x5.ru
 
 [tier_global_ms10]
-# Expanded global domain pool (50 domains), config limit remains max 10
 microsoft.com
 office.com
 live.com
@@ -226,12 +213,3 @@ canonical.com
 oracle.com
 stackoverflow.com
 
-[priority]
-# Optional preferred domains for PRIMARY_DOMAIN_MODE=adaptive.
-# Used only when these domains are present in the selected tier/custom pool.
-yandex.ru
-disk.yandex.ru
-mail.ru
-market.yandex.ru
-vk.com
-sberbank.ru

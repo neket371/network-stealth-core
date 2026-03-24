@@ -48,6 +48,8 @@ planner decisions come from three layers:
 for active `xhttp` planning, the catalog is now the primary metadata source for canonical tiers.
 `domains.tiers` and `sni_pools.map` are fallback/compatibility inputs, and `transport_endpoints.map`
 stays legacy-only for migration coverage.
+the committed fallback files are generated from the catalog by `scripts/generate-domain-fallbacks.sh`,
+and `scripts/check-domain-data-consistency.sh` now rejects drift between the catalog and those fallback views.
 
 `catalog.json` gives the planner structured metadata such as:
 
@@ -142,6 +144,7 @@ that support map is written to `export/capabilities.json`.
 | `modules/health/self_check.sh` | canonical post-action self-check engine |
 | `modules/health/measurements.sh` | saved field report aggregation and promotion hints |
 | `modules/lib/policy.sh` | managed policy serialization and loading |
+| `modules/lib/legacy_transport_contract.sh` | isolated legacy grpc/mux compatibility defaults kept only for migrate/rebuild coverage |
 | `modules/config/client_artifacts.sh` | thin client-artifact loader for focused formats and state helpers |
 | `modules/config/client_formats.sh` | client link/json/text rendering, raw-xray client export generation, and key-file output |
 | `modules/config/client_state.sh` | clients.json normalization, self-check readiness, and artifact rebuild helpers |

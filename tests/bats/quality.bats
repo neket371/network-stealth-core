@@ -55,10 +55,36 @@
     run bash -eo pipefail -c '
     grep -Fq "catalog.json" ./scripts/check-domain-data-consistency.sh
     grep -Fq "sni_pools.map" ./scripts/check-domain-data-consistency.sh
+    grep -Fq "generate-domain-fallbacks.sh" ./scripts/check-domain-data-consistency.sh
     bash ./scripts/check-domain-data-consistency.sh
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"domain-data-check: ok"* ]]
+}
+
+@test "domain fallback generator reproduces committed files from catalog canon" {
+    run bash -eo pipefail -c '
+    tmpdir=$(mktemp -d)
+    trap "rm -rf \"$tmpdir\"" EXIT
+    bash ./scripts/generate-domain-fallbacks.sh --out-dir "$tmpdir"
+    diff -u ./domains.tiers "$tmpdir/domains.tiers"
+    diff -u ./sni_pools.map "$tmpdir/sni_pools.map"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "legacy transport compatibility defaults live in dedicated contract module" {
+    run bash -eo pipefail -c '
+    grep -Fq "legacy_transport_contract.sh" ./modules/lib/globals_contract.sh
+    grep -Fq "MUX_MODE" ./modules/lib/legacy_transport_contract.sh
+    grep -Fq "GRPC_IDLE_TIMEOUT_MIN" ./modules/lib/legacy_transport_contract.sh
+    ! grep -Fq "MUX_MODE=\"\${MUX_MODE:-off}\"" ./lib.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
 }
 
 @test "xray installer verifies sidecars from official release origin first" {

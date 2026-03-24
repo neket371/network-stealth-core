@@ -7,6 +7,14 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- moved legacy grpc/mux compatibility defaults into a dedicated shared contract module instead of keeping that surface duplicated across the main globals layer
+- made `data/domains/catalog.json` the enforced canon for committed `domains.tiers` and `sni_pools.map` fallbacks via a checked generator path
+
+### Fixed
+- switched config and add-clients runtime-profile generation away from hidden `PROFILE_*` global side effects to explicit output values
+- split contract-level bats coverage out of `tests/bats/unit.bats`, wired the new generator/module into smoke coverage, and added regression checks for generated domain fallbacks
+
 ## [7.5.16] - 2026-03-22
 
 ### Fixed

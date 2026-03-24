@@ -12,6 +12,17 @@ fi
 # shellcheck source=modules/lib/version_contract.sh
 source "$VERSION_CONTRACT_MODULE"
 
+LEGACY_TRANSPORT_CONTRACT_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/legacy_transport_contract.sh"
+if [[ ! -f "$LEGACY_TRANSPORT_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    LEGACY_TRANSPORT_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/legacy_transport_contract.sh"
+fi
+if [[ ! -f "$LEGACY_TRANSPORT_CONTRACT_MODULE" ]]; then
+    echo "ERROR: не найден модуль legacy transport contract: $LEGACY_TRANSPORT_CONTRACT_MODULE" >&2
+    exit 1
+fi
+# shellcheck source=modules/lib/legacy_transport_contract.sh
+source "$LEGACY_TRANSPORT_CONTRACT_MODULE"
+
 : "${SCRIPT_DIR:=}"
 : "${MODULE_DIR:=}"
 : "${DEFAULT_DATA_DIR:=/usr/local/share/xray-reality}"
@@ -112,18 +123,6 @@ source "$VERSION_CONTRACT_MODULE"
 
 : "${TRANSPORT:=xhttp}" # normal v7 actions are xhttp-only; legacy grpc/http2 require migrate-stealth
 : "${PROGRESS_MODE:=auto}"
-: "${MUX_MODE:=off}" # ignored on normal xhttp-first installs
-# legacy grpc/mux compatibility knobs remain for migrate-stealth and explicit legacy rebuilds.
-: "${MUX_ENABLED:=false}"
-: "${MUX_CONCURRENCY:=0}"
-: "${MUX_CONCURRENCY_MIN:=3}"
-: "${MUX_CONCURRENCY_MAX:=20}"
-: "${GRPC_IDLE_TIMEOUT_MIN:=60}"
-: "${GRPC_IDLE_TIMEOUT_MAX:=1800}"
-: "${GRPC_HEALTH_TIMEOUT_MIN:=10}"
-: "${GRPC_HEALTH_TIMEOUT_MAX:=30}"
-: "${TCP_KEEPALIVE_MIN:=20}"
-: "${TCP_KEEPALIVE_MAX:=45}"
 : "${SHORT_ID_BYTES_MIN:=8}"
 : "${SHORT_ID_BYTES_MAX:=8}"
 
@@ -158,12 +157,6 @@ source "$VERSION_CONTRACT_MODULE"
 : "${REUSE_EXISTING_CONFIG:=false}"
 : "${HAS_IPV6:=false}"
 : "${ROLLBACK_DIR:=}"
-: "${PROFILE_SNI:=}"
-: "${PROFILE_TRANSPORT_ENDPOINT:=}"
-: "${PROFILE_FP:=}"
-: "${PROFILE_SNI_JSON:=}"
-: "${PROFILE_DEST:=}"
-: "${PROFILE_TRANSPORT_PAYLOAD:=}"
 : "${ADVANCED_MODE:=false}"
 : "${REPLAN:=false}"
 : "${SYSTEMD_MANAGEMENT_DISABLED:=false}"

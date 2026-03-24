@@ -704,6 +704,136 @@ EOF
     chown root:root "$keys_file" 2> /dev/null || true
 }
 
+build_client_variant_inventory_fragment() {
+    local variant_key="$1"
+    local variant_category="$2"
+    local variant_label="$3"
+    local variant_note="$4"
+    local variant_mode="$5"
+    local transport_value="$6"
+    local endpoint="$7"
+    local variant_import_hint="$8"
+    local direct_flow="$9"
+    local vless_encryption="${10}"
+    local raw_v4="${11}"
+    local raw_v6="${12}"
+    local variant_v4="${13}"
+    local variant_v6="${14}"
+    local variant_requires_browser_dialer="${15}"
+    local requires_vless_encryption=false
+    if [[ "$vless_encryption" != "none" ]]; then
+        requires_vless_encryption=true
+    fi
+
+    jq -n \
+        --arg key "$variant_key" \
+        --arg category "$variant_category" \
+        --arg label "$variant_label" \
+        --arg note "$variant_note" \
+        --arg mode "$variant_mode" \
+        --arg transport "$transport_value" \
+        --arg endpoint "$endpoint" \
+        --arg import_hint "$variant_import_hint" \
+        --arg flow "$direct_flow" \
+        --arg vless_encryption "$vless_encryption" \
+        --arg raw_v4 "$raw_v4" \
+        --arg raw_v6 "$raw_v6" \
+        --arg vless_v4 "$variant_v4" \
+        --arg vless_v6 "$variant_v6" \
+        --argjson requires_browser_dialer "$variant_requires_browser_dialer" \
+        --argjson requires_vless_encryption "$requires_vless_encryption" \
+        '{
+            key: $key,
+            category: $category,
+            label: $label,
+            note: $note,
+            mode: (if ($mode | length) > 0 then $mode else null end),
+            transport: $transport,
+            transport_endpoint: $endpoint,
+            requires: {
+                browser_dialer: $requires_browser_dialer,
+                vless_encryption: $requires_vless_encryption,
+                flow: $flow
+            },
+            import_hint: $import_hint,
+            vless_v4: $vless_v4,
+            vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end),
+            vless_encryption: $vless_encryption,
+            xray_client_file_v4: (if ($raw_v4 | length) > 0 then $raw_v4 else null end),
+            xray_client_file_v6: (if ($raw_v6 | length) > 0 then $raw_v6 else null end)
+        }'
+}
+
+build_client_config_inventory_fragment() {
+    local name="$1"
+    local domain="$2"
+    local sni="$3"
+    local fp="$4"
+    local transport_value="$5"
+    local transport_endpoint="$6"
+    local provider_family="$7"
+    local uuid="$8"
+    local short_id="$9"
+    local public_key="${10}"
+    local port_ipv4="${11}"
+    local port_ipv6="${12}"
+    local default_variant_key="${13}"
+    local vless_v4="${14}"
+    local vless_v6="${15}"
+    local dest="${16}"
+    local primary_rank="${17}"
+    local direct_flow="${18}"
+    local vless_encryption="${19}"
+    local vless_decryption="${20}"
+    local variants_json="${21}"
+
+    jq -n \
+        --arg name "$name" \
+        --arg domain "$domain" \
+        --arg sni "$sni" \
+        --arg fp "$fp" \
+        --arg transport "$transport_value" \
+        --arg transport_endpoint "$transport_endpoint" \
+        --arg provider_family "$provider_family" \
+        --arg uuid "$uuid" \
+        --arg short_id "$short_id" \
+        --arg public_key "$public_key" \
+        --arg port_ipv4 "$port_ipv4" \
+        --arg port_ipv6 "$port_ipv6" \
+        --arg default_variant_key "$default_variant_key" \
+        --arg vless_v4 "$vless_v4" \
+        --arg vless_v6 "$vless_v6" \
+        --arg dest "$dest" \
+        --arg primary_rank "$primary_rank" \
+        --arg flow "$direct_flow" \
+        --arg vless_encryption "$vless_encryption" \
+        --arg vless_decryption "$vless_decryption" \
+        --argjson variants "$variants_json" \
+        '{
+            name: $name,
+            domain: $domain,
+            provider_family: $provider_family,
+            primary_rank: ($primary_rank|tonumber),
+            dest: $dest,
+            sni: $sni,
+            fingerprint: $fp,
+            transport: $transport,
+            transport_endpoint: $transport_endpoint,
+            uuid: $uuid,
+            short_id: $short_id,
+            public_key: $public_key,
+            port_ipv4: ($port_ipv4|tonumber),
+            port_ipv6: (if ($port_ipv6 | length) > 0 then ($port_ipv6 | tonumber?) else null end),
+            flow: $flow,
+            vless_encryption: $vless_encryption,
+            vless_decryption: $vless_decryption,
+            vless_v4: $vless_v4,
+            vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end),
+            recommended_variant: $default_variant_key,
+            variants: $variants
+        }'
+}
+
 save_client_configs_build_inventory() {
     local required_count="$1"
     local out_json_configs_name="$2"
@@ -815,43 +945,10 @@ save_client_configs_build_inventory() {
                 primary_vless_v6="$variant_v6"
             fi
 
-            variant_fragments+=("$(jq -n \
-                --arg key "$variant_key" \
-                --arg category "$variant_category" \
-                --arg label "$variant_label" \
-                --arg note "$variant_note" \
-                --arg mode "$variant_mode" \
-                --arg transport "$transport_value" \
-                --arg endpoint "$endpoint" \
-                --arg import_hint "$variant_import_hint" \
-                --arg flow "$direct_flow" \
-                --arg vless_encryption "$vless_encryption" \
-                --arg raw_v4 "$raw_v4" \
-                --arg raw_v6 "$raw_v6" \
-                --arg vless_v4 "$variant_v4" \
-                --arg vless_v6 "$variant_v6" \
-                --argjson requires_browser_dialer "$variant_requires_browser_dialer" \
-                --argjson requires_vless_encryption "$(if [[ "$vless_encryption" != "none" ]]; then echo true; else echo false; fi)" \
-                '{
-                    key: $key,
-                    category: $category,
-                    label: $label,
-                    note: $note,
-                    mode: (if ($mode | length) > 0 then $mode else null end),
-                    transport: $transport,
-                    transport_endpoint: $endpoint,
-                    requires: {
-                        browser_dialer: $requires_browser_dialer,
-                        vless_encryption: $requires_vless_encryption,
-                        flow: $flow
-                    },
-                    import_hint: $import_hint,
-                    vless_v4: $vless_v4,
-                    vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end),
-                    vless_encryption: $vless_encryption,
-                    xray_client_file_v4: (if ($raw_v4 | length) > 0 then $raw_v4 else null end),
-                    xray_client_file_v6: (if ($raw_v6 | length) > 0 then $raw_v6 else null end)
-                }')")
+            variant_fragments+=("$(build_client_variant_inventory_fragment \
+                "$variant_key" "$variant_category" "$variant_label" "$variant_note" "$variant_mode" \
+                "$transport_value" "$endpoint" "$variant_import_hint" "$direct_flow" "$vless_encryption" \
+                "$raw_v4" "$raw_v6" "$variant_v4" "$variant_v6" "$variant_requires_browser_dialer")")
         done < <(client_variant_catalog "$transport_value")
 
         if ! variants=$(json_array_from_fragments "${variant_fragments[@]}"); then
@@ -862,51 +959,11 @@ save_client_configs_build_inventory() {
         out_qr_links_v4+=("$primary_vless_v4")
         out_qr_links_v6+=("$primary_vless_v6")
 
-        json_config_fragments+=("$(jq -n \
-            --arg name "Config $((i + 1))" \
-            --arg domain "$domain" \
-            --arg sni "$sni" \
-            --arg fp "$fp" \
-            --arg transport "$transport_value" \
-            --arg transport_endpoint "$transport_extra_value" \
-            --arg provider_family "$provider_family" \
-            --arg uuid "${UUIDS[$i]}" \
-            --arg short_id "${SHORT_IDS[$i]}" \
-            --arg public_key "${PUBLIC_KEYS[$i]}" \
-            --arg port_ipv4 "${PORTS[$i]}" \
-            --arg port_ipv6 "${PORTS_V6[$i]:-}" \
-            --arg default_variant_key "$default_variant_key" \
-            --arg vless_v4 "$primary_vless_v4" \
-            --arg vless_v6 "$primary_vless_v6" \
-            --arg dest "${CONFIG_DESTS[$i]:-${domain}:443}" \
-            --arg primary_rank "$((i + 1))" \
-            --arg flow "$direct_flow" \
-            --arg vless_encryption "$vless_encryption" \
-            --arg vless_decryption "$vless_decryption" \
-            --argjson variants "$variants" \
-            '{
-                name: $name,
-                domain: $domain,
-                provider_family: $provider_family,
-                primary_rank: ($primary_rank|tonumber),
-                dest: $dest,
-                sni: $sni,
-                fingerprint: $fp,
-                transport: $transport,
-                transport_endpoint: $transport_endpoint,
-                uuid: $uuid,
-                short_id: $short_id,
-                public_key: $public_key,
-                port_ipv4: ($port_ipv4|tonumber),
-                port_ipv6: (if ($port_ipv6 | length) > 0 then ($port_ipv6 | tonumber?) else null end),
-                flow: $flow,
-                vless_encryption: $vless_encryption,
-                vless_decryption: $vless_decryption,
-                vless_v4: $vless_v4,
-                vless_v6: (if ($vless_v6 | length) > 0 then $vless_v6 else null end),
-                recommended_variant: $default_variant_key,
-                variants: $variants
-            }')")
+        json_config_fragments+=("$(build_client_config_inventory_fragment \
+            "Config $((i + 1))" "$domain" "$sni" "$fp" "$transport_value" "$transport_extra_value" \
+            "$provider_family" "${UUIDS[$i]}" "${SHORT_IDS[$i]}" "${PUBLIC_KEYS[$i]}" "${PORTS[$i]}" "${PORTS_V6[$i]:-}" \
+            "$default_variant_key" "$primary_vless_v4" "$primary_vless_v6" "${CONFIG_DESTS[$i]:-${domain}:443}" "$((i + 1))" \
+            "$direct_flow" "$vless_encryption" "$vless_decryption" "$variants")")
     done
     if ! json_configs_acc=$(json_array_from_fragments "${json_config_fragments[@]}"); then
         log ERROR "Не удалось собрать inventory client-configs"

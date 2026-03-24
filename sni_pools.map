@@ -1,5 +1,3 @@
-# SNI pools for extended 150-domain tier_ru set
-# Each domain has 10 SNI variants for rotation
 yandex.ru=yandex.ru www.yandex.ru m.yandex.ru api.yandex.ru cdn.yandex.ru static.yandex.ru auth.yandex.ru login.yandex.ru lk.yandex.ru img.yandex.ru
 disk.yandex.ru=disk.yandex.ru www.disk.yandex.ru m.disk.yandex.ru api.disk.yandex.ru cdn.disk.yandex.ru static.disk.yandex.ru auth.disk.yandex.ru login.disk.yandex.ru lk.disk.yandex.ru img.disk.yandex.ru
 mail.ru=mail.ru www.mail.ru m.mail.ru api.mail.ru cdn.mail.ru static.mail.ru auth.mail.ru login.mail.ru lk.mail.ru img.mail.ru
@@ -166,7 +164,7 @@ google.com=google.com www.google.com m.google.com api.google.com accounts.google
 youtube.com=youtube.com www.youtube.com m.youtube.com studio.youtube.com music.youtube.com tv.youtube.com accounts.youtube.com i.youtube.com support.youtube.com kids.youtube.com
 gmail.com=gmail.com www.gmail.com m.gmail.com mail.gmail.com support.gmail.com accounts.gmail.com static.gmail.com api.gmail.com webmail.gmail.com smtp.gmail.com
 gstatic.com=gstatic.com www.gstatic.com m.gstatic.com fonts.gstatic.com ssl.gstatic.com maps.gstatic.com www2.gstatic.com www3.gstatic.com static.gstatic.com storage.googleapis.com
-googleapis.com=googleapis.com www.googleapis.com m.googleapis.com maps.googleapis.com oauth2.googleapis.com storage.googleapis.com compute.googleapis.com cloudtrace.googleapis.com vision.googleapis.com
+googleapis.com=googleapis.com m.googleapis.com maps.googleapis.com www.googleapis.com oauth2.googleapis.com storage.googleapis.com compute.googleapis.com cloudtrace.googleapis.com vision.googleapis.com
 cloud.google.com=cloud.google.com www.cloud.google.com m.cloud.google.com api.cloud.google.com console.cloud.google.com static.cloud.google.com auth.cloud.google.com login.cloud.google.com support.cloud.google.com storage.cloud.google.com
 apple.com=apple.com www.apple.com m.apple.com support.apple.com account.apple.com developer.apple.com id.apple.com music.apple.com tv.apple.com static.apple.com
 icloud.com=icloud.com www.icloud.com m.icloud.com account.icloud.com support.icloud.com static.icloud.com id.icloud.com mail.icloud.com photos.icloud.com calendar.icloud.com

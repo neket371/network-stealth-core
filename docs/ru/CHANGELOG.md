@@ -7,6 +7,14 @@
 
 ## [unreleased]
 
+### Changed
+- legacy grpc/mux compatibility defaults вынесены в отдельный shared contract module вместо дублирования этого слоя в главном globals-контуре
+- `data/domains/catalog.json` теперь жёстко считается каноном для committed fallback-файлов `domains.tiers` и `sni_pools.map` через отдельный generator + consistency check
+
+### Fixed
+- build config и add-clients больше не зависят от скрытых `PROFILE_*` global side-effects: runtime-profile значения теперь передаются явно
+- contract-level bats coverage вынесена из `tests/bats/unit.bats`, а новый generator/module подключены в smoke и regression-проверки для generated domain fallbacks
+
 ## [7.5.16] - 2026-03-22
 
 ### Fixed
