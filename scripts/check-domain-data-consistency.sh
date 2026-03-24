@@ -116,7 +116,7 @@ cleanup_domain_data_tmp() {
 }
 trap cleanup_domain_data_tmp EXIT
 
-"$GENERATOR_SCRIPT" --out-dir "$tmp_dir"
+bash "$GENERATOR_SCRIPT" --out-dir "$tmp_dir"
 if ! diff -u "$tmp_dir/domains.tiers" "$TIERS_FILE" > /dev/null; then
     echo "domain-data-check: domains.tiers drifted from catalog.json; run scripts/generate-domain-fallbacks.sh" >&2
     exit 1
