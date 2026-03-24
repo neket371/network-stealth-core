@@ -38,6 +38,7 @@ lint:
 	bash scripts/check-workflow-pinning.sh
 	bash scripts/check-security-baseline.sh
 	bash scripts/check-docs-commands.sh
+	bash scripts/check-domain-data-consistency.sh
 	if command -v markdownlint >/dev/null; then \
 		NODE_OPTIONS=--no-deprecation markdownlint --config .markdownlint.json $(MARKDOWN_SOURCES); \
 	elif command -v npx >/dev/null; then \

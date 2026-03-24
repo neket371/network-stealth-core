@@ -55,11 +55,8 @@
     grep -Fq "catalog.json" ./scripts/check-domain-data-consistency.sh
     grep -Fq "sni_pools.map" ./scripts/check-domain-data-consistency.sh
     grep -Fq "generate-domain-fallbacks.sh" ./scripts/check-domain-data-consistency.sh
-
-    run bash ./scripts/check-domain-data-consistency.sh
-
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"domain-data-check: ok"* ]]
+    grep -Fq "bash scripts/check-domain-data-consistency.sh" ./Makefile
+    grep -Fq "\"\$SCRIPT_DIR/scripts/check-domain-data-consistency.sh\"" ./tests/lint.sh
 }
 
 @test "domain fallback generator reproduces committed files from catalog canon" {
