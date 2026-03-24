@@ -475,6 +475,203 @@ EOF
     [[ "$output" == *"XRAY_DATA_DIR has unsafe permissions"* ]]
 }
 
+@test "wrapper rejects custom XRAY_DATA_DIR when sourced shell file is writable" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    custom="$tmp/custom-data"
+    mkdir -p "$custom/modules/lib" "$custom/modules/config" "$custom/modules/install" "$tmp/mockbin"
+
+    cat > "$custom/lib.sh" << '"'"'EOF'"'"'
+#!/usr/bin/env bash
+MODULE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+main() { echo "wrapper-ok"; }
+EOF
+    chmod +x "$custom/lib.sh"
+    : > "$custom/install.sh"
+    : > "$custom/config.sh"
+    : > "$custom/service.sh"
+    : > "$custom/health.sh"
+    : > "$custom/export.sh"
+    : > "$custom/modules/lib/validation.sh"
+    : > "$custom/modules/lib/common_utils.sh"
+    : > "$custom/modules/lib/ui_logging.sh"
+    : > "$custom/modules/lib/system_runtime.sh"
+    : > "$custom/modules/lib/downloads.sh"
+    : > "$custom/modules/lib/config_loading.sh"
+    : > "$custom/modules/lib/path_safety.sh"
+    : > "$custom/modules/lib/runtime_inputs.sh"
+    : > "$custom/modules/lib/globals_contract.sh"
+    : > "$custom/modules/lib/firewall.sh"
+    : > "$custom/modules/lib/lifecycle.sh"
+    : > "$custom/modules/lib/runtime_reuse.sh"
+    : > "$custom/modules/lib/domain_sources.sh"
+    : > "$custom/modules/config/domain_planner.sh"
+    : > "$custom/modules/config/runtime_profiles.sh"
+    : > "$custom/modules/config/runtime_contract.sh"
+    : > "$custom/modules/config/runtime_apply.sh"
+    : > "$custom/modules/config/add_clients.sh"
+    : > "$custom/modules/config/shared_helpers.sh"
+    : > "$custom/modules/install/bootstrap.sh"
+
+    real_stat="$(command -v stat)"
+    cat > "$tmp/mockbin/stat" << EOF
+#!/usr/bin/env bash
+path="\${@: -1}"
+if [[ "\${1:-}" == "-c" && "\${2:-}" == "%a" ]]; then
+    if [[ "\$path" == *"/modules/config/runtime_apply.sh" ]]; then
+        echo 666
+    else
+        echo 755
+    fi
+    exit 0
+fi
+exec "$real_stat" "\$@"
+EOF
+    chmod +x "$tmp/mockbin/stat"
+
+    cp ./xray-reality.sh "$tmp/xray-reality.sh"
+    chmod +x "$tmp/xray-reality.sh"
+
+    PATH="$tmp/mockbin:$PATH" \
+      XRAY_DATA_DIR="$custom" \
+      XRAY_ALLOW_CUSTOM_DATA_DIR=true \
+      bash "$tmp/xray-reality.sh" --help
+  '
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"wrapper sourced file has unsafe permissions"* ]]
+}
+
+@test "wrapper rejects custom XRAY_DATA_DIR when sourced symlink escapes trusted tree" {
+    local tmp
+    local custom
+    local outside
+    local real_stat
+
+    tmp="$(mktemp -d)"
+    custom="$tmp/custom-data"
+    outside="$tmp/outside"
+    mkdir -p "$custom/modules/lib" "$custom/modules/config" "$custom/modules/install" "$outside" "$tmp/mockbin"
+
+    cat > "$custom/lib.sh" <<'EOF'
+#!/usr/bin/env bash
+MODULE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+main() { echo "wrapper-ok"; }
+EOF
+    chmod +x "$custom/lib.sh"
+    : > "$custom/install.sh"
+    : > "$custom/config.sh"
+    : > "$custom/service.sh"
+    : > "$custom/health.sh"
+    : > "$custom/export.sh"
+    : > "$custom/modules/lib/common_utils.sh"
+    : > "$custom/modules/lib/ui_logging.sh"
+    : > "$custom/modules/lib/system_runtime.sh"
+    : > "$custom/modules/lib/downloads.sh"
+    : > "$custom/modules/lib/config_loading.sh"
+    : > "$custom/modules/lib/path_safety.sh"
+    : > "$custom/modules/lib/runtime_inputs.sh"
+    : > "$custom/modules/lib/globals_contract.sh"
+    : > "$custom/modules/lib/firewall.sh"
+    : > "$custom/modules/lib/lifecycle.sh"
+    : > "$custom/modules/lib/runtime_reuse.sh"
+    : > "$custom/modules/lib/domain_sources.sh"
+    : > "$custom/modules/config/domain_planner.sh"
+    : > "$custom/modules/config/runtime_profiles.sh"
+    : > "$custom/modules/config/runtime_contract.sh"
+    : > "$custom/modules/config/runtime_apply.sh"
+    : > "$custom/modules/config/add_clients.sh"
+    : > "$custom/modules/config/shared_helpers.sh"
+    : > "$custom/modules/install/bootstrap.sh"
+    : > "$outside/validation.sh"
+
+    real_stat="$(command -v stat)"
+    cat > "$tmp/mockbin/stat" <<EOF
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "-c" && "\${2:-}" == "%a" ]]; then
+    echo 755
+    exit 0
+fi
+exec "$real_stat" "\$@"
+EOF
+    chmod +x "$tmp/mockbin/stat"
+    ln -s "$outside/validation.sh" "$custom/modules/lib/validation.sh"
+    [[ -L "$custom/modules/lib/validation.sh" ]] || skip "symlinks unsupported in this shell/filesystem"
+
+    cp ./xray-reality.sh "$tmp/xray-reality.sh"
+    chmod +x "$tmp/xray-reality.sh"
+
+    run env \
+        PATH="$tmp/mockbin:$PATH" \
+        XRAY_DATA_DIR="$custom" \
+        XRAY_ALLOW_CUSTOM_DATA_DIR=true \
+        bash "$tmp/xray-reality.sh" --help
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"wrapper sourced file escapes trusted XRAY_DATA_DIR tree"* ]]
+}
+
+@test "wrapper accepts trusted custom XRAY_DATA_DIR when sourced tree stays inside base" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    custom="$tmp/custom-data"
+    mkdir -p "$custom/modules/lib" "$custom/modules/config" "$custom/modules/install" "$tmp/mockbin"
+
+    cat > "$custom/lib.sh" << '"'"'EOF'"'"'
+#!/usr/bin/env bash
+MODULE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+main() { echo "wrapper-ok"; }
+EOF
+    chmod +x "$custom/lib.sh"
+    : > "$custom/install.sh"
+    : > "$custom/config.sh"
+    : > "$custom/service.sh"
+    : > "$custom/health.sh"
+    : > "$custom/export.sh"
+    : > "$custom/modules/lib/validation.sh"
+    : > "$custom/modules/lib/common_utils.sh"
+    : > "$custom/modules/lib/ui_logging.sh"
+    : > "$custom/modules/lib/system_runtime.sh"
+    : > "$custom/modules/lib/downloads.sh"
+    : > "$custom/modules/lib/config_loading.sh"
+    : > "$custom/modules/lib/path_safety.sh"
+    : > "$custom/modules/lib/runtime_inputs.sh"
+    : > "$custom/modules/lib/globals_contract.sh"
+    : > "$custom/modules/lib/firewall.sh"
+    : > "$custom/modules/lib/lifecycle.sh"
+    : > "$custom/modules/lib/runtime_reuse.sh"
+    : > "$custom/modules/lib/domain_sources.sh"
+    : > "$custom/modules/config/domain_planner.sh"
+    : > "$custom/modules/config/runtime_profiles.sh"
+    : > "$custom/modules/config/runtime_contract.sh"
+    : > "$custom/modules/config/runtime_apply.sh"
+    : > "$custom/modules/config/add_clients.sh"
+    : > "$custom/modules/config/shared_helpers.sh"
+    : > "$custom/modules/install/bootstrap.sh"
+
+    real_stat="$(command -v stat)"
+    cat > "$tmp/mockbin/stat" << EOF
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "-c" && "\${2:-}" == "%a" ]]; then
+    echo 755
+    exit 0
+fi
+exec "$real_stat" "\$@"
+EOF
+    chmod +x "$tmp/mockbin/stat"
+
+    cp ./xray-reality.sh "$tmp/xray-reality.sh"
+    chmod +x "$tmp/xray-reality.sh"
+
+    PATH="$tmp/mockbin:$PATH" \
+      XRAY_DATA_DIR="$custom" \
+      XRAY_ALLOW_CUSTOM_DATA_DIR=true \
+      bash "$tmp/xray-reality.sh" --help
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"wrapper-ok"* ]]
+}
+
 @test "wrapper keeps default trusted SCRIPT_DIR flow without custom opt-in" {
     run bash -eo pipefail -c '
     set -euo pipefail

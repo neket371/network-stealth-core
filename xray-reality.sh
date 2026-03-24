@@ -80,6 +80,19 @@ normalize_wrapper_path() {
     fi
 }
 
+resolve_existing_wrapper_path() {
+    local path="${1:-}"
+    [[ -n "$path" ]] || return 1
+    [[ -e "$path" || -L "$path" ]] || return 1
+    if command -v realpath > /dev/null 2>&1; then
+        realpath -- "$path" 2> /dev/null && return 0
+    fi
+    if command -v readlink > /dev/null 2>&1; then
+        readlink -f -- "$path" 2> /dev/null && return 0
+    fi
+    normalize_wrapper_path "$path"
+}
+
 is_trusted_wrapper_source_dir() {
     local candidate="${1:-}"
     local candidate_norm=""
@@ -94,6 +107,60 @@ is_trusted_wrapper_source_dir() {
     [[ -n "$default_norm" && "$candidate_norm" == "$default_norm" ]] && return 0
     [[ -n "$script_norm" && "$candidate_norm" == "$script_norm" ]] && return 0
     return 1
+}
+
+validate_wrapper_source_entry_trust() {
+    local base_dir="${1:-}"
+    local entry_path="${2:-}"
+    local resolved_entry=""
+    local current_dir=""
+    local parent_dir=""
+
+    resolved_entry=$(resolve_existing_wrapper_path "$entry_path" || true)
+    if [[ -z "$resolved_entry" ]]; then
+        echo "ERROR: wrapper could not resolve sourced file path: ${entry_path}" >&2
+        exit 1
+    fi
+
+    if [[ "$resolved_entry" != "$base_dir" && "$resolved_entry" != "$base_dir"/* ]]; then
+        echo "ERROR: wrapper sourced file escapes trusted XRAY_DATA_DIR tree: ${entry_path} -> ${resolved_entry}" >&2
+        exit 1
+    fi
+
+    if ! has_safe_wrapper_source_permissions "$resolved_entry"; then
+        echo "ERROR: wrapper sourced file has unsafe permissions: ${resolved_entry}" >&2
+        exit 1
+    fi
+
+    current_dir="$(dirname "$resolved_entry")"
+    while :; do
+        if [[ "$current_dir" != "$base_dir" && "$current_dir" != "$base_dir"/* ]]; then
+            echo "ERROR: wrapper sourced path escapes trusted XRAY_DATA_DIR tree: ${current_dir}" >&2
+            exit 1
+        fi
+        if ! has_safe_wrapper_source_permissions "$current_dir"; then
+            echo "ERROR: wrapper sourced path has unsafe permissions: ${current_dir}" >&2
+            exit 1
+        fi
+        [[ "$current_dir" == "$base_dir" ]] && break
+        parent_dir="$(dirname "$current_dir")"
+        [[ "$parent_dir" != "$current_dir" ]] || break
+        current_dir="$parent_dir"
+    done
+}
+
+validate_wrapper_source_tree_trust() {
+    local base_dir="${1:-}"
+    local entry_path=""
+
+    while IFS= read -r -d '' entry_path; do
+        validate_wrapper_source_entry_trust "$base_dir" "$entry_path"
+    done < <(
+        find "$base_dir" -maxdepth 1 \( -type f -o -type l \) -name '*.sh' -print0
+        if [[ -d "$base_dir/modules" ]]; then
+            find "$base_dir/modules" \( -type f -o -type l \) -name '*.sh' -print0
+        fi
+    )
 }
 
 validate_wrapper_data_dir_trust() {
@@ -121,20 +188,23 @@ validate_wrapper_data_dir_trust() {
         echo "Set secure permissions (for example chmod 755) before using XRAY_ALLOW_CUSTOM_DATA_DIR=true." >&2
         exit 1
     fi
+
+    validate_wrapper_source_tree_trust "$custom_norm"
 }
 
 has_safe_wrapper_source_permissions() {
-    local dir="${1:-}"
+    local path="${1:-}"
     local mode=""
     local group_digit
     local other_digit
 
-    [[ -n "$dir" && -d "$dir" ]] || return 1
+    [[ -n "$path" ]] || return 1
+    [[ -e "$path" || -L "$path" ]] || return 1
 
     if command -v stat > /dev/null 2>&1; then
-        mode=$(stat -c '%a' -- "$dir" 2> /dev/null || true)
+        mode=$(stat -c '%a' -- "$path" 2> /dev/null || true)
         if [[ -z "$mode" ]]; then
-            mode=$(stat -f '%Lp' -- "$dir" 2> /dev/null || true)
+            mode=$(stat -f '%Lp' -- "$path" 2> /dev/null || true)
         fi
     fi
 

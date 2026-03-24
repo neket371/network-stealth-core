@@ -194,7 +194,7 @@ notes:
 - `--transport` is fixed to `xhttp` in v7 and exists only as a compatibility no-op for the supported value
 - interactive `install` always asks for the config count; use `--num-configs n` to skip the prompt or `--non-interactive --yes` for scripted installs
 - legacy aliases `global-ms10` and `global-ms10-auto` still map to `global-50` and `global-50-auto`
-- `XRAY_DATA_DIR` is not a free-form trusted code source in wrapper mode; use `XRAY_ALLOW_CUSTOM_DATA_DIR=true` only for trusted non-world-writable directories
+- `XRAY_DATA_DIR` is not a free-form trusted code source in wrapper mode; use `XRAY_ALLOW_CUSTOM_DATA_DIR=true` only for trusted non-world-writable source trees whose sourced shell files and symlink targets stay inside that tree
 
 ## documentation map
 

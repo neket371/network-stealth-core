@@ -15,6 +15,7 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 - switched config and add-clients runtime-profile generation away from hidden `PROFILE_*` global side effects to explicit output values
 - split contract-level bats coverage out of `tests/bats/unit.bats`, wired the new generator/module into smoke coverage, and added regression checks for generated domain fallbacks
 - cleaned up duplicated busy-host faq entries, softened maintainer check wording, and polished ru maintainer/docs phrasing without changing the product contract
+- hardened wrapper trust checks for `XRAY_ALLOW_CUSTOM_DATA_DIR=true` so sourced shell files and symlink targets must stay inside the trusted tree with safe permissions, and made client-artifact rollback fail closed on invalid publish-manifest states
 
 ## [7.5.16] - 2026-03-22
 

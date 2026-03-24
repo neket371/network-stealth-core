@@ -15,6 +15,7 @@
 - build config и add-clients больше не зависят от скрытых `PROFILE_*` global side-effects: runtime-profile значения теперь передаются явно
 - contract-level bats coverage вынесена из `tests/bats/unit.bats`, а новый generator/module подключены в smoke и regression-проверки для generated domain fallbacks
 - убраны дубли в busy-host faq, смягчены формулировки maintainer-проверок и приглажен ru-текст в maintainer/docs без изменения продуктового контракта
+- trust-check для `XRAY_ALLOW_CUSTOM_DATA_DIR=true` ужесточён: sourced shell-файлы и symlink-target'ы теперь обязаны оставаться внутри trusted tree с безопасными правами, а client-artifact rollback теперь fail-closed на битом publish-manifest
 
 ## [7.5.16] - 2026-03-22
 

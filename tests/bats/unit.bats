@@ -2229,6 +2229,28 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "client_artifacts_restore_target rejects unknown manifest state" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    target="$tmp/clients.json"
+    backup_root="$tmp/backup"
+    mkdir -p "$backup_root"
+    printf "original\n" > "$target"
+    printf "clients.json=corrupted\n" > "$backup_root/manifest.env"
+    if client_artifacts_restore_target "$target" "$backup_root" "clients.json"; then
+      echo "unexpected-success"
+    else
+      echo "rejected"
+    fi
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Некорректное состояние client artifact backup manifest"* ]]
+    [[ "$output" == *"rejected"* ]]
+}
+
 @test "render_clients_links_txt_from_json writes russian quick-link headings" {
     run bash -eo pipefail -c '
     source ./lib.sh

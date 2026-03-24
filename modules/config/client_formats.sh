@@ -1047,6 +1047,10 @@ client_artifacts_restore_target() {
         absent | "")
             rm -rf -- "$target" 2> /dev/null || true
             ;;
+        *)
+            log ERROR "Некорректное состояние client artifact backup manifest для ${label}: ${state}"
+            return 1
+            ;;
     esac
 }
 
