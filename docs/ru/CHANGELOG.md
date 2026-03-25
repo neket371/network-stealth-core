@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.5.18] - 2026-03-25
+
 ### Fixed
 - `scripts/lab/prepare-vm-smoke.sh` теперь публикует ubuntu cloud image только после проверки непустого `.part`-файла и чистит stale temp при ошибке вместо хрупкого `mv`
 - `scripts/lab/guest-vm-release-smoke.sh` теперь проверяет реальный quoted-контракт `XRAY_DOMAINS_FILE="..."` и больше не падает ложно на корректном managed `config.env`
