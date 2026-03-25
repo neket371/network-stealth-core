@@ -23,18 +23,20 @@ environment:
 EOF
 }
 
-case "${1:-}" in
-    --help | -h)
-        usage
-        exit 0
-        ;;
-    "") ;;
-    *)
-        echo "unknown argument: $1" >&2
-        usage >&2
-        exit 1
-        ;;
-esac
+prepare_vm_validate_args() {
+    case "${1:-}" in
+        --help | -h)
+            usage
+            exit 0
+            ;;
+        "") ;;
+        *)
+            echo "unknown argument: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+}
 
 install_missing_deps() {
     [[ "${LAB_VM_AUTO_INSTALL_DEPS:-false}" == "true" ]] || return 0
@@ -89,38 +91,76 @@ require_vm_dependency() {
     }
 }
 
-lab_prepare_dirs
-lab_prepare_vm_dirs
-install_missing_deps
+prepare_vm_base_image() {
+    local base_image
+    local base_image_url
+    local tmp_image
 
-require_vm_dependency curl
-require_vm_dependency qemu-system-x86_64
-require_vm_dependency qemu-img
-require_vm_dependency cloud-localds
-require_vm_dependency ssh
-require_vm_dependency ssh-keygen
+    base_image="$(lab_vm_base_image_path)"
+    base_image_url="$(lab_vm_base_image_url)"
+    tmp_image="${base_image}.part"
 
-if [[ ! -c /dev/kvm ]]; then
-    echo "/dev/kvm is not available; vm-lab requires kvm for safe full lifecycle smoke" >&2
-    exit 1
-fi
+    mkdir -p "$(dirname "$base_image")"
+    rm -f "$tmp_image"
 
-ssh_key="$(lab_vm_ssh_key_path)"
-if [[ ! -f "$ssh_key" ]]; then
-    ssh-keygen -q -t ed25519 -N "" -f "$ssh_key" > /dev/null
-fi
+    if [[ -f "$base_image" ]]; then
+        printf '%s\n' "$base_image"
+        return 0
+    fi
 
-base_image="$(lab_vm_base_image_path)"
-tmp_image="${base_image}.part"
-if [[ ! -f "$base_image" ]]; then
-    curl --fail --location --show-error --silent "$(lab_vm_base_image_url)" -o "$tmp_image"
-    mv -f "$tmp_image" "$base_image"
-fi
+    if ! curl --fail --location --show-error --silent "$base_image_url" -o "$tmp_image"; then
+        rm -f "$tmp_image"
+        return 1
+    fi
 
-env_file="$(lab_vm_workspace_dir)/lab-vm-env.sh"
-lab_write_vm_env_file "$env_file"
+    if [[ ! -s "$tmp_image" ]]; then
+        echo "downloaded vm base image temp file is missing or empty: ${tmp_image}" >&2
+        rm -f "$tmp_image"
+        return 1
+    fi
 
-cat << EOF
+    if ! mv -f "$tmp_image" "$base_image"; then
+        rm -f "$tmp_image"
+        return 1
+    fi
+
+    printf '%s\n' "$base_image"
+}
+
+prepare_vm_smoke_main() {
+    local ssh_key
+    local base_image
+    local env_file
+
+    prepare_vm_validate_args "${1:-}"
+
+    lab_prepare_dirs
+    lab_prepare_vm_dirs
+    install_missing_deps
+
+    require_vm_dependency curl
+    require_vm_dependency qemu-system-x86_64
+    require_vm_dependency qemu-img
+    require_vm_dependency cloud-localds
+    require_vm_dependency ssh
+    require_vm_dependency ssh-keygen
+
+    if [[ ! -c /dev/kvm ]]; then
+        echo "/dev/kvm is not available; vm-lab requires kvm for safe full lifecycle smoke" >&2
+        exit 1
+    fi
+
+    ssh_key="$(lab_vm_ssh_key_path)"
+    if [[ ! -f "$ssh_key" ]]; then
+        ssh-keygen -q -t ed25519 -N "" -f "$ssh_key" > /dev/null
+    fi
+
+    base_image="$(prepare_vm_base_image)"
+
+    env_file="$(lab_vm_workspace_dir)/lab-vm-env.sh"
+    lab_write_vm_env_file "$env_file"
+
+    cat << EOF
 vm host root: $(lab_vm_root_dir)
 vm name: $(lab_vm_name)
 guest user: $(lab_vm_guest_user)
@@ -129,3 +169,8 @@ base image: ${base_image}
 ssh key: ${ssh_key}
 env file: ${env_file}
 EOF
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    prepare_vm_smoke_main "$@"
+fi

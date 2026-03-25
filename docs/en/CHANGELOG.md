@@ -7,6 +7,10 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Fixed
+- made `scripts/lab/prepare-vm-smoke.sh` publish the ubuntu cloud image only after a verified non-empty `.part` download, with stale temp cleanup on failure instead of a brittle `mv` step
+- fixed `scripts/lab/guest-vm-release-smoke.sh` to validate the persisted quoted `XRAY_DOMAINS_FILE="..."` contract instead of falsely failing on a correct managed `config.env`
+
 ## [7.5.17] - 2026-03-24
 
 ### Changed

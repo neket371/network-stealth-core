@@ -64,6 +64,7 @@ release_smoke_cleanup_on_exit() {
 }
 
 assert_custom_domains_persisted() {
+    local config_env_file="${XRAY_ENV:-/etc/xray-reality/config.env}"
     local domain
     local -a expected_domains=()
 
@@ -73,9 +74,9 @@ assert_custom_domains_persisted() {
 
     assert_path_mode_owner "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE" root root 600
 
-    if ! run_root grep -Fqx "XRAY_DOMAINS_FILE=${XRAY_MANAGED_CUSTOM_DOMAINS_FILE}" /etc/xray-reality/config.env; then
+    if ! run_root grep -Fqx "XRAY_DOMAINS_FILE=\"${XRAY_MANAGED_CUSTOM_DOMAINS_FILE}\"" "$config_env_file"; then
         echo "managed XRAY_DOMAINS_FILE is not persisted in /etc/xray-reality/config.env" >&2
-        run_root cat /etc/xray-reality/config.env >&2 || true
+        run_root cat "$config_env_file" >&2 || true
         exit 1
     fi
 
@@ -91,7 +92,7 @@ assert_custom_domains_persisted() {
     done
 }
 
-main() {
+release_smoke_main() {
     [[ -n "$RELEASE_TAG" ]] || {
         echo "RELEASE_TAG is required" >&2
         exit 1
@@ -148,6 +149,7 @@ main() {
     echo "release bootstrap vm smoke: ok"
 }
 
-trap release_smoke_cleanup_on_exit EXIT
-
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    trap release_smoke_cleanup_on_exit EXIT
+    release_smoke_main "$@"
+fi

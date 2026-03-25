@@ -176,6 +176,101 @@ EOF
     [ "$output" = "ok" ]
 }
 
+@test "prepare_vm_base_image skips download when the base image already exists" {
+    run bash -eo pipefail -c '
+    tmp_root=$(mktemp -d)
+    tmp_bin=$(mktemp -d)
+    trap "rm -rf \"$tmp_root\" \"$tmp_bin\"" EXIT
+
+    cat > "${tmp_bin}/curl" <<'\''EOF'\''
+#!/usr/bin/env bash
+echo "curl must not be called when the base image already exists" >&2
+exit 99
+EOF
+    chmod +x "${tmp_bin}/curl"
+
+    export LAB_HOST_ROOT="$tmp_root"
+    export PATH="${tmp_bin}:$PATH"
+
+    source ./scripts/lab/prepare-vm-smoke.sh
+
+    base_image="$(lab_vm_base_image_path)"
+    mkdir -p "$(dirname "$base_image")"
+    printf "existing-image" > "$base_image"
+
+    result="$(prepare_vm_base_image)"
+    [[ "$result" == "$base_image" ]]
+    [[ "$(cat "$base_image")" == "existing-image" ]]
+    test ! -e "${base_image}.part"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "prepare_vm_base_image fails cleanly when curl leaves no temp image" {
+    run bash -eo pipefail -c '
+    tmp_root=$(mktemp -d)
+    tmp_bin=$(mktemp -d)
+    trap "rm -rf \"$tmp_root\" \"$tmp_bin\"" EXIT
+
+    cat > "${tmp_bin}/curl" <<'\''EOF'\''
+#!/usr/bin/env bash
+exit 0
+EOF
+    chmod +x "${tmp_bin}/curl"
+
+    export LAB_HOST_ROOT="$tmp_root"
+    export PATH="${tmp_bin}:$PATH"
+
+    source ./scripts/lab/prepare-vm-smoke.sh
+
+    base_image="$(lab_vm_base_image_path)"
+    if prepare_vm_base_image; then
+      echo "unexpected-success"
+      exit 1
+    fi
+    test ! -e "$base_image"
+    test ! -e "${base_image}.part"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "release smoke accepts quoted XRAY_DOMAINS_FILE persistence" {
+    run bash -eo pipefail -c '
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+
+    config_env="${tmp_dir}/config.env"
+    domains_file="${tmp_dir}/custom-domains.txt"
+
+    cat > "$config_env" <<EOF
+XRAY_DOMAINS_FILE="$domains_file"
+EOF
+    cat > "$domains_file" <<EOF
+vk.com
+yoomoney.ru
+cdek.ru
+EOF
+
+    source ./scripts/lab/guest-vm-release-smoke.sh
+
+    XRAY_ENV="$config_env"
+    XRAY_MANAGED_CUSTOM_DOMAINS_FILE="$domains_file"
+    XRAY_CUSTOM_DOMAINS="vk.com,yoomoney.ru,cdek.ru"
+
+    assert_path_mode_owner() { [[ "$1" == "$domains_file" ]]; }
+    run_root() { "$@"; }
+
+    assert_custom_domains_persisted
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
 @test "lab common accepts lowercase lab_host_root alias" {
     run bash -eo pipefail -c '
     unset LAB_HOST_ROOT
