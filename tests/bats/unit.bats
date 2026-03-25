@@ -4401,6 +4401,9 @@ EOF
 
 @test "release tooling covers security version surface" {
     run bash -eo pipefail -c '
+    version="$(sed -n '\''s/^readonly SCRIPT_VERSION="\([0-9.]*\)"/\1/p'\'' ./lib.sh)"
+    supported_line="${version%.*}.x"
+    unsupported_line="<${version%.*}"
     grep -Fq '\''SECURITY_EN="$ROOT_DIR/.github/SECURITY.md"'\'' ./scripts/release.sh
     grep -Fq '\''SECURITY_RU="$ROOT_DIR/.github/SECURITY.ru.md"'\'' ./scripts/release.sh
     grep -Fq '\''supported_minor_line="${VERSION%.*}.x"'\'' ./scripts/release.sh
@@ -4409,10 +4412,10 @@ EOF
     grep -Fq '\''SECURITY_RU="$ROOT_DIR/.github/SECURITY.ru.md"'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''SECURITY.md supported version line'\'' ./scripts/check-release-consistency.sh
     grep -Fq '\''SECURITY.ru.md supported version line'\'' ./scripts/check-release-consistency.sh
-    grep -Fq '\''| `7.5.x` | supported |'\'' ./.github/SECURITY.md
-    grep -Fq '\''| `<7.5` | unsupported in this repository |'\'' ./.github/SECURITY.md
-    grep -Fq '\''| `7.5.x` | поддерживается |'\'' ./.github/SECURITY.ru.md
-    grep -Fq '\''| `<7.5` | не поддерживается в этом репозитории |'\'' ./.github/SECURITY.ru.md
+    grep -Fq "| \`${supported_line}\` | supported |" ./.github/SECURITY.md
+    grep -Fq "| \`${unsupported_line}\` | unsupported in this repository |" ./.github/SECURITY.md
+    grep -Fq "| \`${supported_line}\` | поддерживается |" ./.github/SECURITY.ru.md
+    grep -Fq "| \`${unsupported_line}\` | не поддерживается в этом репозитории |" ./.github/SECURITY.ru.md
     echo "ok"
   '
     [ "$status" -eq 0 ]
