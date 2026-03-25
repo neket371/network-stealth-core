@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.6.0] - 2026-03-25
+
 ### Changed
 - introduced a shared managed-artifact registry and exact-scope destructive path contract so install, update, repair, rollback, and uninstall now reason about the same managed files, directories, logs, and unit artifacts instead of parallel cleanup lists
 - switched `install_self` source-tree publishing to a staged whole-tree commit model, so the managed wrapper tree under `XRAY_DATA_DIR` is no longer exposed to mixed old/new root files during self-sync interruptions
