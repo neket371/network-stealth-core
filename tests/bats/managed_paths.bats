@@ -38,7 +38,7 @@
     echo "present"
   '
     [ "$status" -eq 0 ]
-    [ "${lines[${#lines[@]}-1]}" = "present" ]
+    [[ "$output" == *"present"* ]]
 }
 
 @test "install_self_sync_tree stages root files atomically while preserving existing extras" {

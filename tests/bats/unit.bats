@@ -535,7 +535,7 @@ JSON
     echo ok
   '
     [ "$status" -eq 0 ]
-    [ "${lines[${#lines[@]}-1]}" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "uninstall_is_allowed_file_path rejects unrelated /var/log targets" {

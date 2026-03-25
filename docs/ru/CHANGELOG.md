@@ -7,6 +7,9 @@
 
 ## [unreleased]
 
+### Fixed
+- два uninstall bats-assert теперь смотрят на success-marker, а не на полное точное совпадение stdout, поэтому hosted linux runner больше не падает из-за incidental control chars или лишнего wrapper-output при том же целевом поведении uninstall
+
 ## [7.6.2] - 2026-03-26
 
 ### Fixed
