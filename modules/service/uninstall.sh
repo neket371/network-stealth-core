@@ -30,6 +30,35 @@
 : "${YELLOW:=}"
 : "${NC:=}"
 
+MANAGED_PATHS_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../lib" && pwd)/managed_paths.sh"
+if [[ ! -f "$MANAGED_PATHS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    MANAGED_PATHS_MODULE="$XRAY_DATA_DIR/modules/lib/managed_paths.sh"
+fi
+if [[ ! -f "$MANAGED_PATHS_MODULE" ]]; then
+    echo "ERROR: не найден модуль managed paths: $MANAGED_PATHS_MODULE" >&2
+    exit 1
+fi
+# shellcheck source=modules/lib/managed_paths.sh
+source "$MANAGED_PATHS_MODULE"
+
+uninstall_path_matches_registry() {
+    local path="${1:-}"
+    local provider="${2:-}"
+    local resolved_path listed_path
+
+    [[ -n "$path" && -n "$provider" ]] || return 1
+    declare -F "$provider" > /dev/null 2>&1 || return 1
+    resolved_path=$(realpath -m "$path" 2> /dev/null || echo "$path")
+
+    while IFS= read -r listed_path; do
+        [[ -n "$listed_path" ]] || continue
+        if [[ "$resolved_path" == "$listed_path" ]]; then
+            return 0
+        fi
+    done < <("$provider")
+    return 1
+}
+
 uninstall_remove_file() {
     local file="$1"
     if ! uninstall_is_allowed_file_path "$file"; then
@@ -49,51 +78,13 @@ uninstall_remove_file() {
 uninstall_is_allowed_file_path() {
     local file="$1"
     local resolved_file
-    local resolved_candidate
-    local candidate
-    local basename_file
-    local dir
 
     resolved_file=$(realpath -m "$file" 2> /dev/null || echo "$file")
     [[ "$resolved_file" == /* ]] || return 1
 
-    case "$resolved_file" in
-        /etc/systemd/system/xray.service | /etc/systemd/system/xray-health.service | /etc/systemd/system/xray-health.timer | /etc/systemd/system/xray-auto-update.service | /etc/systemd/system/xray-auto-update.timer | /etc/systemd/system/xray-diagnose@.service | /etc/systemd/system/multi-user.target.wants/xray.service | /etc/systemd/system/timers.target.wants/xray-health.timer | /etc/systemd/system/timers.target.wants/xray-auto-update.timer | /usr/lib/systemd/system/xray.service | /usr/lib/systemd/system/xray-health.service | /usr/lib/systemd/system/xray-health.timer | /usr/lib/systemd/system/xray-auto-update.service | /usr/lib/systemd/system/xray-auto-update.timer | /usr/lib/systemd/system/xray-diagnose@.service | /lib/systemd/system/xray.service | /lib/systemd/system/xray-health.service | /lib/systemd/system/xray-health.timer | /lib/systemd/system/xray-auto-update.service | /lib/systemd/system/xray-auto-update.timer | /lib/systemd/system/xray-diagnose@.service | /usr/local/bin/xray-health.sh | /etc/cron.d/xray-health | /etc/logrotate.d/xray | /etc/sysctl.d/99-xray.conf | /etc/security/limits.d/99-xray.conf | /var/log/xray-install.log | /var/log/xray-update.log | /var/log/xray-diagnose.log | /var/log/xray-repair.log | /var/log/xray-health.log | /var/log/xray.log | /var/lib/xray/self-check.json | /var/lib/xray/self-check-history.ndjson | /var/lib/xray/measurements/latest-summary.json | /etc/xray-reality/policy.json)
-            return 0
-            ;;
-        *) ;;
-    esac
-
-    for candidate in "$XRAY_BIN" "$XRAY_SCRIPT_PATH" "$XRAY_UPDATE_SCRIPT" "$INSTALL_LOG" "$UPDATE_LOG" "$DIAG_LOG" "$HEALTH_LOG" "$SELF_CHECK_STATE_FILE" "$SELF_CHECK_HISTORY_FILE" "$MEASUREMENTS_SUMMARY_FILE" "$XRAY_POLICY"; do
-        [[ -n "$candidate" ]] || continue
-        resolved_candidate=$(realpath -m "$candidate" 2> /dev/null || echo "$candidate")
-        if [[ "$resolved_file" == "$resolved_candidate" ]]; then
-            case "$(basename "$resolved_file")" in
-                xray | xray-reality.sh | xray-reality-update.sh | xray-install.log | xray-update.log | xray-diagnose.log | xray-health.log | self-check.json | self-check-history.ndjson | latest-summary.json | policy.json)
-                    return 0
-                    ;;
-                *) ;;
-            esac
-            return 1
-        fi
-    done
-
-    basename_file=$(basename "$resolved_file")
-    case "$basename_file" in
-        geoip.dat | geosite.dat)
-            dir=$(dirname "$resolved_file")
-            validate_destructive_path_guard "uninstall geo dirname" "$dir" || return 1
-            for candidate in "$(xray_geo_dir)" "$(dirname "$XRAY_BIN")" "/usr/local/share/xray"; do
-                [[ -n "$candidate" ]] || continue
-                resolved_candidate=$(realpath -m "$candidate" 2> /dev/null || echo "$candidate")
-                if [[ "$resolved_file" == "${resolved_candidate}/${basename_file}" ]]; then
-                    return 0
-                fi
-            done
-            return 1
-            ;;
-        *) ;;
-    esac
+    uninstall_path_matches_registry "$resolved_file" managed_systemd_artifact_paths && return 0
+    uninstall_path_matches_registry "$resolved_file" managed_runtime_file_paths && return 0
+    uninstall_path_matches_registry "$resolved_file" managed_geo_file_paths && return 0
 
     return 1
 }
@@ -318,68 +309,66 @@ uninstall_remove_systemd_artifacts() {
     uninstall_close_ports
 
     log STEP "Удаляем systemd-сервисы..."
-    uninstall_remove_file /etc/systemd/system/xray.service
-    uninstall_remove_file /etc/systemd/system/xray-health.service
-    uninstall_remove_file /etc/systemd/system/xray-health.timer
-    uninstall_remove_file /etc/systemd/system/xray-auto-update.service
-    uninstall_remove_file /etc/systemd/system/xray-auto-update.timer
-    uninstall_remove_file /etc/systemd/system/xray-diagnose@.service
-    uninstall_remove_file /etc/systemd/system/multi-user.target.wants/xray.service
-    uninstall_remove_file /etc/systemd/system/timers.target.wants/xray-health.timer
-    uninstall_remove_file /etc/systemd/system/timers.target.wants/xray-auto-update.timer
+    local systemd_path
+    while IFS= read -r systemd_path; do
+        [[ -n "$systemd_path" ]] || continue
+        uninstall_remove_file "$systemd_path"
+    done < <(managed_systemd_artifact_paths)
 }
 
 uninstall_remove_runtime_artifacts() {
     log STEP "Удаляем бинарники и скрипты..."
-    uninstall_remove_file "$XRAY_BIN"
-    uninstall_remove_file "$XRAY_SCRIPT_PATH"
-    uninstall_remove_file "$XRAY_UPDATE_SCRIPT"
-    uninstall_remove_file /usr/local/bin/xray-health.sh
+    local managed_file
+    while IFS= read -r managed_file; do
+        [[ -n "$managed_file" ]] || continue
+        uninstall_remove_file "$managed_file"
+    done < <(managed_binary_script_file_paths)
 
-    local -a geo_dirs=()
-    geo_dirs+=("$(xray_geo_dir)")
-    geo_dirs+=("$(dirname "$XRAY_BIN")")
-    geo_dirs+=("/usr/local/share/xray")
-    local seen_geo_dirs="|"
-    local geo_dir
-    for geo_dir in "${geo_dirs[@]}"; do
-        [[ -n "$geo_dir" ]] || continue
-        geo_dir="${geo_dir%/}"
-        if [[ "$seen_geo_dirs" == *"|${geo_dir}|"* ]]; then
-            continue
-        fi
-        seen_geo_dirs+="${geo_dir}|"
-        uninstall_remove_file "${geo_dir}/geoip.dat"
-        uninstall_remove_file "${geo_dir}/geosite.dat"
-    done
+    while IFS= read -r managed_file; do
+        [[ -n "$managed_file" ]] || continue
+        uninstall_remove_file "$managed_file"
+    done < <(managed_geo_file_paths)
 
     log STEP "Удаляем конфигурации и данные..."
-    uninstall_remove_dir /etc/xray
-    uninstall_remove_dir /etc/xray-reality
-    uninstall_remove_dir "$XRAY_DATA_DIR"
-    uninstall_remove_file "$XRAY_POLICY"
+    while IFS= read -r managed_file; do
+        [[ -n "$managed_file" ]] || continue
+        uninstall_remove_file "$managed_file"
+    done < <(managed_config_state_file_paths)
+
+    local managed_dir
+    while IFS= read -r managed_dir; do
+        [[ -n "$managed_dir" ]] || continue
+        uninstall_remove_dir "$managed_dir"
+    done < <(managed_config_dir_paths)
 }
 
 uninstall_remove_logs_and_auxiliary_artifacts() {
     log STEP "Удаляем логи и бэкапы..."
-    uninstall_remove_dir "$XRAY_LOGS"
-    uninstall_remove_dir "$XRAY_BACKUP"
-    uninstall_remove_file "$INSTALL_LOG"
-    uninstall_remove_file "$UPDATE_LOG"
-    uninstall_remove_file "$DIAG_LOG"
-    uninstall_remove_file "$HEALTH_LOG"
-    uninstall_remove_file "$SELF_CHECK_STATE_FILE"
-    uninstall_remove_file "$SELF_CHECK_HISTORY_FILE"
-    uninstall_remove_file "$MEASUREMENTS_SUMMARY_FILE"
-    uninstall_remove_dir "$MEASUREMENTS_DIR"
+    local managed_dir
+    while IFS= read -r managed_dir; do
+        [[ -n "$managed_dir" ]] || continue
+        uninstall_remove_dir "$managed_dir"
+    done < <(managed_log_backup_dir_paths)
+
+    while IFS= read -r managed_dir; do
+        [[ -n "$managed_dir" ]] || continue
+        uninstall_remove_dir "$managed_dir"
+    done < <(managed_state_dir_paths)
+
+    local managed_log_file
+    while IFS= read -r managed_log_file; do
+        [[ -n "$managed_log_file" ]] || continue
+        uninstall_remove_file "$managed_log_file"
+    done < <(managed_log_file_paths)
 
     log STEP "Удаляем cron и logrotate..."
-    uninstall_remove_file /etc/cron.d/xray-health
-    uninstall_remove_file /etc/logrotate.d/xray
+    local auxiliary_file
+    while IFS= read -r auxiliary_file; do
+        [[ -n "$auxiliary_file" ]] || continue
+        uninstall_remove_file "$auxiliary_file"
+    done < <(managed_auxiliary_cleanup_file_paths)
 
     log STEP "Удаляем системные оптимизации..."
-    uninstall_remove_file /etc/sysctl.d/99-xray.conf
-    uninstall_remove_file /etc/security/limits.d/99-xray.conf
     sysctl --system > /dev/null 2>&1 || true
 }
 
@@ -481,36 +470,9 @@ uninstall_all() {
 }
 
 uninstall_has_managed_artifacts() {
-    local candidate
-    local -a core_paths=(
-        "/etc/systemd/system/xray.service"
-        "/etc/systemd/system/xray-health.service"
-        "/etc/systemd/system/xray-health.timer"
-        "/etc/systemd/system/xray-auto-update.service"
-        "/etc/systemd/system/xray-auto-update.timer"
-        "/etc/systemd/system/xray-diagnose@.service"
-        "$XRAY_BIN"
-        "$XRAY_SCRIPT_PATH"
-        "$XRAY_UPDATE_SCRIPT"
-        "$XRAY_CONFIG"
-        "$XRAY_ENV"
-        "$XRAY_POLICY"
-        "$SELF_CHECK_STATE_FILE"
-        "$SELF_CHECK_HISTORY_FILE"
-        "$MEASUREMENTS_SUMMARY_FILE"
-        "$MEASUREMENTS_DIR"
-        "/etc/xray"
-        "/etc/xray-reality"
-        "$XRAY_DATA_DIR"
-        "$XRAY_HOME"
-        "$XRAY_BACKUP"
-    )
-    for candidate in "${core_paths[@]}"; do
-        [[ -n "$candidate" ]] || continue
-        if [[ -e "$candidate" ]]; then
-            return 0
-        fi
-    done
+    if managed_runtime_artifacts_present; then
+        return 0
+    fi
 
     if id "$XRAY_USER" > /dev/null 2>&1; then
         return 0

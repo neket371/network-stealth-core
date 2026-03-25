@@ -27,7 +27,7 @@
 | угроза | митигация |
 |---|---|
 | tampering bootstrap или downloads | pinned bootstrap, sha256 checks, optional strict minisign mode |
-| command или path injection | strict validators, safe path guards и trusted wrapper sourcing |
+| command или path injection | strict validators, exact-scope managed path guards и trusted wrapper sourcing |
 | повреждение при partial write | atomic writes, staged validation и rollback |
 | неудачный update, repair или migration | backup sessions, runtime reconciliation и fail-closed mutating gates |
 | лишние привилегии service | выделенный `xray` user и restrictive `systemd` unit settings |
@@ -80,6 +80,12 @@ project units применяют такие controls:
 - transport-contract checks для legacy и pre-v7 install
 - minimum xray feature contract для strongest-direct generation
 
+destructive path validation намеренно жёсткая по scope:
+
+- managed system paths должны совпадать с canonical parent+basename либо жить под точными project-сегментами
+- lookalike-пути вроде `xray-evil` не считаются project scope
+- mirrored non-system tree из lab допускаются только когда сохраняют canonical managed file layout
+
 ### безопасность артефактов
 
 - `clients.json` — schema v3 и остаётся permission-restricted
@@ -96,6 +102,7 @@ project units применяют такие controls:
 - rollback при broken post-action self-check verdict
 - firewall rollback records
 - runtime reconciliation после restore
+- staged whole-tree publish для wrapper self-sync внутри `XRAY_DATA_DIR`
 
 ## чувствительные пути и ожидаемые права
 

@@ -7,6 +7,14 @@
 
 ## [unreleased]
 
+### Changed
+- введён общий registry managed-артефактов и exact-scope destructive path contract: теперь `install`, `update`, `repair`, `rollback` и `uninstall` опираются на один и тот же список managed файлов, директорий, логов и unit-артефактов вместо параллельных cleanup-списков
+- `install_self` переведён на staged whole-tree publish, поэтому managed wrapper tree внутри `XRAY_DATA_DIR` больше не может остаться в смешанном состоянии root-файлов при прерывании self-sync
+
+### Fixed
+- destructive path validation сужена до реальных project-сегментов, но при этом сохраняет проход для canonical managed system paths и safe mirrored non-system paths из disposable lab и nested custom test tree
+- detection managed residue в uninstall теперь учитывает и managed logs с auxiliary artifacts, поэтому `uninstall` больше не выходит раньше времени с `already removed`, когда residue ещё лежит на диске
+
 ## [7.5.18] - 2026-03-25
 
 ### Fixed

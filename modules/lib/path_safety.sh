@@ -102,8 +102,12 @@ validate_destructive_path_guard() {
 }
 
 path_has_project_scope_marker() {
+    if declare -F managed_path_has_project_segment > /dev/null 2>&1; then
+        managed_path_has_project_segment "$1"
+        return $?
+    fi
     local path_lc="${1,,}"
-    [[ "$path_lc" =~ (^|/)[^/]*(xray|reality|network-stealth-core)[^/]*(/|$) ]]
+    [[ "$path_lc" =~ (^|/)(xray|xray-reality|network-stealth-core)(/|$) ]]
 }
 
 is_sensitive_system_path_prefix() {
@@ -118,6 +122,22 @@ is_sensitive_system_path_prefix() {
     esac
 }
 
+path_matches_any_parent() {
+    local path="${1:-}"
+    shift
+    local resolved_path resolved_parent candidate resolved_candidate
+    resolved_path=$(realpath -m "$path" 2> /dev/null || echo "$path")
+    resolved_parent=$(dirname "$resolved_path")
+    for candidate in "$@"; do
+        [[ -n "$candidate" ]] || continue
+        resolved_candidate=$(realpath -m "$candidate" 2> /dev/null || echo "$candidate")
+        if [[ "$resolved_parent" == "$resolved_candidate" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 validate_destructive_path_scope() {
     local name="$1"
     local path="$2"
@@ -129,7 +149,7 @@ validate_destructive_path_scope() {
     case "$name" in
         XRAY_KEYS | XRAY_BACKUP | XRAY_LOGS | XRAY_HOME | XRAY_DATA_DIR)
             if is_sensitive_system_path_prefix "$resolved" && ! path_has_project_scope_marker "$resolved"; then
-                log ERROR "${name} в системном каталоге должен указывать на отдельный путь проекта (ожидается сегмент с xray/reality): ${resolved}"
+                log ERROR "${name} в системном каталоге должен указывать на отдельный путь проекта (ожидается сегмент xray, xray-reality или network-stealth-core): ${resolved}"
                 return 1
             fi
             ;;
@@ -144,7 +164,7 @@ validate_destructive_path_scope() {
                 return 0
             fi
             if is_sensitive_system_path_prefix "$resolved"; then
-                log ERROR "XRAY_GEO_DIR в системном каталоге должен указывать на путь проекта (xray/reality) или dirname(XRAY_BIN) (получено: ${resolved})"
+                log ERROR "XRAY_GEO_DIR в системном каталоге должен указывать на путь проекта (xray, xray-reality или network-stealth-core) или dirname(XRAY_BIN) (получено: ${resolved})"
                 return 1
             fi
             ;;
@@ -154,6 +174,14 @@ validate_destructive_path_scope() {
                 log ERROR "XRAY_BIN должен указывать на бинарник xray (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/usr/local/bin" "/opt/xray/bin"; then
+                return 0
+            fi
+            log ERROR "XRAY_BIN должен указывать на managed xray binary path (получено: ${resolved})"
+            return 1
             ;;
         XRAY_SCRIPT_PATH)
             base=$(basename "$resolved")
@@ -161,6 +189,14 @@ validate_destructive_path_scope() {
                 log ERROR "XRAY_SCRIPT_PATH должен указывать на xray-reality.sh (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/usr/local/bin" "/opt/xray/bin"; then
+                return 0
+            fi
+            log ERROR "XRAY_SCRIPT_PATH должен указывать на managed wrapper path (получено: ${resolved})"
+            return 1
             ;;
         XRAY_UPDATE_SCRIPT)
             base=$(basename "$resolved")
@@ -168,6 +204,14 @@ validate_destructive_path_scope() {
                 log ERROR "XRAY_UPDATE_SCRIPT должен указывать на xray-reality-update.sh (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/usr/local/bin" "/opt/xray/bin"; then
+                return 0
+            fi
+            log ERROR "XRAY_UPDATE_SCRIPT должен указывать на managed update-wrapper path (получено: ${resolved})"
+            return 1
             ;;
         XRAY_CONFIG)
             base=$(basename "$resolved")
@@ -175,6 +219,14 @@ validate_destructive_path_scope() {
                 log ERROR "XRAY_CONFIG должен указывать на config.json (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/etc/xray" "/opt/xray/etc"; then
+                return 0
+            fi
+            log ERROR "XRAY_CONFIG должен указывать на managed config path (получено: ${resolved})"
+            return 1
             ;;
         XRAY_ENV)
             base=$(basename "$resolved")
@@ -182,6 +234,14 @@ validate_destructive_path_scope() {
                 log ERROR "XRAY_ENV должен указывать на config.env (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/etc/xray-reality" "/opt/xray/etc"; then
+                return 0
+            fi
+            log ERROR "XRAY_ENV должен указывать на managed env path (получено: ${resolved})"
+            return 1
             ;;
         XRAY_POLICY)
             base=$(basename "$resolved")
@@ -189,6 +249,14 @@ validate_destructive_path_scope() {
                 log ERROR "XRAY_POLICY должен указывать на policy.json (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/etc/xray-reality" "/opt/xray/etc"; then
+                return 0
+            fi
+            log ERROR "XRAY_POLICY должен указывать на managed policy path (получено: ${resolved})"
+            return 1
             ;;
         XRAY_MANAGED_CUSTOM_DOMAINS_FILE)
             base=$(basename "$resolved")
@@ -196,6 +264,14 @@ validate_destructive_path_scope() {
                 log ERROR "XRAY_MANAGED_CUSTOM_DOMAINS_FILE должен указывать на custom-domains.txt (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/etc/xray-reality" "/opt/xray/etc"; then
+                return 0
+            fi
+            log ERROR "XRAY_MANAGED_CUSTOM_DOMAINS_FILE должен указывать на managed custom-domains path (получено: ${resolved})"
+            return 1
             ;;
         MINISIGN_KEY)
             base=$(basename "$resolved")
@@ -203,12 +279,20 @@ validate_destructive_path_scope() {
                 log ERROR "MINISIGN_KEY должен указывать на minisign.pub (получено: ${resolved})"
                 return 1
             fi
+            if ! is_sensitive_system_path_prefix "$resolved"; then
+                return 0
+            fi
+            if path_has_project_scope_marker "$resolved" || path_matches_any_parent "$resolved" "/etc/xray" "/opt/xray/etc"; then
+                return 0
+            fi
+            log ERROR "MINISIGN_KEY должен указывать на managed minisign key path (получено: ${resolved})"
+            return 1
             ;;
         *) ;;
     esac
 
     if is_sensitive_system_path_prefix "$resolved" && ! path_has_project_scope_marker "$resolved"; then
-        log ERROR "${name} в системном каталоге должен указывать на путь проекта (ожидается сегмент с xray/reality): ${resolved}"
+        log ERROR "${name} в системном каталоге должен указывать на путь проекта (ожидается сегмент xray, xray-reality или network-stealth-core): ${resolved}"
         return 1
     fi
 

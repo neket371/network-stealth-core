@@ -76,6 +76,37 @@ all mutating actions keep the same high-level shape:
 7. run post-action self-check using canonical raw xray clients
 8. record verdicts and either keep state or roll back
 
+## managed path contract
+
+destructive actions now use one shared managed-artifact registry instead of separate hardcoded cleanup lists.
+that registry covers:
+
+- runtime binaries and wrapper scripts
+- systemd unit, timer, and logrotate artifacts
+- config, policy, env, and managed custom-domain files
+- client export surfaces and supporting logs
+- runtime state, self-check, measurement, and backup directories
+
+the safety model is intentionally narrow:
+
+- system paths must either use exact managed basenames in canonical managed parents or live under exact project path segments such as `xray`, `xray-reality`, or `network-stealth-core`
+- lookalike paths such as `xray-evil` or `reality-backup-other` are not treated as managed scope
+- non-system mirrored trees used by labs and disposable nested test roots are allowed only when they keep the canonical managed file layout
+
+this keeps uninstall/rollback/repair aligned on the same scope and avoids both false cleanup gaps and broad substring-based destructive matches.
+
+## managed source-tree publish
+
+wrapper self-sync now publishes the managed source tree as a staged whole-tree commit.
+
+instead of copying `modules/`, `data/`, and `scripts/` first and then patching root files in place, the flow now:
+
+1. prepares a staging copy of the existing managed tree
+2. overlays the current repo content into that staging tree
+3. atomically swaps the full staged tree into `XRAY_DATA_DIR`
+
+this removes the previous mixed-tree window where modules could already be new while root entrypoints still came from the older tree after a partial copy failure.
+
 ## migration boundary
 
 `migrate-stealth` is the only mutating bridge from older managed contracts.

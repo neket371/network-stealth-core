@@ -7,6 +7,14 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- introduced a shared managed-artifact registry and exact-scope destructive path contract so install, update, repair, rollback, and uninstall now reason about the same managed files, directories, logs, and unit artifacts instead of parallel cleanup lists
+- switched `install_self` source-tree publishing to a staged whole-tree commit model, so the managed wrapper tree under `XRAY_DATA_DIR` is no longer exposed to mixed old/new root files during self-sync interruptions
+
+### Fixed
+- narrowed destructive path validation to real project segments while still allowing canonical managed system paths and safe mirrored non-system paths used by disposable labs and custom nested test trees
+- made uninstall residue detection include managed logs and auxiliary artifacts, so `uninstall` no longer exits early with `already removed` while managed residue still exists
+
 ## [7.5.18] - 2026-03-25
 
 ### Fixed

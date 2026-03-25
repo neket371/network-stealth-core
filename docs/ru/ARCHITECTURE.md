@@ -74,6 +74,37 @@ managed client variants:
 7. post-action self-check через canonical raw xray clients
 8. запись verdict’ов и либо сохранение state, либо rollback
 
+## контракт managed paths
+
+destructive actions теперь используют один общий registry managed-артефактов вместо разрозненных hardcoded cleanup-списков.
+этот registry покрывает:
+
+- runtime binary и wrapper scripts
+- systemd unit, timer и logrotate artifacts
+- config, policy, env и managed custom-domain files
+- client export surface и связанные логи
+- runtime state, self-check, measurements и backup directories
+
+модель safety намеренно узкая:
+
+- system paths должны либо использовать exact managed basename в canonical managed parent-каталогах, либо жить под точными project-сегментами `xray`, `xray-reality` или `network-stealth-core`
+- lookalike-пути вроде `xray-evil` или `reality-backup-other` больше не считаются managed scope
+- non-system mirrored tree из lab и nested disposable test-root допускаются только если они повторяют canonical managed file layout
+
+это удерживает `uninstall` / `rollback` / `repair` на одном и том же scope и убирает как false cleanup gaps, так и слишком широкие substring-based destructive matches.
+
+## публикация managed source tree
+
+self-sync wrapper’а теперь публикует managed source tree как staged whole-tree commit.
+
+вместо старой схемы, где `modules/`, `data/` и `scripts/` копировались отдельно, а root-файлы потом накладывались поверх живого tree, новый flow:
+
+1. готовит staging-копию существующего managed tree
+2. накладывает в неё текущее содержимое репозитория
+3. атомарно переключает весь staged tree в `XRAY_DATA_DIR`
+
+так убирается прежнее окно смешанного состояния, когда модули уже новые, а root entrypoints ещё старые или частично скопированные после сбоя.
+
 ## граница миграции
 
 `migrate-stealth` — единственный mutating-мост со старых managed-контрактов.

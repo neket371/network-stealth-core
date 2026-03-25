@@ -27,7 +27,7 @@ response targets:
 | threat | mitigation |
 |---|---|
 | bootstrap or download tampering | pinned bootstrap support, sha256 checks, optional strict minisign mode |
-| command or path injection | strict validators, safe path guards, and trusted wrapper sourcing |
+| command or path injection | strict validators, exact-scope managed path guards, and trusted wrapper sourcing |
 | partial write corruption | atomic writes, staged validation, and rollback |
 | failed update, repair, or migration | backup sessions, runtime reconciliation, and fail-closed mutating gates |
 | service over-privilege | dedicated `xray` user and restrictive `systemd` unit settings |
@@ -80,6 +80,12 @@ validation coverage includes:
 - transport contract checks for legacy and pre-v7 installs
 - minimum xray feature contract for strongest-direct generation
 
+destructive path validation is intentionally exact-scope:
+
+- managed system paths must match canonical parents and basenames or live under exact project path segments
+- lookalike paths such as `xray-evil` do not count as project scope
+- lab-style mirrored non-system trees are allowed only when they preserve the canonical managed file layout
+
 ### artifact safety
 
 - `clients.json` is schema v3 and remains permission-restricted
@@ -96,6 +102,7 @@ validation coverage includes:
 - rollback on broken post-action self-check verdicts
 - firewall rollback records
 - runtime reconciliation after restore
+- staged whole-tree publish for wrapper self-sync under `XRAY_DATA_DIR`
 
 ## sensitive paths and intended permissions
 

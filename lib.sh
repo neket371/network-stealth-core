@@ -782,6 +782,17 @@ fi
 # shellcheck source=/dev/null
 source "$LIB_CONFIG_LOADING_MODULE"
 
+LIB_MANAGED_PATHS_MODULE="$MODULE_DIR/modules/lib/managed_paths.sh"
+if [[ ! -f "$LIB_MANAGED_PATHS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    LIB_MANAGED_PATHS_MODULE="$XRAY_DATA_DIR/modules/lib/managed_paths.sh"
+fi
+if [[ ! -f "$LIB_MANAGED_PATHS_MODULE" ]]; then
+    log ERROR "Не найден модуль managed paths: $LIB_MANAGED_PATHS_MODULE"
+    exit 1
+fi
+# shellcheck source=/dev/null
+source "$LIB_MANAGED_PATHS_MODULE"
+
 LIB_PATH_SAFETY_MODULE="$MODULE_DIR/modules/lib/path_safety.sh"
 if [[ ! -f "$LIB_PATH_SAFETY_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_PATH_SAFETY_MODULE="$XRAY_DATA_DIR/modules/lib/path_safety.sh"

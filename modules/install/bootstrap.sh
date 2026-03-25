@@ -149,58 +149,143 @@ install_dependencies() {
     log OK "Все зависимости установлены"
 }
 
-install_self_sync_tree() {
+install_self_source_tree_root_files() {
+    if declare -F managed_source_tree_root_files > /dev/null 2>&1; then
+        managed_source_tree_root_files
+        return 0
+    fi
+    printf '%s\n' \
+        domains.tiers \
+        sni_pools.map \
+        transport_endpoints.map \
+        lib.sh \
+        install.sh \
+        config.sh \
+        service.sh \
+        health.sh \
+        export.sh
+}
+
+install_self_copy_tree_into_stage() {
     local src_dir="$1"
-    local dest_root="$2"
+    local stage_root="$2"
     local tree_name="$3"
     [[ -d "$src_dir" ]] || return 0
 
-    local tree_tmp tree_backup
-    tree_tmp=$(mktemp -d "${dest_root}/.${tree_name}.new.XXXXXX")
-    if ! cp -a "$src_dir/." "$tree_tmp/"; then
-        rm -rf "$tree_tmp"
-        log ERROR "Не удалось скопировать ${tree_name} во временную директорию"
+    mkdir -p "${stage_root}/${tree_name}" || return 1
+    cp -a "$src_dir/." "${stage_root}/${tree_name}/" || return 1
+}
+
+install_self_copy_file_into_stage() {
+    local src_path="$1"
+    local stage_root="$2"
+    local rel_path="$3"
+    local dest_path tmp_file
+
+    [[ -f "$src_path" ]] || return 0
+    dest_path="${stage_root}/${rel_path}"
+    mkdir -p "$(dirname "$dest_path")" || return 1
+    tmp_file=$(mktemp "${dest_path}.tmp.XXXXXX") || return 1
+    if ! cp -a "$src_path" "$tmp_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+    if ! mv -f "$tmp_file" "$dest_path"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+}
+
+install_self_publish_staged_tree() {
+    local stage_root="$1"
+    local dest_root="$2"
+    local dest_parent dest_name backup_root
+
+    dest_parent=$(dirname "$dest_root")
+    dest_name=$(basename "$dest_root")
+    mkdir -p "$dest_parent" || return 1
+
+    backup_root=""
+    if [[ -d "$dest_root" ]]; then
+        backup_root=$(mktemp -d "${dest_parent}/.${dest_name}.backup.XXXXXX") || return 1
+        if ! mv "$dest_root" "${backup_root}/${dest_name}"; then
+            rm -rf "$backup_root"
+            return 1
+        fi
+    fi
+
+    if ! mv "$stage_root" "$dest_root"; then
+        rm -rf -- "$stage_root" 2> /dev/null || true
+        if [[ -n "$backup_root" && -d "${backup_root}/${dest_name}" ]]; then
+            mv "${backup_root}/${dest_name}" "$dest_root" || true
+        fi
+        rm -rf "$backup_root"
+        return 1
+    fi
+
+    rm -rf "$backup_root"
+}
+
+install_self_sync_tree() {
+    local src_root="$1"
+    local dest_root="$2"
+    local dest_parent dest_name stage_root root_file src_path
+
+    dest_parent=$(dirname "$dest_root")
+    dest_name=$(basename "$dest_root")
+    mkdir -p "$dest_parent" || {
+        log ERROR "Не удалось подготовить родительский каталог managed source tree: ${dest_parent}"
+        exit 1
+    }
+
+    stage_root=$(mktemp -d "${dest_parent}/.${dest_name}.new.XXXXXX") || {
+        log ERROR "Не удалось создать staging-каталог для managed source tree"
+        exit 1
+    }
+
+    if [[ -d "$dest_root" ]] && ! cp -a "$dest_root/." "$stage_root/"; then
+        rm -rf "$stage_root"
+        log ERROR "Не удалось подготовить staging-копию текущего managed source tree"
         exit 1
     fi
 
-    tree_backup=""
-    if [[ -d "${dest_root}/${tree_name}" ]]; then
-        tree_backup=$(mktemp -d "${dest_root}/.${tree_name}.backup.XXXXXX")
-        if ! mv "${dest_root}/${tree_name}" "${tree_backup}/${tree_name}"; then
-            rm -rf "$tree_tmp" "$tree_backup"
-            log ERROR "Не удалось подготовить backup текущего ${tree_name}"
+    if ! install_self_copy_tree_into_stage "$src_root/modules" "$stage_root" "modules"; then
+        rm -rf "$stage_root"
+        log ERROR "Не удалось собрать staging-копию modules"
+        exit 1
+    fi
+    if ! install_self_copy_tree_into_stage "$src_root/data" "$stage_root" "data"; then
+        rm -rf "$stage_root"
+        log ERROR "Не удалось собрать staging-копию data"
+        exit 1
+    fi
+    if ! install_self_copy_tree_into_stage "$src_root/scripts" "$stage_root" "scripts"; then
+        rm -rf "$stage_root"
+        log ERROR "Не удалось собрать staging-копию scripts"
+        exit 1
+    fi
+
+    while IFS= read -r root_file; do
+        [[ -n "$root_file" ]] || continue
+        src_path="$src_root/$root_file"
+        if ! install_self_copy_file_into_stage "$src_path" "$stage_root" "$root_file"; then
+            rm -rf "$stage_root"
+            log ERROR "Не удалось собрать staging-копию ${root_file}"
             exit 1
         fi
-    fi
+    done < <(install_self_source_tree_root_files)
 
-    if ! mv "$tree_tmp" "${dest_root}/${tree_name}"; then
-        rm -rf "${dest_root:?}/${tree_name}" "$tree_tmp"
-        if [[ -n "$tree_backup" && -d "${tree_backup}/${tree_name}" ]]; then
-            mv "${tree_backup}/${tree_name}" "${dest_root}/${tree_name}" || true
-        fi
-        rm -rf "$tree_backup"
-        log ERROR "Не удалось обновить ${tree_name} в ${dest_root}"
+    if ! install_self_publish_staged_tree "$stage_root" "$dest_root"; then
+        log ERROR "Не удалось атомарно обновить managed source tree в ${dest_root}"
         exit 1
     fi
-    rm -rf "$tree_backup"
 }
 
 install_self() {
     log STEP "Устанавливаем скрипт управления..."
 
     if [[ -n "$XRAY_DATA_DIR" ]]; then
-        mkdir -p "$XRAY_DATA_DIR"
-        install_self_sync_tree "$SCRIPT_DIR/modules" "$XRAY_DATA_DIR" "modules"
-        install_self_sync_tree "$SCRIPT_DIR/data" "$XRAY_DATA_DIR" "data"
-        install_self_sync_tree "$SCRIPT_DIR/scripts" "$XRAY_DATA_DIR" "scripts"
-        local f
-        for f in domains.tiers sni_pools.map transport_endpoints.map lib.sh install.sh config.sh service.sh health.sh export.sh; do
-            local src_path="$SCRIPT_DIR/$f"
-            local dest_path="$XRAY_DATA_DIR/$f"
-            if [[ -f "$src_path" && "$src_path" != "$dest_path" ]]; then
-                cp -a "$src_path" "$dest_path"
-            fi
-        done
+        install_self_sync_tree "$SCRIPT_DIR" "$XRAY_DATA_DIR"
         log OK "Данные установлены в $XRAY_DATA_DIR"
     fi
 
