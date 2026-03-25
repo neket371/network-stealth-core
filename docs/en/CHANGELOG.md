@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.6.2] - 2026-03-26
+
 ### Fixed
 - relaxed two uninstall bats guards to assert the final success marker instead of exact full stdout equality, so hosted linux runners no longer fail the suite on incidental extra output while the uninstall behavior itself remains unchanged
 
