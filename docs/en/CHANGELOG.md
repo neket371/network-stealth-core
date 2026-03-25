@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.6.1] - 2026-03-25
+
 ### Fixed
 - made the release-surface security-doc test derive supported and unsupported version lines from `SCRIPT_VERSION`, so release and CI checks no longer pin a stale previous minor after a new release cut
 

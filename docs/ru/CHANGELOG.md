@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.6.1] - 2026-03-25
+
 ### Fixed
 - тест security release surface теперь выводит supported/unsupported version lines из `SCRIPT_VERSION`, поэтому release и CI больше не падают на stale minor после выпуска нового релиза
 

@@ -27,7 +27,7 @@ body:
     id: version
     attributes:
       label: version or commit
-      placeholder: v7.6.0 / <full_commit_sha> / ubuntu@<sha>
+      placeholder: v7.6.1 / <full_commit_sha> / ubuntu@<sha>
     validations:
       required: true
 
