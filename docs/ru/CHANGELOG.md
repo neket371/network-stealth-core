@@ -7,6 +7,9 @@
 
 ## [unreleased]
 
+### Fixed
+- два uninstall bats-гарда теперь проверяют финальный success-marker вместо полного точного совпадения stdout, поэтому hosted linux runner больше не краснит suite на incidental extra output при неизменном uninstall-поведении
+
 ## [7.6.1] - 2026-03-25
 
 ### Fixed
