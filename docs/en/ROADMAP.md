@@ -17,7 +17,7 @@ the current `v7` strongest-direct line establishes:
 
 1. simplify field-report ingestion for remote canary operators
 2. improve catalog maintenance and provider-family diversity quality
-3. enrich compare and summarize output with clearer operator recommendations
+3. add longer-term trend review on top of the new operator-facing field summary
 4. keep bilingual docs and release metadata perfectly aligned
 
 ## medium-term direction

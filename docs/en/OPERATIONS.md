@@ -125,8 +125,10 @@ verbose status should show:
 - source metadata (`kind`, `ref`, `commit`)
 - last self-check verdict
 - latest field measurement verdict
-- current primary config
-- best spare config
+- coverage quality for saved reports
+- operator recommendation and reason
+- current primary config with recent `recommended`/`rescue` rates
+- best spare config with recent `recommended` rate
 - whether `emergency` is recommended
 
 ### full diagnosis
@@ -135,7 +137,7 @@ verbose status should show:
 sudo xray-reality.sh diagnose
 ```
 
-`diagnose` now includes policy, self-check history, and measurement summary.
+`diagnose` now includes policy, self-check history, and a rendered field-measurement summary before the raw measurement json.
 it also prints the managed source metadata used to produce the current node state.
 
 ## measurement workflow
@@ -184,6 +186,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 plain invocation without a subcommand behaves like `run`.
+`summarize` now prints the same operator-facing recommendation layer that `status --verbose`, `diagnose`, `repair`, and `update --replan` read: coverage quality, network/provider spread, current primary stats, best spare stats, and any promotion candidate.
 
 runtime smoke, hosted CI, and busy-host lifecycle checks do not prove real-network anti-dpi effectiveness by themselves.
 for that layer, use the separate playbook in [FIELD-VALIDATION.md](FIELD-VALIDATION.md).
@@ -256,5 +259,5 @@ managed uninstall removes policy, self-check history, measurement summaries, and
 1. install or migrate to the strongest-direct contract
 2. verify `status --verbose`
 3. save a few real-network measurements
-4. run `update --replan` or `repair` if the field summary points to a better spare
+4. run `update --replan` or `repair` if the field summary says `promote-spare`
 5. use `emergency` only when direct variants are not enough on the tested network

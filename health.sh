@@ -627,7 +627,15 @@ diagnose() {
         if [[ -f "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}" ]]; then
             echo ""
             echo "===== FIELD MEASUREMENTS ====="
-            jq '.' "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}" 2> /dev/null || cat "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}" 2> /dev/null || true
+            local measurement_summary_json=""
+            measurement_summary_json=$(measurement_read_summary_json 2> /dev/null || cat "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}" 2> /dev/null || true)
+            if [[ -n "$measurement_summary_json" ]] && declare -F measurement_render_summary_text > /dev/null 2>&1; then
+                measurement_render_summary_text "$measurement_summary_json" 2> /dev/null || true
+                echo ""
+            fi
+            if [[ -n "$measurement_summary_json" ]]; then
+                jq '.' <<< "$measurement_summary_json" 2> /dev/null || printf '%s\n' "$measurement_summary_json"
+            fi
         fi
         echo ""
 

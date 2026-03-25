@@ -466,13 +466,9 @@ measure_summarize() {
         printf '%s\n' "$aggregated" > "$output_file"
     fi
 
+    measurement_render_summary_text "$aggregated"
+    echo ""
     jq -r '
-        "field verdict: " + (.field_verdict // "unknown"),
-        "current primary: " + (.current_primary // "n/a"),
-        "best spare: " + (.best_spare // "n/a"),
-        "recommend emergency: " + ((.recommend_emergency // false) | tostring),
-        "reports: " + ((.report_count // 0) | tostring),
-        "",
         "configs:",
         (
             .configs[]
@@ -486,7 +482,7 @@ measure_summarize() {
             if .promotion_candidate == null then
                 ""
             else
-                "promotion candidate: " + (.promotion_candidate.config_name // "n/a") + " (" + (.promotion_candidate.reason // "n/a") + ")"
+                "promotion reason: " + (.promotion_candidate.reason // "n/a")
             end
         )
     ' <<< "$aggregated"

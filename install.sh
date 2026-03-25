@@ -300,22 +300,62 @@ maybe_promote_runtime_primary_from_observations() {
     fi
 
     local current_primary candidate_name candidate_reason
+    local summary_json=""
     current_primary=$(runtime_config_name_at_index 0)
     candidate_name=""
     candidate_reason=""
+    summary_json=$(measurement_read_summary_json 2> /dev/null || true)
 
     local last_verdict warning_streak
     last_verdict=$(self_check_last_verdict 2> /dev/null || echo "unknown")
     warning_streak=$(self_check_warning_streak_count 2> /dev/null || echo 0)
 
     if [[ "$last_verdict" == "broken" ]]; then
-        candidate_name=$(measurement_read_summary_json 2> /dev/null | jq -r '.best_spare // empty' 2> /dev/null || true)
+        if [[ -n "$summary_json" ]]; then
+            candidate_name=$(jq -r '.best_spare // empty' <<< "$summary_json" 2> /dev/null || true)
+            if [[ -n "$candidate_name" ]]; then
+                candidate_reason=$(jq -r '
+                    if (.best_spare // empty) == "" then
+                        empty
+                    else
+                        "last self-check verdict is broken; field summary prefers "
+                        + .best_spare
+                        + " (recommended "
+                        + ((.best_spare_stats.recommended_success_rate_last5 // 0) | tostring)
+                        + "%, best "
+                        + ((.best_spare_stats.best_variant // "n/a") | tostring)
+                        + " "
+                        + ((.best_spare_stats.best_variant_success_rate_last5 // 0) | tostring)
+                        + "%)"
+                    end
+                ' <<< "$summary_json" 2> /dev/null || true)
+            fi
+        fi
         [[ -n "$candidate_name" ]] || candidate_name=$(runtime_config_name_at_index 1)
-        candidate_reason="last self-check verdict is broken"
+        [[ -n "$candidate_reason" ]] || candidate_reason="last self-check verdict is broken"
     elif [[ "$warning_streak" =~ ^[0-9]+$ ]] && ((warning_streak >= 2)); then
-        candidate_name=$(measurement_read_summary_json 2> /dev/null | jq -r '.best_spare // empty' 2> /dev/null || true)
+        if [[ -n "$summary_json" ]]; then
+            candidate_name=$(jq -r '.best_spare // empty' <<< "$summary_json" 2> /dev/null || true)
+            if [[ -n "$candidate_name" ]]; then
+                candidate_reason=$(jq -r '
+                    if (.best_spare // empty) == "" then
+                        empty
+                    else
+                        "last two self-check verdicts are warning; field summary prefers "
+                        + .best_spare
+                        + " (recommended "
+                        + ((.best_spare_stats.recommended_success_rate_last5 // 0) | tostring)
+                        + "%, best "
+                        + ((.best_spare_stats.best_variant // "n/a") | tostring)
+                        + " "
+                        + ((.best_spare_stats.best_variant_success_rate_last5 // 0) | tostring)
+                        + "%)"
+                    end
+                ' <<< "$summary_json" 2> /dev/null || true)
+            fi
+        fi
         [[ -n "$candidate_name" ]] || candidate_name=$(runtime_config_name_at_index 1)
-        candidate_reason="last two self-check verdicts are warning"
+        [[ -n "$candidate_reason" ]] || candidate_reason="last two self-check verdicts are warning"
     else
         local promotion_json
         promotion_json=$(measurement_promotion_candidate_json 2> /dev/null || true)

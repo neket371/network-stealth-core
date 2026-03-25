@@ -125,8 +125,10 @@ sudo xray-reality.sh status --verbose
 - source metadata (`kind`, `ref`, `commit`)
 - последний self-check verdict
 - последний verdict полевых измерений
-- текущий primary config
-- лучший spare config
+- качество покрытия сохранённых reports
+- operator recommendation и причина
+- текущий primary config с недавними `recommended`/`rescue` rate
+- лучший spare config с недавним `recommended` rate
 - нужна ли рекомендация `emergency`
 
 ### полная диагностика
@@ -135,7 +137,7 @@ sudo xray-reality.sh status --verbose
 sudo xray-reality.sh diagnose
 ```
 
-`diagnose` теперь включает policy, историю self-check и measurement summary.
+`diagnose` теперь включает policy, историю self-check и отрендеренный measurement summary перед сырым measurement json.
 туда же теперь попадает managed source metadata, из которого собран текущий state узла.
 
 ## workflow измерений
@@ -184,6 +186,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 обычный вызов без subcommand ведёт себя как `run`.
+`summarize` теперь печатает тот же operator-facing recommendation layer, который потом читают `status --verbose`, `diagnose`, `repair` и `update --replan`: качество покрытия, spread по сетям и провайдерам, статистику current primary, статистику лучшего spare и возможный promotion candidate.
 
 runtime smoke, hosted CI и busy-host lifecycle checks сами по себе не доказывают anti-dpi эффективность в реальных сетях.
 для этого уровня используй отдельный playbook: [FIELD-VALIDATION.md](FIELD-VALIDATION.md).
@@ -256,5 +259,5 @@ managed uninstall удаляет вместе policy, историю self-check,
 1. установи или мигрируй узел на strongest-direct контракт
 2. проверь `status --verbose`
 3. сохрани несколько measurements с реальных сетей
-4. запусти `update --replan` или `repair`, если field-summary указывает на более сильный spare
+4. запусти `update --replan` или `repair`, если field-summary говорит `promote-spare`
 5. используй `emergency` только когда direct-вариантов недостаточно на проверенной сети

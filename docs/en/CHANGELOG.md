@@ -7,6 +7,12 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- turned saved field measurements into a decision-grade operator summary with coverage quality, recommendation reason, current primary stats, best spare stats, and richer promotion metadata reused by `status --verbose`, `diagnose`, `repair`, `update --replan`, and `scripts/measure-stealth.sh summarize`
+
+### Fixed
+- made field summaries report `unknown` instead of an implied degraded verdict when no reports are saved yet, and kept the recommendation fail-soft as `collect-more-data`
+
 ## [7.6.3] - 2026-03-26
 
 ### Fixed

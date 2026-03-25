@@ -7,6 +7,12 @@
 
 ## [unreleased]
 
+### Changed
+- сохранённые field measurements теперь собираются в decision-grade operator summary: с quality coverage, reason для recommendation, статистикой current primary, статистикой лучшего spare и более богатым promotion metadata, который переиспользуют `status --verbose`, `diagnose`, `repair`, `update --replan` и `scripts/measure-stealth.sh summarize`
+
+### Fixed
+- при отсутствии сохранённых reports field summary теперь честно показывает `unknown`, а не намекает на деградацию; рекомендация в этом состоянии мягко уходит в `collect-more-data`
+
 ## [7.6.3] - 2026-03-26
 
 ### Fixed

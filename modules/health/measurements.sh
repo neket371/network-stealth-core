@@ -88,8 +88,21 @@ measurement_aggregate_reports_json() {
             | reverse
             | .[:$n];
         ($reports | latest_n(5)) as $recent_reports
-        | (if ($reports | length) > 0 then $reports[-1] else {} end) as $latest_report
-        | ($latest_report.configs[0].config_name // $latest_report.configs[0].name // "Config 1") as $current_primary
+        | ($reports | length) as $report_count
+        | ($reports | map((.network_tag // "default") | tostring) | unique | sort) as $network_tags
+        | ($reports | map((.provider // "unknown") | tostring) | unique | sort) as $providers
+        | ($reports | map((.region // "unknown") | tostring) | unique | sort) as $regions
+        | ($network_tags | length) as $network_tag_count
+        | ($providers | length) as $provider_count
+        | ($regions | length) as $region_count
+        | (if $report_count > 0 then $reports[-1] else {} end) as $latest_report
+        | (
+            if (($latest_report.configs // []) | length) > 0 then
+                ($latest_report.configs[0].config_name // $latest_report.configs[0].name // "Config 1")
+            else
+                null
+            end
+        ) as $current_primary
         | [$recent_reports[]?.results[]?] as $recent_results
         | [$reports[]?.results[]?] as $all_results
         | (($recent_results | sort_by(.config_name, .variant_key))
@@ -115,33 +128,123 @@ measurement_aggregate_reports_json() {
           })) as $configs
         | ($configs | map(select(.config_name != $current_primary)) | sort_by(.recommended_success_rate_last5, (.best_variant_success_rate_last5 // 0)) | reverse | .[0]) as $best_spare
         | ($configs | map(select(.config_name == $current_primary)) | .[0]) as $primary_stats
+        | (
+            if $report_count == 0 then "warning"
+            elif $report_count < 2 then "warning"
+            elif $network_tag_count < 2 and $provider_count < 2 then "warning"
+            elif $network_tag_count < 2 then "warning"
+            elif $provider_count < 2 then "warning"
+            else "ok"
+            end
+        ) as $coverage_verdict
+        | (
+            if $report_count == 0 then "no saved field reports yet"
+            elif $report_count < 2 then "need at least 2 saved reports before treating field data as representative"
+            elif $network_tag_count < 2 and $provider_count < 2 then "field data covers only one network tag and one provider"
+            elif $network_tag_count < 2 then "field data covers only one network tag"
+            elif $provider_count < 2 then "field data covers only one provider"
+            else "field data spans multiple providers and network tags"
+            end
+        ) as $coverage_reason
+        | (
+            if $report_count == 0 then
+                null
+            elif (($primary_stats.recommended_success_rate_last5 // 0) < 60)
+               and (($primary_stats.rescue_success_rate_last5 // 0) < 80) then
+                "primary recommended and rescue variants stay weak in recent field reports"
+            else
+                null
+            end
+        ) as $recommend_emergency_reason
+        | (
+            if $report_count == 0 then
+                null
+            elif (($primary_stats.recommended_success_rate_last5 // 0) < 60)
+               and (($best_spare.recommended_success_rate_last5 // 0) >= 80) then
+                {
+                    config_name: $best_spare.config_name,
+                    reason: "field reports show weak primary recommended success and a stronger spare",
+                    current_primary: $current_primary,
+                    current_primary_recommended_success_rate_last5: ($primary_stats.recommended_success_rate_last5 // 0),
+                    current_primary_rescue_success_rate_last5: ($primary_stats.rescue_success_rate_last5 // 0),
+                    candidate_recommended_success_rate_last5: ($best_spare.recommended_success_rate_last5 // 0),
+                    candidate_best_variant: ($best_spare.best_variant // null),
+                    candidate_best_variant_success_rate_last5: ($best_spare.best_variant_success_rate_last5 // 0),
+                    coverage_verdict: $coverage_verdict
+                }
+            else
+                null
+            end
+        ) as $promotion_candidate
+        | (
+            if $report_count == 0 then
+                "collect-more-data"
+            elif $promotion_candidate != null then
+                "promote-spare"
+            elif (($primary_stats.recommended_success_rate_last5 // 0) >= 80) then
+                "keep-current-primary"
+            elif (($primary_stats.recommended_success_rate_last5 // 0) < 60)
+                 and (($primary_stats.rescue_success_rate_last5 // 0) < 80) then
+                "field-test-emergency"
+            elif $coverage_verdict != "ok" then
+                "collect-more-data"
+            else
+                "watch-and-collect-more"
+            end
+        ) as $operator_recommendation
+        | (
+            if $report_count == 0 then
+                "save at least 2 field reports across different networks before trusting field decisions"
+            elif $promotion_candidate != null then
+                "promote " + ($promotion_candidate.config_name // "n/a")
+                + ": primary recommended="
+                + (($promotion_candidate.current_primary_recommended_success_rate_last5 // 0) | tostring)
+                + "%, spare recommended="
+                + (($promotion_candidate.candidate_recommended_success_rate_last5 // 0) | tostring)
+                + "% over the latest saved reports"
+            elif (($primary_stats.recommended_success_rate_last5 // 0) >= 80) then
+                "current primary recommended variant stays healthy in recent field reports"
+            elif (($primary_stats.recommended_success_rate_last5 // 0) < 60)
+                 and (($primary_stats.rescue_success_rate_last5 // 0) < 80) then
+                "recommended and rescue are both weak; verify emergency only on real field clients"
+            elif $coverage_verdict != "ok" then
+                $coverage_reason
+            else
+                "keep collecting reports before changing primary order"
+            end
+        ) as $operator_recommendation_reason
         | {
             generated: $generated,
-            report_count: ($reports | length),
+            report_count: $report_count,
             latest_report_generated: ($latest_report.generated // null),
+            network_tags: $network_tags,
+            providers: $providers,
+            regions: $regions,
+            network_tag_count: $network_tag_count,
+            provider_count: $provider_count,
+            region_count: $region_count,
+            coverage_verdict: $coverage_verdict,
+            coverage_reason: $coverage_reason,
             current_primary: $current_primary,
+            current_primary_stats: ($primary_stats // null),
             best_spare: ($best_spare.config_name // null),
+            best_spare_stats: ($best_spare // null),
             best_spare_recommended_success_rate_last5: ($best_spare.recommended_success_rate_last5 // 0),
             recommend_emergency: (
                 (($primary_stats.recommended_success_rate_last5 // 0) < 60)
                 and (($primary_stats.rescue_success_rate_last5 // 0) < 80)
             ),
+            recommend_emergency_reason: $recommend_emergency_reason,
             field_verdict: (
-                if (($primary_stats.recommended_success_rate_last5 // 0) >= 80) then "ok"
+                if $report_count == 0 then "unknown"
+                elif (($primary_stats.recommended_success_rate_last5 // 0) >= 80) then "ok"
                 elif (($primary_stats.rescue_success_rate_last5 // 0) >= 60) or (($best_spare.recommended_success_rate_last5 // 0) >= 80) then "warning"
                 else "broken"
                 end
             ),
-            promotion_candidate: (
-                if (($primary_stats.recommended_success_rate_last5 // 0) < 60) and (($best_spare.recommended_success_rate_last5 // 0) >= 80) then
-                    {
-                        config_name: $best_spare.config_name,
-                        reason: "field reports show weak primary recommended success and a stronger spare"
-                    }
-                else
-                    null
-                end
-            ),
+            operator_recommendation: $operator_recommendation,
+            operator_recommendation_reason: $operator_recommendation_reason,
+            promotion_candidate: $promotion_candidate,
             configs: $configs,
             variant_stats: $variant_stats,
             reports: ($reports | map({
@@ -154,6 +257,131 @@ measurement_aggregate_reports_json() {
                 clients_json
             }))
         }'
+}
+
+measurement_render_summary_text() {
+    local summary_json="${1:-}"
+    [[ -n "$summary_json" ]] || return 1
+
+    jq -r '
+        "field verdict: " + (.field_verdict // "unknown"),
+        "operator recommendation: " + (.operator_recommendation // "unknown"),
+        "recommendation reason: " + (.operator_recommendation_reason // "n/a"),
+        "coverage: " + (.coverage_verdict // "unknown")
+          + " | reports=" + ((.report_count // 0) | tostring)
+          + " | networks=" + ((.network_tag_count // 0) | tostring)
+          + " | providers=" + ((.provider_count // 0) | tostring)
+          + " | regions=" + ((.region_count // 0) | tostring),
+        "coverage reason: " + (.coverage_reason // "n/a"),
+        (
+            if ((.network_tags // []) | length) == 0 then
+                "network tags: n/a"
+            else
+                "network tags: " + ((.network_tags // []) | join(", "))
+            end
+        ),
+        (
+            if ((.providers // []) | length) == 0 then
+                "providers: n/a"
+            else
+                "providers: " + ((.providers // []) | join(", "))
+            end
+        ),
+        (
+            if ((.regions // []) | length) == 0 then
+                "regions: n/a"
+            else
+                "regions: " + ((.regions // []) | join(", "))
+            end
+        ),
+        "latest report: " + (.latest_report_generated // "unknown"),
+        "",
+        "current primary: " + (.current_primary // "n/a"),
+        (
+            if (.current_primary_stats // null) == null then
+                "  recent stats: n/a"
+            else
+                "  recommended success last5: " + ((.current_primary_stats.recommended_success_rate_last5 // 0) | tostring) + "%"
+            end
+        ),
+        (
+            if (.current_primary_stats // null) == null then
+                empty
+            else
+                "  rescue success last5: " + ((.current_primary_stats.rescue_success_rate_last5 // 0) | tostring) + "%"
+            end
+        ),
+        (
+            if (.current_primary_stats // null) == null then
+                empty
+            else
+                "  emergency success last5: " + ((.current_primary_stats.emergency_success_rate_last5 // 0) | tostring) + "%"
+            end
+        ),
+        (
+            if (.current_primary_stats // null) == null then
+                empty
+            else
+                "  best recent variant: "
+                + ((.current_primary_stats.best_variant // "n/a") | tostring)
+                + " (" + ((.current_primary_stats.best_variant_success_rate_last5 // 0) | tostring) + "%"
+                + ", " + ((.current_primary_stats.best_variant_p50_latency_ms_last5 // "n/a") | tostring) + "ms)"
+            end
+        ),
+        "best spare: " + (.best_spare // "n/a"),
+        (
+            if (.best_spare_stats // null) == null then
+                "  recent stats: n/a"
+            else
+                "  recommended success last5: " + ((.best_spare_stats.recommended_success_rate_last5 // 0) | tostring) + "%"
+            end
+        ),
+        (
+            if (.best_spare_stats // null) == null then
+                empty
+            else
+                "  rescue success last5: " + ((.best_spare_stats.rescue_success_rate_last5 // 0) | tostring) + "%"
+            end
+        ),
+        (
+            if (.best_spare_stats // null) == null then
+                empty
+            else
+                "  emergency success last5: " + ((.best_spare_stats.emergency_success_rate_last5 // 0) | tostring) + "%"
+            end
+        ),
+        (
+            if (.best_spare_stats // null) == null then
+                empty
+            else
+                "  best recent variant: "
+                + ((.best_spare_stats.best_variant // "n/a") | tostring)
+                + " (" + ((.best_spare_stats.best_variant_success_rate_last5 // 0) | tostring) + "%"
+                + ", " + ((.best_spare_stats.best_variant_p50_latency_ms_last5 // "n/a") | tostring) + "ms)"
+            end
+        ),
+        "recommend emergency: " + ((.recommend_emergency // false) | tostring),
+        (
+            if (.recommend_emergency_reason // null) == null then
+                "recommend emergency reason: n/a"
+            else
+                "recommend emergency reason: " + .recommend_emergency_reason
+            end
+        ),
+        (
+            if (.promotion_candidate // null) == null then
+                "promotion candidate: n/a"
+            else
+                "promotion candidate: "
+                + (.promotion_candidate.config_name // "n/a")
+                + " (primary recommended="
+                + ((.promotion_candidate.current_primary_recommended_success_rate_last5 // 0) | tostring)
+                + "%, spare recommended="
+                + ((.promotion_candidate.candidate_recommended_success_rate_last5 // 0) | tostring)
+                + "%)"
+            end
+        )
+    ' <<< "$summary_json"
 }
 
 measurement_refresh_summary() {
@@ -199,9 +427,18 @@ measurement_status_summary_tsv() {
     summary_json=$(measurement_read_summary_json 2> /dev/null) || return 1
     jq -r '[
         (.field_verdict // "unknown"),
+        (.operator_recommendation // "unknown"),
+        (.operator_recommendation_reason // "n/a"),
+        (.coverage_verdict // "unknown"),
         (.report_count // 0 | tostring),
+        (.network_tag_count // 0 | tostring),
+        (.provider_count // 0 | tostring),
+        (.region_count // 0 | tostring),
         (.current_primary // "n/a"),
+        (.current_primary_stats.recommended_success_rate_last5 // 0 | tostring),
+        (.current_primary_stats.rescue_success_rate_last5 // 0 | tostring),
         (.best_spare // "n/a"),
+        (.best_spare_stats.recommended_success_rate_last5 // 0 | tostring),
         (.recommend_emergency // false | tostring),
         (.latest_report_generated // "unknown")
     ] | @tsv' <<< "$summary_json"

@@ -57,7 +57,13 @@ sudo bash scripts/measure-stealth.sh summarize \
   --output /tmp/measure-summary.json
 ```
 
-1. если summary показывает более сильный spare-path, выполни:
+отрендеренная summary теперь и есть operator-grade слой:
+
+- `coverage: ok|warning` показывает, достаточно ли сохранённых reports для доверия полевой картине
+- `operator recommendation` говорит, оставлять ли current primary, повышать spare, добирать данные или переходить к полевой проверке `emergency`
+- `promotion candidate` показывает, какой spare с высокой вероятностью поднимут `update --replan` или `repair`
+
+1. если в summary написано `operator recommendation: promote-spare`, выполни:
 
 ```bash
 sudo xray-reality.sh update --replan --non-interactive --yes

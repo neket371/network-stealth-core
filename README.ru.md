@@ -112,6 +112,7 @@ sudo xray-reality.sh install --advanced
 - `recommended` и `rescue` валидируются post-action self-check
 - `emergency` экспортируется честно только как raw xray и предназначен для полевых проверок, а не для фейковых ссылок
 - `update --replan` и `repair` могут повышать более сильный spare-config на основе self-check history и сохранённых field measurements
+- `status --verbose`, `diagnose` и `scripts/measure-stealth.sh summarize` теперь показывают один и тот же operator-facing field summary: verdict, качество покрытия, рекомендацию и promotion candidate
 - server-side DNS здесь намеренно остаётся IPv4-first (`queryStrategy: UseIPv4`) даже при включённых IPv6 listeners; dual-stack в этом контракте означает покрытие входящих соединений, а не IPv6-preferred outbound resolution
 
 ## поверхность state и артефактов
@@ -163,6 +164,7 @@ sudo bash scripts/measure-stealth.sh prune \
 для удалённых тестов на сетях рф используй bundle из `export/canary/` и raw xray-конфиги оттуда.
 если проверяешь `emergency`, на стороне клиента нужно выставить `xray.browser.dialer`; в POSIX shell используй `env 'xray.browser.dialer=127.0.0.1:11050' ...`, а не `export`.
 hosted CI, nightly runtime smoke и busy-host lifecycle checks доказывают только runtime correctness; для реальной anti-dpi проверки используй [docs/ru/FIELD-VALIDATION.md](docs/ru/FIELD-VALIDATION.md).
+`summarize` теперь печатает operator-facing verdict: качество покрытия, spread по сетям и провайдерам, статистику текущего primary, статистику лучшего spare и ту рекомендацию, на которую потом опираются `status --verbose`, `diagnose`, `repair` и `update --replan`.
 
 ## документация для сопровождающих
 

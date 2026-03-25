@@ -112,6 +112,7 @@ sudo xray-reality.sh install --advanced
 - `recommended` and `rescue` are validated by post-action self-check
 - `emergency` is exported honestly as raw xray only and is meant for field testing, not fake link templates
 - `update --replan` and `repair` may promote a stronger spare config using self-check history and saved field measurements
+- `status --verbose`, `diagnose`, and `scripts/measure-stealth.sh summarize` now surface one operator-facing field summary: verdict, coverage quality, recommendation, and promotion candidate
 - server-side DNS stays intentionally IPv4-first (`queryStrategy: UseIPv4`) even when IPv6 listeners are enabled; dual-stack here means client ingress coverage, not IPv6-preferred outbound resolution
 
 ## state and artifact surface
@@ -163,6 +164,7 @@ sudo bash scripts/measure-stealth.sh prune \
 for remote rf testing, send the generated canary bundle from `export/canary/` and use the raw xray configs there.
 set `xray.browser.dialer` on the client side when you intentionally test the `emergency` variant; on POSIX shells use `env 'xray.browser.dialer=127.0.0.1:11050' ...` instead of `export`.
 hosted CI, nightly runtime smoke, and busy-host lifecycle checks validate runtime correctness only; use [docs/en/FIELD-VALIDATION.md](docs/en/FIELD-VALIDATION.md) when you need real-network anti-dpi proof.
+`summarize` now prints an operator-facing verdict: coverage quality, network/provider spread, current primary stats, best spare stats, and the recommendation that `status --verbose`, `diagnose`, `repair`, and `update --replan` follow.
 
 ## maintainer-only validation docs
 

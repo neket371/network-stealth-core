@@ -17,7 +17,7 @@
 
 1. ещё сильнее упростить импорт field reports от удалённых canary-операторов
 2. улучшить поддержку catalog и качество provider-family diversity
-3. сделать compare и summarize выводы более понятными для операторов
+3. добавить поверх нового operator-facing field summary нормальный long-term trend review
 4. держать двуязычные docs и release metadata идеально синхронными
 
 ## среднесрочное направление

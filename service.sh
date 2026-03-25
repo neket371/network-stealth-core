@@ -378,12 +378,30 @@ status_flow_render_verbose_measurements() {
     measurement_summary=$(measurement_status_summary_tsv 2> /dev/null || true)
     echo -e "${BOLD}Field measurements:${NC}"
     if [[ -n "$measurement_summary" ]]; then
-        local field_verdict report_count current_primary best_spare recommend_emergency latest_generated
-        IFS=$'\t' read -r field_verdict report_count current_primary best_spare recommend_emergency latest_generated <<< "$measurement_summary"
+        local field_verdict operator_recommendation operator_reason coverage_verdict report_count network_tag_count provider_count region_count
+        local current_primary current_primary_recommended current_primary_rescue best_spare best_spare_recommended recommend_emergency latest_generated
+        IFS=$'\t' read -r \
+            field_verdict \
+            operator_recommendation \
+            operator_reason \
+            coverage_verdict \
+            report_count \
+            network_tag_count \
+            provider_count \
+            region_count \
+            current_primary \
+            current_primary_recommended \
+            current_primary_rescue \
+            best_spare \
+            best_spare_recommended \
+            recommend_emergency \
+            latest_generated <<< "$measurement_summary"
         echo -e "  Verdict: ${field_verdict}"
-        echo -e "  Reports: ${report_count}"
-        echo -e "  Current primary: ${current_primary}"
-        echo -e "  Best spare: ${best_spare}"
+        echo -e "  Recommendation: ${operator_recommendation}"
+        echo -e "  Reason: ${operator_reason}"
+        echo -e "  Coverage: ${coverage_verdict} (${report_count} reports, ${network_tag_count} networks, ${provider_count} providers, ${region_count} regions)"
+        echo -e "  Current primary: ${current_primary} (recommended ${current_primary_recommended}%, rescue ${current_primary_rescue}%)"
+        echo -e "  Best spare: ${best_spare} (recommended ${best_spare_recommended}%)"
         echo -e "  Recommend emergency: ${recommend_emergency}"
         echo -e "  Latest report: ${latest_generated}"
     else
