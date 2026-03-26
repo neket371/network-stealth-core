@@ -97,6 +97,7 @@ setup_domains() {
         DOMAIN_TIER_USES_CATALOG="$used_catalog_tier"
     fi
     seed_domain_metadata_from_list "${AVAILABLE_DOMAINS[@]}"
+    load_provider_family_field_penalties
 
     if [[ ${#AVAILABLE_DOMAINS[@]} -eq 0 ]]; then
         log ERROR "Список доменов пуст. Проверьте XRAY_CUSTOM_DOMAINS/XRAY_DOMAINS_FILE."
@@ -313,6 +314,121 @@ load_priority_domains() {
     printf '%s\n' "${priority[@]}"
 }
 
+load_provider_family_field_penalties() {
+    declare -gA DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES=()
+
+    [[ -n "${MEASUREMENTS_SUMMARY_FILE:-}" && -f "${MEASUREMENTS_SUMMARY_FILE:-}" ]] || return 0
+    command -v jq > /dev/null 2>&1 || return 0
+    jq empty "$MEASUREMENTS_SUMMARY_FILE" > /dev/null 2>&1 || return 0
+
+    local family penalty
+    while IFS=$'\t' read -r family penalty; do
+        family="${family//$'\r'/}"
+        penalty="${penalty//$'\r'/}"
+        [[ -n "$family" ]] || continue
+        [[ "$penalty" =~ ^-?[0-9]+$ ]] || penalty=0
+        DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES["$family"]="$penalty"
+    done < <(
+        jq -r '
+            .provider_family_stats[]?
+            | select((.provider_family // "") != "")
+            | [.provider_family, (.field_penalty // 0)]
+            | @tsv
+        ' "$MEASUREMENTS_SUMMARY_FILE" 2> /dev/null
+    )
+}
+
+domain_provider_family_field_penalty() {
+    local family="${1:-}"
+    [[ -n "$family" ]] || {
+        printf '%s\n' "0"
+        return 0
+    }
+    if ! declare -p DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES > /dev/null 2>&1; then
+        printf '%s\n' "0"
+        return 0
+    fi
+    if [[ -n "${DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES[$family]:-}" ]]; then
+        printf '%s\n' "${DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES[$family]}"
+        return 0
+    fi
+    printf '%s\n' "0"
+}
+
+domain_priority_weight() {
+    local domain="${1:-}"
+    if ! declare -p DOMAIN_PRIORITY_MAP > /dev/null 2>&1; then
+        printf '%s\n' "0"
+        return 0
+    fi
+    local priority_value="${DOMAIN_PRIORITY_MAP[$domain]:-0}"
+    [[ "$priority_value" =~ ^-?[0-9]+$ ]] || priority_value=0
+    printf '%s\n' "$priority_value"
+}
+
+domain_risk_weight() {
+    local domain="${1:-}"
+    if ! declare -p DOMAIN_RISK_MAP > /dev/null 2>&1; then
+        printf '%s\n' "10"
+        return 0
+    fi
+    local risk="${DOMAIN_RISK_MAP[$domain]:-normal}"
+    case "${risk,,}" in
+        low | safe) printf '%s\n' "0" ;;
+        normal | "") printf '%s\n' "10" ;;
+        elevated | medium) printf '%s\n' "25" ;;
+        high) printf '%s\n' "50" ;;
+        critical) printf '%s\n' "80" ;;
+        custom) printf '%s\n' "20" ;;
+        *) printf '%s\n' "30" ;;
+    esac
+}
+
+prioritize_cycle_for_field_conditions() {
+    local pool_name="$1"
+    local out_name="$2"
+    local previous_domain="${3:-}"
+    local previous_family=""
+    local i domain family same_domain same_family penalty risk_weight priority priority_sort
+    if [[ -n "$previous_domain" ]]; then
+        previous_family=$(domain_provider_family_for "$previous_domain" 2> /dev/null || true)
+    fi
+
+    # shellcheck disable=SC2034 # nameref writes caller variable.
+    local -n _pool="$pool_name"
+    local -n _out_ref="$out_name"
+
+    mapfile -t _out_ref < <(
+        for i in "${!_pool[@]}"; do
+            domain="${_pool[$i]}"
+            [[ -n "$domain" ]] || continue
+            family=$(domain_provider_family_for "$domain" 2> /dev/null || true)
+            [[ -n "$family" ]] || family="$domain"
+            same_domain=0
+            same_family=0
+            if [[ -n "$previous_domain" && "$domain" == "$previous_domain" ]]; then
+                same_domain=1
+            fi
+            if [[ -n "$previous_family" && "$family" == "$previous_family" ]]; then
+                same_family=1
+            fi
+            penalty=$(domain_provider_family_field_penalty "$family")
+            [[ "$penalty" =~ ^-?[0-9]+$ ]] || penalty=0
+            risk_weight=$(domain_risk_weight "$domain")
+            priority=$(domain_priority_weight "$domain")
+            priority_sort=$((-priority))
+            printf '%d\t%d\t%06d\t%06d\t%08d\t%06d\t%s\n' \
+                "$same_domain" \
+                "$same_family" \
+                "$penalty" \
+                "$risk_weight" \
+                "$priority_sort" \
+                "$i" \
+                "$domain"
+        done | sort -t$'\t' -k1,1n -k2,2n -k3,3n -k4,4n -k5,5n -k6,6n | cut -f7-
+    )
+}
+
 shuffle_array_inplace() {
     local -n _arr="$1"
     local _len=${#_arr[@]}
@@ -406,6 +522,7 @@ select_primary_domain() {
 
     mapfile -t priority_group < <(load_priority_domains)
     local -a candidates=()
+    local candidates_from_priority=false
     if [[ ${#priority_group[@]} -gt 0 ]]; then
         for domain in "${AVAILABLE_DOMAINS[@]}"; do
             if domain_exists_in_array "$domain" "${priority_group[@]}"; then
@@ -414,6 +531,8 @@ select_primary_domain() {
         done
         if [[ ${#candidates[@]} -eq 0 ]]; then
             candidates=("${AVAILABLE_DOMAINS[@]}")
+        else
+            candidates_from_priority=true
         fi
     else
         candidates=("${AVAILABLE_DOMAINS[@]}")
@@ -424,6 +543,15 @@ select_primary_domain() {
     ((top_n < 1)) && top_n=1
     if ((top_n > ${#candidates[@]})); then
         top_n=${#candidates[@]}
+    fi
+
+    if [[ "$candidates_from_priority" != "true" ]]; then
+        shuffle_array_inplace candidates
+    fi
+    local -a ranked_candidates=()
+    prioritize_cycle_for_field_conditions candidates ranked_candidates
+    if [[ ${#ranked_candidates[@]} -gt 0 ]]; then
+        candidates=("${ranked_candidates[@]}")
     fi
 
     # shellcheck disable=SC2034 # Used via nameref in pick_random_from_array.
@@ -489,6 +617,11 @@ build_domain_plan() {
         local prev_domain=""
         if [[ ${#DOMAIN_SELECTION_PLAN[@]} -gt 0 ]]; then
             prev_domain="${DOMAIN_SELECTION_PLAN[$((${#DOMAIN_SELECTION_PLAN[@]} - 1))]}"
+        fi
+        local -a prioritized_cycle=()
+        prioritize_cycle_for_field_conditions cycle prioritized_cycle "$prev_domain"
+        if [[ ${#prioritized_cycle[@]} -gt 0 ]]; then
+            cycle=("${prioritized_cycle[@]}")
         fi
         local -a diverse_cycle=()
         build_diverse_cycle_from_pool cycle diverse_cycle "$prev_domain"

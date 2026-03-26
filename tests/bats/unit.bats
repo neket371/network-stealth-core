@@ -18,15 +18,16 @@
     report_a="$tmp_dir/a.json"
     report_b="$tmp_dir/b.json"
     cat > "$report_a" <<EOF
-{"generated":"2026-03-07T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","success":false},{"config_name":"Config 2","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":120}]}
+{"generated":"2026-03-07T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":false},{"config_name":"Config 2","domain":"yandex.ru","provider_family":"yandex","primary_rank":1,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":120}]}
 EOF
     cat > "$report_b" <<EOF
-{"generated":"2026-03-07T11:00:00Z","network_tag":"mobile","provider":"isp-b","region":"spb","configs":[{"config_name":"Config 1","success":false},{"config_name":"Config 2","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":140}]}
+{"generated":"2026-03-07T11:00:00Z","network_tag":"mobile","provider":"isp-b","region":"spb","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":false},{"config_name":"Config 2","domain":"yandex.ru","provider_family":"yandex","primary_rank":1,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":140}]}
 EOF
     out=$(measurement_compare_reports_json "$report_a" "$report_b")
     jq -e '\''.field_verdict == "warning"'\'' <<< "$out" > /dev/null
     jq -e '\''.best_spare == "Config 2"'\'' <<< "$out" > /dev/null
     jq -e '\''.promotion_candidate.config_name == "Config 2"'\'' <<< "$out" > /dev/null
+    jq -e '\''.family_diversity_verdict == "ok" and .config_provider_family_count == 2'\'' <<< "$out" > /dev/null
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -43,14 +44,41 @@ EOF
     MEASUREMENTS_SUMMARY_FILE="$MEASUREMENTS_DIR/latest-summary.json"
     report="$tmp_dir/report.json"
     cat > "$report" <<EOF
-{"generated":"2026-03-08T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":true,"latency_ms":120}]}
+{"generated":"2026-03-08T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":true,"latency_ms":120}]}
 EOF
     imported=$(measurement_import_report_file "$report")
-    test -f "$imported"
+    imported_path=$(jq -r ".stored_file" <<< "$imported")
+    jq -e ".status == \"imported\"" <<< "$imported" > /dev/null
+    test -f "$imported_path"
     test -f "$MEASUREMENTS_SUMMARY_FILE"
     jq -e ".report_count == 1" "$MEASUREMENTS_SUMMARY_FILE" > /dev/null
     echo ok
   '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "measurement_import_report_file returns duplicate without rewriting summary" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    MEASUREMENTS_DIR="$tmp_dir/measurements"
+    MEASUREMENTS_SUMMARY_FILE="$MEASUREMENTS_DIR/latest-summary.json"
+    report="$tmp_dir/report.json"
+    cat > "$report" <<EOF
+{"generated":"2026-03-08T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":true,"latency_ms":120}]}
+EOF
+    first=$(measurement_import_report_file "$report")
+    second=$(measurement_import_report_file "$report")
+    first_path=$(jq -r ".stored_file" <<< "$first")
+    second_path=$(jq -r ".stored_file" <<< "$second")
+    jq -e ".status == \"duplicate\"" <<< "$second" > /dev/null
+    [[ "$second_path" == "$first_path" ]]
+    test -f "$first_path"
+    echo ok
+   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
 }

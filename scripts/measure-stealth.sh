@@ -83,13 +83,13 @@ measure_collect_input_files() {
     local -a files=("$@")
     local -a expanded=()
     if [[ -n "$dir" && -d "$dir" ]]; then
-        mapfile -t expanded < <(find "$dir" -maxdepth 1 -type f -name '*.json' | sort)
+        mapfile -t expanded < <(find "$dir" -type f -name '*.json' | sort)
         files+=("${expanded[@]}")
     fi
     if ((${#files[@]} == 0)); then
         mapfile -t files < <(measurement_collect_report_files)
     fi
-    printf '%s\n' "${files[@]}"
+    printf '%s\n' "${files[@]}" | sed '/^$/d' | awk '!seen[$0]++'
 }
 
 measure_run() {
@@ -158,6 +158,19 @@ measure_run() {
         config_name=$(self_check_trim_ws "$config_name")
         [[ -n "$config_name" ]] || continue
         local config_success=false
+        local config_meta_json="{}"
+
+        config_meta_json=$(jq -c \
+            --arg config_name "$config_name" '
+                .configs[]
+                | select(.name == $config_name)
+                | {
+                    domain: (.domain // null),
+                    provider_family: (.provider_family // .domain // .name // "unknown"),
+                    primary_rank: (.primary_rank // 0)
+                }
+            ' "$clients_json" 2> /dev/null | head -n 1 || true)
+        [[ -n "$config_meta_json" ]] || config_meta_json='{}'
 
         local variant_key
         while IFS= read -r variant_key; do
@@ -210,10 +223,14 @@ measure_run() {
         config_summary=$(jq \
             --arg config_name "$config_name" \
             --argjson config_success "$config_success" \
+            --argjson meta "$config_meta_json" \
             --argjson requested_variants "$requested_variants_json" \
             --argjson results "$report_results" '
                 . + [{
                     config_name: $config_name,
+                    domain: ($meta.domain // null),
+                    provider_family: ($meta.provider_family // ($meta.domain // $config_name)),
+                    primary_rank: ($meta.primary_rank // 0),
                     requested_variants: $requested_variants,
                     success: $config_success,
                     successful_results: (
@@ -268,6 +285,8 @@ measure_compare() {
     local output_file=""
     local dir=""
     local -a input_files=()
+    local reports_json=""
+    local valid_count=0
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -301,6 +320,13 @@ measure_compare() {
         exit 1
     fi
 
+    reports_json=$(measurement_reports_json_from_files "${input_files[@]}")
+    valid_count=$(jq -r 'length' <<< "$reports_json" 2> /dev/null || echo 0)
+    if ((valid_count == 0)); then
+        echo "no valid measurement reports found" >&2
+        exit 1
+    fi
+
     local aggregated
     aggregated=$(measurement_compare_reports_json "${input_files[@]}")
     if [[ -n "$output_file" ]]; then
@@ -315,6 +341,14 @@ measure_import() {
     local dir=""
     local -a input_files=()
     local -a dir_files=()
+    local results_json='[]'
+    local imported_files_json='[]'
+    local duplicate_files_json='[]'
+    local skipped_invalid_json='[]'
+    local scanned_count=0
+    local imported_count=0
+    local duplicate_count=0
+    local skipped_invalid_count=0
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -343,30 +377,79 @@ measure_import() {
     done
 
     if [[ -n "$dir" && -d "$dir" ]]; then
-        mapfile -t dir_files < <(find "$dir" -maxdepth 1 -type f -name '*.json' | sort)
+        mapfile -t dir_files < <(find "$dir" -type f -name '*.json' | sort)
         input_files+=("${dir_files[@]}")
+    fi
+    if ((${#input_files[@]} > 0)); then
+        mapfile -t input_files < <(printf '%s\n' "${input_files[@]}" | sed '/^$/d' | awk '!seen[$0]++')
     fi
     if ((${#input_files[@]} == 0)); then
         echo "no measurement reports found for import" >&2
         exit 1
     fi
 
-    local -a imported=()
+    scanned_count=${#input_files[@]}
     local file
     for file in "${input_files[@]}"; do
         [[ -n "$file" ]] || continue
-        imported+=("$(measurement_import_report_file "$file")")
+        if ! measurement_validate_report_json "$file"; then
+            skipped_invalid_json=$(jq \
+                --arg file "$file" \
+                '. + [$file]' <<< "$skipped_invalid_json")
+            results_json=$(jq \
+                --arg file "$file" \
+                '. + [{
+                    status: "skipped-invalid",
+                    source_file: $file
+                }]' <<< "$results_json")
+            ((skipped_invalid_count += 1))
+            continue
+        fi
+
+        local import_result
+        import_result=$(measurement_import_report_file "$file")
+        results_json=$(jq \
+            --argjson item "$import_result" \
+            '. + [$item]' <<< "$results_json")
+
+        case "$(jq -r '.status // "unknown"' <<< "$import_result")" in
+            imported)
+                imported_files_json=$(jq \
+                    --arg file "$(jq -r '.stored_file // empty' <<< "$import_result")" \
+                    '. + [$file]' <<< "$imported_files_json")
+                ((imported_count += 1))
+                ;;
+            duplicate)
+                duplicate_files_json=$(jq \
+                    --arg file "$(jq -r '.stored_file // empty' <<< "$import_result")" \
+                    '. + [$file]' <<< "$duplicate_files_json")
+                ((duplicate_count += 1))
+                ;;
+        esac
     done
 
     local summary_json
     summary_json=$(measurement_read_summary_json 2> /dev/null || printf '%s\n' '{}')
     local result_json
     result_json=$(jq -n \
-        --argjson imported "$(printf '%s\n' "${imported[@]}" | sed '/^$/d' | jq -R . | jq -s .)" \
+        --argjson scanned_count "$scanned_count" \
+        --argjson imported_count "$imported_count" \
+        --argjson duplicate_count "$duplicate_count" \
+        --argjson skipped_invalid_count "$skipped_invalid_count" \
+        --argjson imported "$imported_files_json" \
+        --argjson duplicates "$duplicate_files_json" \
+        --argjson skipped_invalid "$skipped_invalid_json" \
+        --argjson results "$results_json" \
         --argjson summary "$summary_json" '
             {
+                scanned_count: $scanned_count,
                 imported_files: $imported,
-                imported_count: ($imported | length),
+                imported_count: $imported_count,
+                duplicate_files: $duplicates,
+                duplicate_count: $duplicate_count,
+                skipped_invalid_files: $skipped_invalid,
+                skipped_invalid_count: $skipped_invalid_count,
+                results: $results,
                 summary: $summary
             }')
 
@@ -426,6 +509,8 @@ measure_summarize() {
     local output_file=""
     local dir=""
     local -a input_files=()
+    local reports_json=""
+    local valid_count=0
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -459,6 +544,13 @@ measure_summarize() {
         exit 1
     fi
 
+    reports_json=$(measurement_reports_json_from_files "${input_files[@]}")
+    valid_count=$(jq -r 'length' <<< "$reports_json" 2> /dev/null || echo 0)
+    if ((valid_count == 0)); then
+        echo "no valid measurement reports found" >&2
+        exit 1
+    fi
+
     local aggregated
     aggregated=$(measurement_compare_reports_json "${input_files[@]}")
     if [[ -n "$output_file" ]]; then
@@ -473,10 +565,25 @@ measure_summarize() {
         (
             .configs[]
             | "  - " + .config_name
+              + " | family=" + (.provider_family // "unknown")
               + " | recommended=" + ((.recommended_success_rate_last5 // 0) | tostring)
               + "% | rescue=" + ((.rescue_success_rate_last5 // 0) | tostring)
               + "% | emergency=" + ((.emergency_success_rate_last5 // 0) | tostring)
-              + "% | best=" + (.best_variant // "n/a")
+              + "% | trend=" + (.trend_verdict // "unknown")
+              + " | best=" + (.best_variant // "n/a")
+        ),
+        "",
+        "provider families:",
+        (
+            if ((.provider_family_stats // []) | length) == 0 then
+                "  - n/a"
+            else
+                (.provider_family_stats[]
+                | "  - " + (.provider_family // "unknown")
+                  + " | penalty=" + ((.field_penalty // 0) | tostring)
+                  + " | recommended=" + ((.recommended_success_rate_last5 // 0) | tostring)
+                  + "% | trend=" + (.trend_verdict // "unknown"))
+            end
         ),
         (
             if .promotion_candidate == null then

@@ -379,7 +379,9 @@ status_flow_render_verbose_measurements() {
     echo -e "${BOLD}Field measurements:${NC}"
     if [[ -n "$measurement_summary" ]]; then
         local field_verdict operator_recommendation operator_reason coverage_verdict report_count network_tag_count provider_count region_count
-        local current_primary current_primary_recommended current_primary_rescue best_spare best_spare_recommended recommend_emergency latest_generated
+        local family_diversity_verdict long_term_verdict
+        local current_primary current_primary_family current_primary_recommended current_primary_rescue current_primary_trend
+        local best_spare best_spare_family best_spare_recommended best_spare_trend recommend_emergency latest_generated
         IFS=$'\t' read -r \
             field_verdict \
             operator_recommendation \
@@ -389,19 +391,27 @@ status_flow_render_verbose_measurements() {
             network_tag_count \
             provider_count \
             region_count \
+            family_diversity_verdict \
+            long_term_verdict \
             current_primary \
+            current_primary_family \
             current_primary_recommended \
             current_primary_rescue \
+            current_primary_trend \
             best_spare \
+            best_spare_family \
             best_spare_recommended \
+            best_spare_trend \
             recommend_emergency \
             latest_generated <<< "$measurement_summary"
         echo -e "  Verdict: ${field_verdict}"
         echo -e "  Recommendation: ${operator_recommendation}"
         echo -e "  Reason: ${operator_reason}"
         echo -e "  Coverage: ${coverage_verdict} (${report_count} reports, ${network_tag_count} networks, ${provider_count} providers, ${region_count} regions)"
-        echo -e "  Current primary: ${current_primary} (recommended ${current_primary_recommended}%, rescue ${current_primary_rescue}%)"
-        echo -e "  Best spare: ${best_spare} (recommended ${best_spare_recommended}%)"
+        echo -e "  Family diversity: ${family_diversity_verdict}"
+        echo -e "  Long-term trend: ${long_term_verdict}"
+        echo -e "  Current primary: ${current_primary} [${current_primary_family}] (recommended ${current_primary_recommended}%, rescue ${current_primary_rescue}%, trend ${current_primary_trend})"
+        echo -e "  Best spare: ${best_spare} [${best_spare_family}] (recommended ${best_spare_recommended}%, trend ${best_spare_trend})"
         echo -e "  Recommend emergency: ${recommend_emergency}"
         echo -e "  Latest report: ${latest_generated}"
     else

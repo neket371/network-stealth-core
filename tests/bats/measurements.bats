@@ -9,19 +9,22 @@
     report_a="$tmp_dir/a.json"
     report_b="$tmp_dir/b.json"
     cat > "$report_a" <<EOF
-{"generated":"2026-03-26T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","success":false},{"config_name":"Config 2","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":120}]}
+{"generated":"2026-03-26T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":false},{"config_name":"Config 2","domain":"yandex.ru","provider_family":"yandex","primary_rank":1,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":120}]}
 EOF
     cat > "$report_b" <<EOF
-{"generated":"2026-03-26T11:00:00Z","network_tag":"mobile","provider":"isp-b","region":"spb","configs":[{"config_name":"Config 1","success":false},{"config_name":"Config 2","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":140}]}
+{"generated":"2026-03-26T11:00:00Z","network_tag":"mobile","provider":"isp-b","region":"spb","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":false},{"config_name":"Config 2","domain":"yandex.ru","provider_family":"yandex","primary_rank":1,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":140}]}
 EOF
     summary=$(measurement_compare_reports_json "$report_a" "$report_b")
     jq -e ".coverage_verdict == \"ok\"" <<< "$summary" > /dev/null
     jq -e ".operator_recommendation == \"promote-spare\"" <<< "$summary" > /dev/null
+    jq -e ".family_diversity_verdict == \"ok\"" <<< "$summary" > /dev/null
+    jq -e ".config_provider_family_count == 2" <<< "$summary" > /dev/null
     jq -e ".network_tag_count == 2 and .provider_count == 2 and .region_count == 2" <<< "$summary" > /dev/null
     text=$(measurement_render_summary_text "$summary")
     [[ "$text" == *"operator recommendation: promote-spare"* ]]
     [[ "$text" == *"coverage: ok | reports=2 | networks=2 | providers=2 | regions=2"* ]]
-    [[ "$text" == *"promotion candidate: Config 2 (primary recommended=0%, spare recommended=100%)"* ]]
+    [[ "$text" == *"family diversity: ok | config families=2"* ]]
+    [[ "$text" == *"promotion candidate: Config 2 (primary recommended=0%, spare recommended=100%, candidate family=yandex, independence=ok)"* ]]
     echo ok
   '
     [ "$status" -eq 0 ]
@@ -33,16 +36,19 @@ EOF
     tmp_dir=$(mktemp -d)
     trap "rm -rf \"$tmp_dir\"" EXIT
     cat > "$tmp_dir/a.json" <<EOF
-{"generated":"2026-03-26T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","success":false},{"config_name":"Config 2","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":120}]}
+{"generated":"2026-03-26T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":false},{"config_name":"Config 2","domain":"yandex.ru","provider_family":"yandex","primary_rank":1,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":120}]}
 EOF
     cat > "$tmp_dir/b.json" <<EOF
-{"generated":"2026-03-26T11:00:00Z","network_tag":"mobile","provider":"isp-b","region":"spb","configs":[{"config_name":"Config 1","success":false},{"config_name":"Config 2","success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":140}]}
+{"generated":"2026-03-26T11:00:00Z","network_tag":"mobile","provider":"isp-b","region":"spb","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":false},{"config_name":"Config 2","domain":"yandex.ru","provider_family":"yandex","primary_rank":1,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 1","variant_key":"rescue","success":false,"latency_ms":0,"reason":"blocked"},{"config_name":"Config 2","variant_key":"recommended","success":true,"latency_ms":140}]}
 EOF
     bash ./scripts/measure-stealth.sh summarize --dir "$tmp_dir"
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"operator recommendation: promote-spare"* ]]
     [[ "$output" == *"coverage: ok | reports=2 | networks=2 | providers=2 | regions=2"* ]]
+    [[ "$output" == *"family diversity: ok | config families=2"* ]]
+    [[ "$output" == *"provider families:"* ]]
+    [[ "$output" == *"  - yandex | penalty=0 | recommended=100% | trend=improving"* ]]
     [[ "$output" == *"promotion reason: field reports show weak primary recommended success and a stronger spare"* ]]
 }
 
@@ -51,7 +57,7 @@ EOF
     source ./lib.sh
     source ./service.sh
     measurement_status_summary_tsv() {
-      printf "warning\tpromote-spare\tpromote Config 2: primary recommended=20%%, spare recommended=100%% over the latest saved reports\tok\t3\t2\t2\t2\tConfig 1\t20\t40\tConfig 2\t100\tfalse\t2026-03-26T11:00:00Z\n"
+      printf "warning\tpromote-spare\tpromote Config 2: primary recommended=20%%, spare recommended=100%% over the latest saved reports\tok\t3\t2\t2\t2\tok\tstable\tConfig 1\tvk\t20\t40\tdegrading\tConfig 2\tyandex\t100\timproving\tfalse\t2026-03-26T11:00:00Z\n"
     }
     status_flow_render_verbose_measurements
   '
@@ -59,8 +65,37 @@ EOF
     [[ "$output" == *"Recommendation: promote-spare"* ]]
     [[ "$output" == *"Reason: promote Config 2: primary recommended=20%, spare recommended=100% over the latest saved reports"* ]]
     [[ "$output" == *"Coverage: ok (3 reports, 2 networks, 2 providers, 2 regions)"* ]]
-    [[ "$output" == *"Current primary: Config 1 (recommended 20%, rescue 40%)"* ]]
-    [[ "$output" == *"Best spare: Config 2 (recommended 100%)"* ]]
+    [[ "$output" == *"Family diversity: ok"* ]]
+    [[ "$output" == *"Long-term trend: stable"* ]]
+    [[ "$output" == *"Current primary: Config 1 [vk] (recommended 20%, rescue 40%, trend degrading)"* ]]
+    [[ "$output" == *"Best spare: Config 2 [yandex] (recommended 100%, trend improving)"* ]]
+}
+
+@test "measure-stealth import recurses into nested dirs and skips invalid duplicates cleanly" {
+    run bash -eo pipefail -c '
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    mkdir -p "$tmp_dir/remote/a" "$tmp_dir/remote/b"
+    report="$tmp_dir/remote/a/report.json"
+    duplicate="$tmp_dir/remote/b/report-copy.json"
+    invalid="$tmp_dir/remote/manifest.json"
+    cat > "$report" <<EOF
+{"generated":"2026-03-26T10:00:00Z","network_tag":"home","provider":"isp-a","region":"msk","configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk","primary_rank":0,"success":true}],"results":[{"config_name":"Config 1","variant_key":"recommended","success":true,"latency_ms":120}]}
+EOF
+    cp "$report" "$duplicate"
+    cat > "$invalid" <<EOF
+{"kind":"manifest"}
+EOF
+    MEASUREMENTS_DIR="$tmp_dir/measurements" \
+    MEASUREMENTS_SUMMARY_FILE="$tmp_dir/measurements/latest-summary.json" \
+      bash ./scripts/measure-stealth.sh import --dir "$tmp_dir/remote"
+   '
+    [ "$status" -eq 0 ]
+    jq -e '.scanned_count == 3' <<< "$output" > /dev/null
+    jq -e '.imported_count == 1' <<< "$output" > /dev/null
+    jq -e '.duplicate_count == 1' <<< "$output" > /dev/null
+    jq -e '.skipped_invalid_count == 1' <<< "$output" > /dev/null
+    jq -e '.summary.report_count == 1' <<< "$output" > /dev/null
 }
 
 @test "maybe_promote_runtime_primary_from_observations logs rich measured promotion reason" {

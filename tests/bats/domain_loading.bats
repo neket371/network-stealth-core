@@ -251,6 +251,42 @@ EOF
     [ "${lines[2]}" = "c.com" ]
 }
 
+@test "prioritize_cycle_for_field_conditions prefers lower family penalty over raw priority" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    log() { :; }
+    summary_file=$(mktemp)
+    trap "rm -f \"$summary_file\"" EXIT
+    cat > "$summary_file" <<EOF
+{"provider_family_stats":[
+  {"provider_family":"weakfam","field_penalty":80},
+  {"provider_family":"strongfam","field_penalty":0}
+]}
+EOF
+    MEASUREMENTS_SUMMARY_FILE="$summary_file"
+    declare -gA DOMAIN_PROVIDER_FAMILIES=(
+      ["bad.com"]="weakfam"
+      ["good.com"]="strongfam"
+    )
+    declare -gA DOMAIN_PRIORITY_MAP=(
+      ["bad.com"]="10"
+      ["good.com"]="0"
+    )
+    declare -gA DOMAIN_RISK_MAP=(
+      ["bad.com"]="normal"
+      ["good.com"]="normal"
+    )
+    cycle=("bad.com" "good.com")
+    load_provider_family_field_penalties
+    prioritize_cycle_for_field_conditions cycle ranked ""
+    printf "%s\n" "${ranked[@]}"
+   '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "good.com" ]
+    [ "${lines[1]}" = "bad.com" ]
+}
+
 @test "tier_ru has 150 unique domains and full map coverage" {
     run bash -eo pipefail -c '
     source ./lib.sh
