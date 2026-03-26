@@ -7,6 +7,11 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.8.1] - 2026-03-26
+
+### Changed
+- fix: split measurement aggregate jq program (bfdbad3)
+
 ## [7.8.0] - 2026-03-26
 
 ### Changed

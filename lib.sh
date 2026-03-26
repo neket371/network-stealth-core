@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.8.0 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
+# Network Stealth Core 7.8.1 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.8.0"
+readonly SCRIPT_VERSION="7.8.1"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
