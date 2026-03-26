@@ -41,6 +41,8 @@ sudo bash scripts/measure-stealth.sh import \
   --output /tmp/measure-import.json
 ```
 
+`import --dir` теперь проходит по nested-каталогам, пропускает не-report JSON и дедуплицирует уже импортированные отчёты по content hash.
+
 1. сравни импортированные reports:
 
 ```bash
@@ -60,8 +62,10 @@ sudo bash scripts/measure-stealth.sh summarize \
 отрендеренная summary теперь и есть operator-grade слой:
 
 - `coverage: ok|warning` показывает, достаточно ли сохранённых reports для доверия полевой картине
+- `family diversity: ok|warning` показывает, достаточно ли текущий config set разведён по независимым provider family
+- `long-term: ok|warning` показывает, есть ли деградация на последних окнах отчётов
 - `operator recommendation` говорит, оставлять ли current primary, повышать spare, добирать данные или переходить к полевой проверке `emergency`
-- `promotion candidate` показывает, какой spare с высокой вероятностью поднимут `update --replan` или `repair`
+- `promotion candidate` показывает, какой spare с высокой вероятностью поднимут `update --replan` или `repair`, и даст ли это выигрыш по provider-family independence
 
 1. если в summary написано `operator recommendation: promote-spare`, выполни:
 

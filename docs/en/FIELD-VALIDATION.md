@@ -41,6 +41,8 @@ sudo bash scripts/measure-stealth.sh import \
   --output /tmp/measure-import.json
 ```
 
+`import --dir` now walks nested directories, skips non-report JSON, and deduplicates already imported reports by content hash.
+
 1. compare the imported reports:
 
 ```bash
@@ -60,8 +62,10 @@ sudo bash scripts/measure-stealth.sh summarize \
 the rendered summary is now the operator-grade layer:
 
 - `coverage: ok|warning` tells you whether the saved reports are representative enough
+- `family diversity: ok|warning` tells you whether the current config set still spans enough independent provider families
+- `long-term: ok|warning` tells you whether recent report windows show a degrading trend
 - `operator recommendation` tells you whether to keep the primary, promote a spare, collect more data, or field-test `emergency`
-- `promotion candidate` tells you which spare `update --replan` or `repair` is likely to elevate
+- `promotion candidate` tells you which spare `update --replan` or `repair` is likely to elevate and whether that move improves provider-family independence
 
 1. if the summary says `operator recommendation: promote-spare`, run:
 

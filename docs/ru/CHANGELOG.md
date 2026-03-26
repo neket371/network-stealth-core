@@ -7,6 +7,16 @@
 
 ## [unreleased]
 
+## [7.8.0] - 2026-03-26
+
+### Changed
+- `scripts/measure-stealth.sh import` теперь проходит по nested report tree, игнорирует не-report JSON и дедуплицирует уже импортированные отчёты по content hash вместо того, чтобы валить весь remote-canary batch на одном stray manifest или копии файла
+- operator-facing field summary расширен provider-family diversity, long-term trend review, provider-family penalties и более богатыми деталями по current primary / best spare, которые теперь одинаково читают `summarize`, `status --verbose`, `diagnose`, `repair` и `update --replan`
+- domain planner теперь смещает выбор в сторону provider family с меньшим накопленным полевым penalty, но при этом сохраняет strongest-direct diversity и priority invariants
+
+### Fixed
+- сохраняемые measurement reports теперь несут config-level metadata `domain`, `provider_family` и `primary_rank`, поэтому импортированные field data могут честно влиять на family-aware summary и planner decisions без опоры на случайный runtime state
+
 ## [7.7.0] - 2026-03-26
 
 ### Changed

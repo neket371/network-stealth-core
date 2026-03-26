@@ -7,6 +7,16 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.8.0] - 2026-03-26
+
+### Changed
+- taught `scripts/measure-stealth.sh import` to walk nested report trees, ignore non-report JSON files, and deduplicate already imported reports by content hash instead of failing a whole remote-canary batch on one stray manifest or copied file
+- expanded the operator-facing field summary with provider-family diversity, long-term trend review, provider-family penalties, and richer current-primary / best-spare details reused by `summarize`, `status --verbose`, `diagnose`, `repair`, and `update --replan`
+- made domain planning bias toward lower-penalty provider families from saved field summaries while still preserving strongest-direct diversity and priority invariants
+
+### Fixed
+- saved measurement reports now persist config-level `domain`, `provider_family`, and `primary_rank` metadata, so imported field data can drive family-aware summaries and planner decisions without relying on ambient runtime state
+
 ## [7.7.0] - 2026-03-26
 
 ### Changed

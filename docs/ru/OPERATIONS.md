@@ -126,9 +126,11 @@ sudo xray-reality.sh status --verbose
 - последний self-check verdict
 - последний verdict полевых измерений
 - качество покрытия сохранённых reports
+- diversity по provider family для текущего config set
+- long-term trend verdict по последним окнам отчётов
 - operator recommendation и причина
-- текущий primary config с недавними `recommended`/`rescue` rate
-- лучший spare config с недавним `recommended` rate
+- текущий primary config с недавними `recommended`/`rescue` rate, provider family и trend
+- лучший spare config с недавним `recommended` rate, provider family и trend
 - нужна ли рекомендация `emergency`
 
 ### полная диагностика
@@ -169,6 +171,8 @@ sudo bash scripts/measure-stealth.sh import \
   --output /tmp/measure-import.json
 ```
 
+`import --dir` теперь проходит по nested-каталогам, пропускает JSON, которые не являются measurement-report, и дедуплицирует уже импортированные отчёты по content hash.
+
 ### получить актуальную summary-картину
 
 ```bash
@@ -186,7 +190,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 обычный вызов без subcommand ведёт себя как `run`.
-`summarize` теперь печатает тот же operator-facing recommendation layer, который потом читают `status --verbose`, `diagnose`, `repair` и `update --replan`: качество покрытия, spread по сетям и провайдерам, статистику current primary, статистику лучшего spare и возможный promotion candidate.
+`summarize` теперь печатает тот же operator-facing recommendation layer, который потом читают `status --verbose`, `diagnose`, `repair` и `update --replan`: качество покрытия, spread по сетям и провайдерам, provider-family diversity, long-term trend, статистику current primary, статистику лучшего spare и возможный promotion candidate.
 
 runtime smoke, hosted CI и busy-host lifecycle checks сами по себе не доказывают anti-dpi эффективность в реальных сетях.
 для этого уровня используй отдельный playbook: [FIELD-VALIDATION.md](FIELD-VALIDATION.md).

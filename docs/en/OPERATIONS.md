@@ -126,9 +126,11 @@ verbose status should show:
 - last self-check verdict
 - latest field measurement verdict
 - coverage quality for saved reports
+- provider-family diversity for the current config set
+- long-term trend verdict across recent report windows
 - operator recommendation and reason
-- current primary config with recent `recommended`/`rescue` rates
-- best spare config with recent `recommended` rate
+- current primary config with recent `recommended`/`rescue` rates, provider family, and trend
+- best spare config with recent `recommended` rate, provider family, and trend
 - whether `emergency` is recommended
 
 ### full diagnosis
@@ -169,6 +171,8 @@ sudo bash scripts/measure-stealth.sh import \
   --output /tmp/measure-import.json
 ```
 
+`import --dir` now walks nested directories, skips non-report JSON files, and deduplicates already imported reports by content hash.
+
 ### summarize the latest picture
 
 ```bash
@@ -186,7 +190,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 plain invocation without a subcommand behaves like `run`.
-`summarize` now prints the same operator-facing recommendation layer that `status --verbose`, `diagnose`, `repair`, and `update --replan` read: coverage quality, network/provider spread, current primary stats, best spare stats, and any promotion candidate.
+`summarize` now prints the same operator-facing recommendation layer that `status --verbose`, `diagnose`, `repair`, and `update --replan` read: coverage quality, network/provider spread, provider-family diversity, long-term trend, current primary stats, best spare stats, and any promotion candidate.
 
 runtime smoke, hosted CI, and busy-host lifecycle checks do not prove real-network anti-dpi effectiveness by themselves.
 for that layer, use the separate playbook in [FIELD-VALIDATION.md](FIELD-VALIDATION.md).

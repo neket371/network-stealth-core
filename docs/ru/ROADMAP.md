@@ -15,14 +15,14 @@
 
 ## ближайшие приоритеты
 
-1. ещё сильнее упростить импорт field reports от удалённых canary-операторов
-2. улучшить поддержку catalog и качество provider-family diversity
-3. добавить поверх нового operator-facing field summary нормальный long-term trend review
+1. превратить family-penalty и long-term trend данные в более безопасную автоматическую ротацию для повторно слабых конфигов
+2. добавить более короткий operator-facing doctor-слой с one-screen verdict и actions
+3. дальше сокращать shared mutable state и legacy compatibility noise перед cleanup-линией `v8`
 4. держать двуязычные docs и release metadata идеально синхронными
 
 ## среднесрочное направление
 
-- более сильные operator-tools для импорта field data и просмотра долгосрочных трендов
+- более сильные operator-tools для импорта field data, family diversity и просмотра долгосрочных трендов
 - более безопасная автоматизация retire/rotation для повторно слабых конфигов
 - более богатые capability notes для внешних клиентов, когда появится честная поддержка
 

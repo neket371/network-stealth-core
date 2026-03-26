@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.7.0-0f766e"></a>
+  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.8.0-0f766e"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-97ca00"></a>
   <a href="docs/ru/OPERATIONS.md"><img alt="platform" src="https://img.shields.io/badge/platform-ubuntu%2024.04-1d4ed8"></a>
   <a href="Makefile"><img alt="qa" src="https://img.shields.io/badge/qa-make%20ci-334155"></a>
@@ -52,8 +52,8 @@ sudo XRAY_REPO_COMMIT=<full_commit_sha> bash /tmp/xray-reality.sh install
 ### bootstrap конкретного релиза по тегу
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.7.0/xray-reality.sh -o /tmp/xray-reality.sh
-sudo XRAY_REPO_REF=v7.7.0 bash /tmp/xray-reality.sh install
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.8.0/xray-reality.sh -o /tmp/xray-reality.sh
+sudo XRAY_REPO_REF=v7.8.0 bash /tmp/xray-reality.sh install
 ```
 
 этот путь удобен, когда нужен ровно опубликованный релиз без ручного поиска полного commit.
@@ -112,7 +112,7 @@ sudo xray-reality.sh install --advanced
 - `recommended` и `rescue` валидируются post-action self-check
 - `emergency` экспортируется честно только как raw xray и предназначен для полевых проверок, а не для фейковых ссылок
 - `update --replan` и `repair` могут повышать более сильный spare-config на основе self-check history и сохранённых field measurements
-- `status --verbose`, `diagnose` и `scripts/measure-stealth.sh summarize` теперь показывают один и тот же operator-facing field summary: verdict, качество покрытия, рекомендацию и promotion candidate
+- `status --verbose`, `diagnose` и `scripts/measure-stealth.sh summarize` теперь показывают один и тот же operator-facing field summary: verdict, качество покрытия, diversity по provider family, long-term trend, рекомендацию и promotion candidate
 - server-side DNS здесь намеренно остаётся IPv4-first (`queryStrategy: UseIPv4`) даже при включённых IPv6 listeners; dual-stack в этом контракте означает покрытие входящих соединений, а не IPv6-preferred outbound resolution
 
 ## поверхность state и артефактов
@@ -165,6 +165,7 @@ sudo bash scripts/measure-stealth.sh prune \
 если проверяешь `emergency`, на стороне клиента нужно выставить `xray.browser.dialer`; в POSIX shell используй `env 'xray.browser.dialer=127.0.0.1:11050' ...`, а не `export`.
 hosted CI, nightly runtime smoke и busy-host lifecycle checks доказывают только runtime correctness; для реальной anti-dpi проверки используй [docs/ru/FIELD-VALIDATION.md](docs/ru/FIELD-VALIDATION.md).
 `summarize` теперь печатает operator-facing verdict: качество покрытия, spread по сетям и провайдерам, статистику текущего primary, статистику лучшего spare и ту рекомендацию, на которую потом опираются `status --verbose`, `diagnose`, `repair` и `update --replan`.
+`import --dir` теперь рекурсивно проходит по nested report tree, пропускает посторонние JSON, которые не являются measurement-report, и дедуплицирует уже импортированные отчёты по content hash вместо того, чтобы валить весь batch на одном stray manifest или копии файла.
 
 ## документация для сопровождающих
 
