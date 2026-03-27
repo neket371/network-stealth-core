@@ -7,6 +7,11 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.10.2] - 2026-03-27
+
+### Fixed
+- moved the new release/runtime contract bats guards into `tests/bats/release_contracts.bats`, so `tests/bats/unit.bats` stays below the stage-3 complexity budget and hosted `CI` is green again on the `v7.10.x` line
+
 ## [7.10.1] - 2026-03-27
 
 ### Changed

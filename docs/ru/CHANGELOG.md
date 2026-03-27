@@ -7,6 +7,11 @@
 
 ## [unreleased]
 
+## [7.10.2] - 2026-03-27
+
+### Fixed
+- новые bats-гарды для release/runtime contract вынесены в `tests/bats/release_contracts.bats`, так что `tests/bats/unit.bats` снова укладывается в stage-3 complexity budget и hosted `CI` на линии `v7.10.x` снова зелёный
+
 ## [7.10.1] - 2026-03-27
 
 ### Changed
