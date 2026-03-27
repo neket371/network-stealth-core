@@ -61,6 +61,13 @@ notes:
 EOF
 }
 
+measure_write_output_json() {
+    local out_file="$1"
+    local json_payload="$2"
+    [[ -n "$out_file" ]] || return 0
+    measurement_publish_json_file "$out_file" 0640 "$json_payload"
+}
+
 measure_require_valid_clients_json() {
     local file="$1"
     [[ -n "$file" ]] || {
@@ -266,8 +273,7 @@ measure_run() {
         }')
 
     if [[ -n "$output_file" ]]; then
-        mkdir -p "$(dirname "$output_file")"
-        printf '%s\n' "$final_report" > "$output_file"
+        measure_write_output_json "$output_file" "$final_report"
     fi
     if [[ "$save_report" == true ]]; then
         measurement_save_report "$final_report" > /dev/null
@@ -330,8 +336,7 @@ measure_compare() {
     local aggregated
     aggregated=$(measurement_compare_reports_json "${input_files[@]}")
     if [[ -n "$output_file" ]]; then
-        mkdir -p "$(dirname "$output_file")"
-        printf '%s\n' "$aggregated" > "$output_file"
+        measure_write_output_json "$output_file" "$aggregated"
     fi
     printf '%s\n' "$aggregated"
 }
@@ -455,8 +460,7 @@ measure_import() {
             }')
 
     if [[ -n "$output_file" ]]; then
-        mkdir -p "$(dirname "$output_file")"
-        printf '%s\n' "$result_json" > "$output_file"
+        measure_write_output_json "$output_file" "$result_json"
     fi
     printf '%s\n' "$result_json"
 }
@@ -500,8 +504,7 @@ measure_prune() {
     local result_json
     result_json=$(measurement_prune_reports "$keep_last" "$dry_run")
     if [[ -n "$output_file" ]]; then
-        mkdir -p "$(dirname "$output_file")"
-        printf '%s\n' "$result_json" > "$output_file"
+        measure_write_output_json "$output_file" "$result_json"
     fi
     printf '%s\n' "$result_json"
 }
@@ -555,8 +558,7 @@ measure_summarize() {
     local aggregated
     aggregated=$(measurement_compare_reports_json "${input_files[@]}")
     if [[ -n "$output_file" ]]; then
-        mkdir -p "$(dirname "$output_file")"
-        printf '%s\n' "$aggregated" > "$output_file"
+        measure_write_output_json "$output_file" "$aggregated"
     fi
 
     measurement_render_summary_text "$aggregated"

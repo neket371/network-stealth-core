@@ -174,17 +174,32 @@ operator_self_check_summary_json() {
 }
 
 operator_field_summary_json() {
-    local summary_json=""
-    summary_json=$(measurement_read_summary_json 2> /dev/null || true)
-    if [[ -n "$summary_json" ]]; then
-        printf '%s\n' "$summary_json"
+    local summary_status_json="" summary_state="" summary_reason="" summary_file=""
+    summary_status_json=$(measurement_summary_status_json 2> /dev/null || true)
+    summary_state=$(jq -r '.state // "missing"' <<< "$summary_status_json" 2> /dev/null || echo "missing")
+    summary_reason=$(jq -r '.reason // empty' <<< "$summary_status_json" 2> /dev/null || true)
+    summary_file=$(jq -r '.summary_file // empty' <<< "$summary_status_json" 2> /dev/null || true)
+
+    if [[ "$summary_state" == "ok" ]]; then
+        jq -c \
+            --arg summary_state "$summary_state" \
+            --arg summary_file "$summary_file" \
+            '.summary + {
+                summary_state: $summary_state,
+                summary_state_reason: null,
+                summary_file: (if ($summary_file | length) > 0 then $summary_file else null end)
+            }' <<< "$summary_status_json"
         return 0
     fi
 
-    jq -n '{
+    jq -n \
+        --arg summary_state "$summary_state" \
+        --arg summary_reason "$summary_reason" \
+        --arg summary_file "$summary_file" '
+        {
         field_verdict: "unknown",
         operator_recommendation: "unknown",
-        operator_recommendation_reason: "n/a",
+        operator_recommendation_reason: (if ($summary_reason | length) > 0 then $summary_reason else "n/a" end),
         coverage_verdict: "unknown",
         family_diversity_verdict: "unknown",
         long_term_verdict: "unknown",
@@ -205,6 +220,9 @@ operator_field_summary_json() {
         cooldown_domains: [],
         promotion_candidate: null,
         promotion_block_reason: null,
+        summary_state: $summary_state,
+        summary_state_reason: (if ($summary_reason | length) > 0 then $summary_reason else null end),
+        summary_file: (if ($summary_file | length) > 0 then $summary_file else null end),
         rotation_state: {
             primary_weak_streak: 0,
             cooldown_families: [],
@@ -220,6 +238,7 @@ operator_decision_overall_verdict() {
     local self_check_verdict="$4"
     local decision_recommendation="$5"
     local coverage_verdict="$6"
+    local summary_state="${7:-missing}"
 
     if [[ "$managed_present" != "true" ]]; then
         printf '%s\n' "not-installed"
@@ -255,6 +274,11 @@ operator_decision_overall_verdict() {
         *) ;;
     esac
 
+    if [[ "$summary_state" == "invalid" ]]; then
+        printf '%s\n' "warning"
+        return 0
+    fi
+
     case "$decision_recommendation" in
         promote-spare | field-test-emergency | collect-more-data | watch-and-collect-more | hold-cooldown)
             printf '%s\n' "warning"
@@ -275,6 +299,7 @@ operator_decision_next_action() {
     local overall_verdict="$1"
     local decision_recommendation="$2"
     local recommend_emergency="$3"
+    local summary_state="${4:-missing}"
 
     case "$overall_verdict" in
         not-installed)
@@ -284,6 +309,10 @@ operator_decision_next_action() {
             printf '%s\n' "sudo xray-reality.sh repair --non-interactive --yes"
             ;;
         warning)
+            if [[ "$summary_state" == "invalid" ]]; then
+                printf '%s\n' "rebuild or reimport saved field reports before trusting promotion decisions"
+                return 0
+            fi
             case "$decision_recommendation" in
                 promote-spare)
                     printf '%s\n' "sudo xray-reality.sh update --replan --non-interactive --yes"
@@ -318,13 +347,14 @@ operator_decision_payload_json() {
     self_check_json=$(operator_self_check_summary_json)
     field_json=$(operator_field_summary_json)
 
-    local managed_present service_state config_state self_check_verdict decision_recommendation coverage_verdict recommend_emergency overall_verdict next_action
+    local managed_present service_state config_state self_check_verdict decision_recommendation coverage_verdict recommend_emergency overall_verdict next_action summary_state
     managed_present=$(jq -r '.managed_present' <<< "$runtime_json")
     service_state=$(jq -r '.service_state // "unknown"' <<< "$runtime_json")
     config_state=$(jq -r '.config_state // "missing"' <<< "$runtime_json")
     self_check_verdict=$(jq -r '.verdict // "unknown"' <<< "$self_check_json")
     coverage_verdict=$(jq -r '.coverage_verdict // "unknown"' <<< "$field_json")
     recommend_emergency=$(jq -r '.recommend_emergency // false' <<< "$field_json")
+    summary_state=$(jq -r '.summary_state // "missing"' <<< "$field_json")
 
     decision_recommendation=$(jq -r '
         if (.promotion_candidate // null) != null then
@@ -348,8 +378,9 @@ operator_decision_payload_json() {
         "$config_state" \
         "$self_check_verdict" \
         "$decision_recommendation" \
-        "$coverage_verdict")
-    next_action=$(operator_decision_next_action "$overall_verdict" "$decision_recommendation" "$recommend_emergency")
+        "$coverage_verdict" \
+        "$summary_state")
+    next_action=$(operator_decision_next_action "$overall_verdict" "$decision_recommendation" "$recommend_emergency" "$summary_state")
 
     jq -n \
         --argjson runtime "$runtime_json" \
@@ -364,7 +395,9 @@ operator_decision_payload_json() {
             field: $field,
             decision_recommendation: $decision_recommendation,
             decision_reason: (
-                if $decision_recommendation == "promote-spare" then
+                if (($field.summary_state // "missing") == "invalid") then
+                    ($field.summary_state_reason // "saved measurement summary is invalid")
+                elif $decision_recommendation == "promote-spare" then
                     ($field.promotion_candidate.reason // $field.operator_recommendation_reason // "n/a")
                 elif $decision_recommendation == "hold-cooldown" then
                     ($field.promotion_block_reason // "cooldown is still active")

@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.10.0-0f766e"></a>
+  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.10.1-0f766e"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-97ca00"></a>
   <a href="docs/en/OPERATIONS.md"><img alt="platform" src="https://img.shields.io/badge/platform-ubuntu%2024.04-1d4ed8"></a>
   <a href="Makefile"><img alt="qa" src="https://img.shields.io/badge/qa-make%20ci-334155"></a>
@@ -52,8 +52,8 @@ for production-like installs, pin the bootstrap wrapper to an exact repo commit.
 ### pinned bootstrap by release tag
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.10.0/xray-reality.sh -o /tmp/xray-reality.sh
-sudo XRAY_REPO_REF=v7.10.0 bash /tmp/xray-reality.sh install
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.10.1/xray-reality.sh -o /tmp/xray-reality.sh
+sudo XRAY_REPO_REF=v7.10.1 bash /tmp/xray-reality.sh install
 ```
 
 use this when you want the exact published release without looking up the full commit first.
@@ -201,6 +201,8 @@ notes:
 - interactive `install` always asks for the config count; use `--num-configs n` to skip the prompt or `--non-interactive --yes` for scripted installs
 - legacy aliases `global-ms10` and `global-ms10-auto` still map to `global-50` and `global-50-auto`
 - `XRAY_DATA_DIR` is not a free-form trusted code source in wrapper mode; use `XRAY_ALLOW_CUSTOM_DATA_DIR=true` only for trusted non-world-writable source trees whose sourced shell files and symlink targets stay inside that tree
+- managed wrapper self-sync now mirrors the current source tree exactly, so stale manual files under `XRAY_DATA_DIR` are removed on the next managed sync instead of surviving by accident
+- custom `XRAY_GEOIP_URL` / `XRAY_GEOSITE_URL` and checksum URLs must stay on hosts allowed by `DOWNLOAD_HOST_ALLOWLIST`; geo refresh now runs through the normal update path and keeps the previous working assets when checksum verification fails
 
 ## documentation map
 

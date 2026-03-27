@@ -62,6 +62,7 @@ policy_json_from_runtime() {
         --arg self_check_history "${SELF_CHECK_HISTORY_FILE:-/var/lib/xray/self-check-history.ndjson}" \
         --arg measurements_dir "${MEASUREMENTS_DIR:-/var/lib/xray/measurements}" \
         --arg measurements_summary "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}" \
+        --arg measurements_rotation_state "${MEASUREMENTS_ROTATION_STATE_FILE:-$(dirname "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}")/rotation-state.json}" \
         --arg browser_dialer_env "${BROWSER_DIALER_ENV_NAME:-xray.browser.dialer}" \
         --arg browser_dialer_address "${XRAY_BROWSER_DIALER_ADDRESS:-127.0.0.1:11050}" \
         --argjson probe_urls "$probe_urls_json" \
@@ -101,6 +102,7 @@ policy_json_from_runtime() {
                 variants: $measurement_variants,
                 reports_dir: $measurements_dir,
                 summary_file: $measurements_summary,
+                rotation_state_file: $measurements_rotation_state,
                 urls: $probe_urls
             },
             update: {
@@ -121,6 +123,7 @@ save_policy_file() {
 
 load_policy_file() {
     local file="$1"
+    local previous_measurements_summary_file="${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}"
     [[ -n "$file" && -f "$file" ]] || return 0
     command -v jq > /dev/null 2>&1 || return 0
     jq empty "$file" > /dev/null 2>&1 || return 0
@@ -190,6 +193,12 @@ load_policy_file() {
         MEASUREMENTS_SUMMARY_FILE="$loaded_summary_file"
     fi
 
+    local loaded_rotation_state_file
+    loaded_rotation_state_file=$(jq -r '.measurement.rotation_state_file // empty' "$file" 2> /dev/null || true)
+    if [[ -n "$loaded_rotation_state_file" && "$loaded_rotation_state_file" != "null" ]]; then
+        MEASUREMENTS_ROTATION_STATE_FILE="$loaded_rotation_state_file"
+    fi
+
     local loaded_flow
     loaded_flow=$(jq -r '.transport.flow // empty' "$file" 2> /dev/null || true)
     if [[ -n "$loaded_flow" && "$loaded_flow" != "null" ]]; then
@@ -224,5 +233,9 @@ load_policy_file() {
     loaded_replan=$(jq -r '.update.replan // empty' "$file" 2> /dev/null || true)
     if [[ "$loaded_replan" == "true" || "$loaded_replan" == "false" ]]; then
         REPLAN="$loaded_replan"
+    fi
+
+    if declare -F sync_measurements_rotation_state_file_contract > /dev/null 2>&1; then
+        sync_measurements_rotation_state_file_contract "$previous_measurements_summary_file"
     fi
 }

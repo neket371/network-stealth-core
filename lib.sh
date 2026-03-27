@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.10.0 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair, doctor)
+# Network Stealth Core 7.10.1 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair, doctor)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.10.0"
+readonly SCRIPT_VERSION="7.10.1"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
@@ -322,11 +322,14 @@ resolve_paths() {
     log STEP "Проверяем системные пути..."
     local resolve_errors=0
     local previous_data_dir="${XRAY_DATA_DIR:-$DEFAULT_DATA_DIR}"
+    local previous_measurements_dir="${MEASUREMENTS_DIR:-/var/lib/xray/measurements}"
+    local previous_measurements_summary_file="${MEASUREMENTS_SUMMARY_FILE:-${previous_measurements_dir%/}/latest-summary.json}"
     local tiers_file_is_managed_default=false
     local sni_pools_file_is_managed_default=false
     local transport_endpoints_is_managed_default=false
     local grpc_services_is_managed_default=false
     local domain_catalog_is_managed_default=false
+    local measurements_summary_is_managed_default=false
 
     if [[ -z "${XRAY_TIERS_FILE:-}" || "$XRAY_TIERS_FILE" == "$previous_data_dir/domains.tiers" ]]; then
         tiers_file_is_managed_default=true
@@ -342,6 +345,9 @@ resolve_paths() {
     fi
     if [[ -z "${XRAY_DOMAIN_CATALOG_FILE:-}" || "$XRAY_DOMAIN_CATALOG_FILE" == "$previous_data_dir/data/domains/catalog.json" ]]; then
         domain_catalog_is_managed_default=true
+    fi
+    if [[ -z "${MEASUREMENTS_SUMMARY_FILE:-}" || "$MEASUREMENTS_SUMMARY_FILE" == "${previous_measurements_dir%/}/latest-summary.json" ]]; then
+        measurements_summary_is_managed_default=true
     fi
 
     if ! _resolve_path XRAY_BIN "Бинарник Xray" \
@@ -422,7 +428,10 @@ resolve_paths() {
         XRAY_DOMAIN_CATALOG_FILE="$XRAY_DATA_DIR/data/domains/catalog.json"
     fi
     SELF_CHECK_HISTORY_FILE="${XRAY_HOME%/}/self-check-history.ndjson"
-    MEASUREMENTS_SUMMARY_FILE="${MEASUREMENTS_DIR%/}/latest-summary.json"
+    if [[ "$measurements_summary_is_managed_default" == true ]]; then
+        MEASUREMENTS_SUMMARY_FILE="${MEASUREMENTS_DIR%/}/latest-summary.json"
+    fi
+    sync_measurements_rotation_state_file_contract "$previous_measurements_summary_file"
 
     local bin_dir
     bin_dir=$(dirname "$XRAY_BIN")

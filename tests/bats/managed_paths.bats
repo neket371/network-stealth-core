@@ -41,7 +41,7 @@
     [[ "$output" == *"present"* ]]
 }
 
-@test "install_self_sync_tree stages root files atomically while preserving existing extras" {
+@test "install_self_sync_tree stages a clean mirror and removes stale extras" {
     run bash -eo pipefail -c '
     source ./modules/install/bootstrap.sh
     log() { :; }
@@ -57,7 +57,7 @@
     printf "%s\n" "script" > "$src_root/scripts/lab/sample.sh"
 
     printf "%s\n" "old-lib" > "$dest_root/lib.sh"
-    printf "%s\n" "keep-me" > "$dest_root/custom-extra.txt"
+    printf "%s\n" "stale-extra" > "$dest_root/custom-extra.txt"
 
     install_self_sync_tree "$src_root" "$dest_root"
 
@@ -65,7 +65,7 @@
     [[ "$(cat "$dest_root/modules/lib/sample.sh")" == "module" ]]
     [[ "$(cat "$dest_root/data/domains/catalog.json")" == "catalog" ]]
     [[ "$(cat "$dest_root/scripts/lab/sample.sh")" == "script" ]]
-    [[ "$(cat "$dest_root/custom-extra.txt")" == "keep-me" ]]
+    [[ ! -e "$dest_root/custom-extra.txt" ]]
     echo "ok"
   '
     [ "$status" -eq 0 ]

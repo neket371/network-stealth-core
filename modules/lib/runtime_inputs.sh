@@ -355,7 +355,7 @@ strict_validate_runtime_safe_vars() {
         AUTO_UPDATE_ONCALENDAR AUTO_UPDATE_RANDOM_DELAY
         HEALTH_CHECK_INTERVAL SELF_CHECK_TIMEOUT_SEC LOG_RETENTION_DAYS LOG_MAX_SIZE_MB
         PROGRESS_MODE XRAY_PROGRESS_MODE XRAY_POLICY XRAY_DOMAIN_CATALOG_FILE
-        MEASUREMENTS_DIR MEASUREMENTS_SUMMARY_FILE XRAY_CLIENT_MIN_VERSION
+        MEASUREMENTS_DIR MEASUREMENTS_SUMMARY_FILE MEASUREMENTS_ROTATION_STATE_FILE XRAY_CLIENT_MIN_VERSION
         XRAY_DIRECT_FLOW BROWSER_DIALER_ENV_NAME XRAY_BROWSER_DIALER_ADDRESS
     )
 
@@ -403,6 +403,12 @@ strict_validate_runtime_file_contracts() {
             return 1
         fi
     fi
+    if [[ -n "$MEASUREMENTS_ROTATION_STATE_FILE" ]]; then
+        if [[ "$MEASUREMENTS_ROTATION_STATE_FILE" != /* ]] || [[ ! "$MEASUREMENTS_ROTATION_STATE_FILE" =~ ^/[A-Za-z0-9._/+:-]+$ ]]; then
+            log ERROR "MEASUREMENTS_ROTATION_STATE_FILE содержит небезопасные символы: ${MEASUREMENTS_ROTATION_STATE_FILE}"
+            return 1
+        fi
+    fi
     if [[ -n "$MEASUREMENTS_DIR" ]]; then
         if [[ "$MEASUREMENTS_DIR" != /* ]] || [[ ! "$MEASUREMENTS_DIR" =~ ^/[A-Za-z0-9._/+:-]+$ ]]; then
             log ERROR "MEASUREMENTS_DIR содержит небезопасные символы: ${MEASUREMENTS_DIR}"
@@ -414,8 +420,8 @@ strict_validate_runtime_file_contracts() {
 strict_validate_runtime_download_contracts() {
     local url_var
     for url_var in XRAY_GEOIP_URL XRAY_GEOSITE_URL XRAY_GEOIP_SHA256_URL XRAY_GEOSITE_SHA256_URL; do
-        if [[ -n "${!url_var:-}" ]] && ! is_valid_https_url "${!url_var}"; then
-            log ERROR "${url_var}: требуется HTTPS URL"
+        if [[ -n "${!url_var:-}" ]] && ! validate_curl_target "${!url_var}" true; then
+            log ERROR "${url_var}: требуется HTTPS URL из DOWNLOAD_HOST_ALLOWLIST"
             return 1
         fi
     done

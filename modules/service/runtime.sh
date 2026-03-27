@@ -612,6 +612,12 @@ update_xray() {
     backup_file "$XRAY_BIN"
     install_minisign
     install_xray
+    if declare -F refresh_geo_assets > /dev/null 2>&1; then
+        if ! refresh_geo_assets; then
+            log ERROR "Не удалось обновить GeoIP/GeoSite после обновления Xray"
+            exit 1
+        fi
+    fi
 
     if [[ -f "$XRAY_CONFIG" ]]; then
         if ! xray_config_test_ok "$XRAY_CONFIG"; then

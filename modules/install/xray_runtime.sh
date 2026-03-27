@@ -564,6 +564,163 @@ install_xray_finalize_install() {
     log OK "Xray ${installed_version} установлен и проверен"
 }
 
+xray_geo_asset_url() {
+    local asset="$1"
+    case "$asset" in
+        geoip.dat)
+            printf '%s\n' "${XRAY_GEOIP_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat}"
+            ;;
+        geosite.dat)
+            printf '%s\n' "${XRAY_GEOSITE_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat}"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+xray_geo_asset_sha256_url() {
+    local asset="$1"
+    case "$asset" in
+        geoip.dat)
+            printf '%s\n' "${XRAY_GEOIP_SHA256_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat.sha256sum}"
+            ;;
+        geosite.dat)
+            printf '%s\n' "${XRAY_GEOSITE_SHA256_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat.sha256sum}"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+xray_geo_flag_enabled() {
+    case "${1,,}" in
+        true | 1 | yes | on)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+xray_geo_expected_sha256() {
+    local sha_file="$1"
+    sed -n '1{s/[[:space:]].*$//;p;}' "$sha_file"
+}
+
+xray_geo_publish_asset() {
+    local src_file="$1"
+    local dest_file="$2"
+    local tmp_file=""
+
+    mkdir -p "$(dirname "$dest_file")" || return 1
+    tmp_file=$(mktemp "${dest_file}.tmp.XXXXXX") || return 1
+    if ! install -m 644 "$src_file" "$tmp_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+    if ! mv -f "$tmp_file" "$dest_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+}
+
+refresh_geo_asset() {
+    local asset="$1"
+    local asset_url sha_url verify_hash strict_mode asset_dir dest_file
+    local tmp_dir="" tmp_asset="" tmp_sha="" expected_hash="" actual_hash=""
+
+    asset_url=$(xray_geo_asset_url "$asset") || {
+        log ERROR "Неизвестный geo asset: ${asset}"
+        return 1
+    }
+    sha_url=$(xray_geo_asset_sha256_url "$asset") || {
+        log ERROR "Неизвестный checksum path для geo asset: ${asset}"
+        return 1
+    }
+    verify_hash=false
+    strict_mode=false
+    xray_geo_flag_enabled "${GEO_VERIFY_HASH:-true}" && verify_hash=true
+    xray_geo_flag_enabled "${GEO_VERIFY_STRICT:-false}" && strict_mode=true
+
+    validate_curl_target "$asset_url" true || return 1
+    if [[ "$verify_hash" == true ]]; then
+        validate_curl_target "$sha_url" true || return 1
+    fi
+
+    asset_dir=$(xray_geo_dir)
+    dest_file="${asset_dir%/}/${asset}"
+    tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/xray-geo.XXXXXX") || {
+        log ERROR "Не удалось создать временную директорию для ${asset}"
+        return 1
+    }
+    # shellcheck disable=SC2317,SC2329
+    cleanup_refresh_geo_asset() {
+        rm -f "${tmp_asset:-}" "${tmp_sha:-}" 2> /dev/null || true
+        rm -rf "${tmp_dir:-}" 2> /dev/null || true
+        trap - RETURN
+    }
+    trap cleanup_refresh_geo_asset RETURN
+
+    tmp_asset=$(mktemp "${tmp_dir}/${asset}.part.XXXXXX") || return 1
+    if ! download_file_allowlist "$asset_url" "$tmp_asset" "Скачиваем ${asset}..."; then
+        log ERROR "Не удалось скачать ${asset}"
+        return 1
+    fi
+
+    if [[ "$verify_hash" == true ]]; then
+        tmp_sha=$(mktemp "${tmp_dir}/${asset}.sha256.XXXXXX") || return 1
+        if ! download_file_allowlist "$sha_url" "$tmp_sha" "Скачиваем SHA256 для ${asset}..."; then
+            if [[ "$strict_mode" == true ]]; then
+                log ERROR "Не удалось скачать SHA256 для ${asset} при GEO_VERIFY_STRICT=true"
+                return 1
+            fi
+            log WARN "Не удалось скачать SHA256 для ${asset}; оставляем текущий файл без замены"
+            return 1
+        fi
+
+        expected_hash=$(xray_geo_expected_sha256 "$tmp_sha")
+        actual_hash=$(sha256sum "$tmp_asset" | awk '{print $1}')
+        if [[ -z "$expected_hash" || "$expected_hash" != "$actual_hash" ]]; then
+            log ERROR "Контрольная сумма ${asset} не совпала"
+            return 1
+        fi
+    fi
+
+    if ! xray_geo_publish_asset "$tmp_asset" "$dest_file"; then
+        log ERROR "Не удалось атомарно обновить ${asset}"
+        return 1
+    fi
+    log OK "${asset} обновлён"
+}
+
+refresh_geo_assets() {
+    local strict_mode=false
+    local had_failure=false
+    local asset
+
+    xray_geo_flag_enabled "${GEO_VERIFY_STRICT:-false}" && strict_mode=true
+
+    log STEP "Обновляем GeoIP/GeoSite..."
+    for asset in geoip.dat geosite.dat; do
+        if ! refresh_geo_asset "$asset"; then
+            if [[ "$strict_mode" == true ]]; then
+                return 1
+            fi
+            had_failure=true
+        fi
+    done
+
+    if [[ "$had_failure" == true ]]; then
+        log WARN "Часть geo assets не обновилась; оставлены предыдущие рабочие файлы"
+        return 0
+    fi
+
+    log OK "GeoIP/GeoSite обновлены"
+}
+
 install_xray() {
     log STEP "Устанавливаем Xray-core с криптографической проверкой..."
 

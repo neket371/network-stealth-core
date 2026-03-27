@@ -7,6 +7,18 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.10.1] - 2026-03-27
+
+### Changed
+- made wrapper self-sync publish `XRAY_DATA_DIR` as a clean managed mirror, so stale files removed from the source tree no longer survive inside the managed wrapper tree after later updates
+- moved GeoIP/GeoSite refresh onto the normal `update` runtime path and reduced the generated auto-update script to a thin wrapper that just executes `xray-reality.sh update --non-interactive`
+- exposed invalid saved measurement summaries as an explicit degraded operator state instead of flattening them into a generic `unknown` fallback
+
+### Fixed
+- enforced `DOWNLOAD_HOST_ALLOWLIST` for custom GeoIP/GeoSite asset URLs and checksum URLs, so the geo-refresh path no longer trusts arbitrary `https` origins with self-consistent checksums
+- completed the runtime contract for `MEASUREMENTS_ROTATION_STATE_FILE` across config loading, policy loading, path validation, destructive guards, and `config.env` persistence
+- switched measurement summary/report persistence and `measure-stealth.sh --output` writes to atomic publish, so truncated JSON no longer silently degrades the decision layer
+
 ## [7.10.0] - 2026-03-27
 
 ### Changed

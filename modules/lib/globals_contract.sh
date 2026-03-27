@@ -217,6 +217,19 @@ sync_transport_endpoint_file_contract() {
         XRAY_GRPC_SERVICES_FILE="$XRAY_TRANSPORT_ENDPOINTS_FILE"
     fi
 }
+
+sync_measurements_rotation_state_file_contract() {
+    local previous_summary_file="${1:-${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}}"
+    local current_summary_file="${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}"
+    local previous_default_path current_default_path
+
+    previous_default_path="$(dirname "$previous_summary_file")/rotation-state.json"
+    current_default_path="$(dirname "$current_summary_file")/rotation-state.json"
+
+    if [[ -z "${MEASUREMENTS_ROTATION_STATE_FILE:-}" || "$MEASUREMENTS_ROTATION_STATE_FILE" == "$previous_default_path" ]]; then
+        MEASUREMENTS_ROTATION_STATE_FILE="$current_default_path"
+    fi
+}
 if ! declare -p FIREWALL_ROLLBACK_ENTRIES > /dev/null 2>&1; then FIREWALL_ROLLBACK_ENTRIES=(); fi
 if ! declare -p FIREWALL_FIREWALLD_DIRTY > /dev/null 2>&1; then FIREWALL_FIREWALLD_DIRTY=false; fi
 if ! declare -p CREATED_PATHS > /dev/null 2>&1; then CREATED_PATHS=(); fi

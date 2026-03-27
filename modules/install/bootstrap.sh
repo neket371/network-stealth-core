@@ -243,12 +243,6 @@ install_self_sync_tree() {
         exit 1
     }
 
-    if [[ -d "$dest_root" ]] && ! cp -a "$dest_root/." "$stage_root/"; then
-        rm -rf "$stage_root"
-        log ERROR "Не удалось подготовить staging-копию текущего managed source tree"
-        exit 1
-    fi
-
     if ! install_self_copy_tree_into_stage "$src_root/modules" "$stage_root" "modules"; then
         rm -rf "$stage_root"
         log ERROR "Не удалось собрать staging-копию modules"
@@ -382,94 +376,8 @@ setup_auto_update() {
 
     backup_file "$XRAY_UPDATE_SCRIPT"
     {
-        # shellcheck disable=SC2016 # Intentional: vars expand at runtime, not build time
-        cat << 'UPDATEEOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-XRAY_BIN_PATH="${XRAY_BIN_PATH:-}"
-if [[ -z "$XRAY_BIN_PATH" ]]; then
-    XRAY_BIN_PATH="$(command -v xray 2>/dev/null || echo /usr/local/bin/xray)"
-fi
-GEO_DIR="${XRAY_GEO_DIR:-$(dirname "$XRAY_BIN_PATH")}"
-GEOIP_URL="${XRAY_GEOIP_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat}"
-GEOSITE_URL="${XRAY_GEOSITE_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat}"
-GEOIP_SHA256_URL="${XRAY_GEOIP_SHA256_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat.sha256sum}"
-GEOSITE_SHA256_URL="${XRAY_GEOSITE_SHA256_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat.sha256sum}"
-GEO_VERIFY_HASH="${GEO_VERIFY_HASH:-true}"
-GEO_VERIFY_STRICT="${GEO_VERIFY_STRICT:-false}"
-
-mkdir -p "$GEO_DIR"
-
-download_geo_with_verify() {
-    local name="$1"
-    local url="$2"
-    local sha_url="$3"
-    local dest="$GEO_DIR/$name"
-    local tmp_file
-    tmp_file=$(mktemp)
-    local tmp_sha
-    tmp_sha=$(mktemp)
-
-    echo "Downloading $name..."
-    if [[ "$url" != https://* ]] || [[ "$sha_url" != https://* ]]; then
-        echo "WARN: Insecure URL blocked for $name" >&2
-        rm -f "$tmp_file" "$tmp_sha"
-        return 1
-    fi
-
-    if ! curl --fail --show-error --silent --location \
-        --proto '=https' --tlsv1.2 \
-        --retry 3 --retry-delay 1 -o "$tmp_file" "$url"; then
-        echo "WARN: Failed to download $name" >&2
-        rm -f "$tmp_file" "$tmp_sha"
-        return 1
-    fi
-
-    if [[ "$GEO_VERIFY_HASH" == "true" ]]; then
-        echo "Verifying $name checksum..."
-        if ! curl --fail --show-error --silent --location \
-            --proto '=https' --tlsv1.2 \
-            --retry 3 --retry-delay 1 -o "$tmp_sha" "$sha_url"; then
-            if [[ "$GEO_VERIFY_STRICT" == "true" ]]; then
-                echo "ERROR: Failed to download $name checksum and GEO_VERIFY_STRICT=true" >&2
-                rm -f "$tmp_file" "$tmp_sha"
-                return 1
-            fi
-            echo "WARN: Failed to download $name checksum, skipping verification" >&2
-        else
-            local expected_hash
-            expected_hash=$(sed -n '1{s/[[:space:]].*$//;p;}' "$tmp_sha")
-            local actual_hash
-            actual_hash=$(sha256sum "$tmp_file" | awk '{print $1}')
-
-            if [[ "$expected_hash" != "$actual_hash" ]]; then
-                echo "ERROR: $name checksum mismatch!" >&2
-                echo "  Expected: $expected_hash" >&2
-                echo "  Actual:   $actual_hash" >&2
-                rm -f "$tmp_file" "$tmp_sha"
-                return 1
-            fi
-            echo "$name checksum verified OK"
-        fi
-    fi
-
-    mv -f "$tmp_file" "$dest"
-    chmod 644 "$dest"
-    rm -f "$tmp_sha"
-    echo "$name updated successfully"
-    return 0
-}
-
-echo "Updating Geo files..."
-if [[ "$GEO_VERIFY_STRICT" == "true" ]]; then
-    download_geo_with_verify "geoip.dat" "$GEOIP_URL" "$GEOIP_SHA256_URL"
-    download_geo_with_verify "geosite.dat" "$GEOSITE_URL" "$GEOSITE_SHA256_URL"
-else
-    download_geo_with_verify "geoip.dat" "$GEOIP_URL" "$GEOIP_SHA256_URL" || true
-    download_geo_with_verify "geosite.dat" "$GEOSITE_URL" "$GEOSITE_SHA256_URL" || true
-fi
-UPDATEEOF
+        printf '%s\n' '#!/usr/bin/env bash'
+        printf '%s\n' 'set -euo pipefail'
         printf 'exec %q update --non-interactive\n' "$XRAY_SCRIPT_PATH"
     } | atomic_write "$XRAY_UPDATE_SCRIPT" 0755
 

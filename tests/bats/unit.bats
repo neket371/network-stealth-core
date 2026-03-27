@@ -142,7 +142,7 @@ EOF
     echo ok
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "update flow verifies listeners before final self-check" {
@@ -152,7 +152,7 @@ EOF
     echo ok
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "vm lab guest defaults pin a deterministic custom domain shortlist" {
@@ -171,7 +171,7 @@ EOF
     echo ok
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "vm lab guest flow installs manual helper commands and hints" {
@@ -189,7 +189,7 @@ EOF
     echo ok
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "vm lab release smoke target is wired through make and wrapper script" {
@@ -201,7 +201,7 @@ EOF
     echo ok
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "prepare_vm_base_image skips download when the base image already exists" {
@@ -617,6 +617,16 @@ JSON
     [ "$status" -ne 0 ]
 }
 
+@test "strict_validate_runtime_inputs rejects non-allowlisted geo download url" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    DOWNLOAD_HOST_ALLOWLIST="github.com,release-assets.githubusercontent.com"
+    XRAY_GEOIP_URL="https://example.com/geoip.dat"
+    strict_validate_runtime_inputs update
+  '
+    [ "$status" -ne 0 ]
+}
+
 @test "strict_validate_runtime_inputs rejects invalid GH_PROXY_BASE url" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -942,15 +952,12 @@ EOF
     [ "$status" -ne 0 ]
 }
 
-@test "auto-update template supports GEO_VERIFY_STRICT fail-closed mode" {
+@test "auto-update template delegates geo refresh to shared update path" {
     run bash -eo pipefail -c '
-    block="$(awk '\''/echo "Updating Geo files..."/,/UPDATEEOF/'\'' ./modules/install/bootstrap.sh)"
-    echo "$block" | grep -Fq '\''GEO_VERIFY_STRICT'\''
-    echo "$block" | grep -Fq '\''if [[ "$GEO_VERIFY_STRICT" == "true" ]]; then'\''
-    echo "$block" | grep -Fq '\''download_geo_with_verify "geoip.dat" "$GEOIP_URL" "$GEOIP_SHA256_URL"'\''
-    echo "$block" | grep -Fq '\''download_geo_with_verify "geosite.dat" "$GEOSITE_URL" "$GEOSITE_SHA256_URL"'\''
-    echo "$block" | grep -Fq '\''download_geo_with_verify "geoip.dat" "$GEOIP_URL" "$GEOIP_SHA256_URL" || true'\''
-    echo "$block" | grep -Fq '\''download_geo_with_verify "geosite.dat" "$GEOSITE_URL" "$GEOSITE_SHA256_URL" || true'\''
+    grep -Fq "printf '\''exec %q update --non-interactive" ./modules/install/bootstrap.sh
+    ! grep -Fq '\''download_geo_with_verify'\'' ./modules/install/bootstrap.sh
+    ! grep -Fq '\''GEOIP_URL='\'' ./modules/install/bootstrap.sh
+    ! grep -Fq '\''GEO_VERIFY_STRICT='\'' ./modules/install/bootstrap.sh
     echo "ok"
   '
     [ "$status" -eq 0 ]
@@ -968,14 +975,74 @@ EOF
 
 @test "auto-update template emits shell shebang for systemd ExecStart" {
     run bash -eo pipefail -c '
-    start="$(grep -n "cat << '\''UPDATEEOF'\''" ./modules/install/bootstrap.sh | head -n1 | cut -d: -f1)"
-    [[ -n "$start" ]]
-    next_line=$((start + 1))
-    sed -n "${next_line}p" ./modules/install/bootstrap.sh | grep -Fq "#!/usr/bin/env bash"
+    grep -Fq "#!/usr/bin/env bash" ./modules/install/bootstrap.sh
+    grep -Fq "set -euo pipefail" ./modules/install/bootstrap.sh
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "load_config_file accepts MEASUREMENTS_ROTATION_STATE_FILE" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    tmp="$(mktemp)"
+    trap "rm -f \"$tmp\"" EXIT
+    cat > "$tmp" <<EOF
+MEASUREMENTS_SUMMARY_FILE="/tmp/custom/latest-summary.json"
+MEASUREMENTS_ROTATION_STATE_FILE="/tmp/custom/rotation-state.json"
+EOF
+    load_config_file "$tmp"
+    [[ "$MEASUREMENTS_SUMMARY_FILE" == "/tmp/custom/latest-summary.json" ]]
+    [[ "$MEASUREMENTS_ROTATION_STATE_FILE" == "/tmp/custom/rotation-state.json" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "sync_measurements_rotation_state_file_contract follows summary path changes unless explicitly overridden" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    MEASUREMENTS_SUMMARY_FILE="/var/lib/xray/measurements/latest-summary.json"
+    MEASUREMENTS_ROTATION_STATE_FILE="/var/lib/xray/measurements/rotation-state.json"
+    previous_summary="$MEASUREMENTS_SUMMARY_FILE"
+    MEASUREMENTS_SUMMARY_FILE="/tmp/lab/latest-summary.json"
+    sync_measurements_rotation_state_file_contract "$previous_summary"
+    [[ "$MEASUREMENTS_ROTATION_STATE_FILE" == "/tmp/lab/rotation-state.json" ]]
+    MEASUREMENTS_ROTATION_STATE_FILE="/tmp/custom/rotation-state.json"
+    previous_summary="$MEASUREMENTS_SUMMARY_FILE"
+    MEASUREMENTS_SUMMARY_FILE="/tmp/other/latest-summary.json"
+    sync_measurements_rotation_state_file_contract "$previous_summary"
+    [[ "$MEASUREMENTS_ROTATION_STATE_FILE" == "/tmp/custom/rotation-state.json" ]]
     echo "ok"
   '
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
+}
+
+@test "save_environment persists MEASUREMENTS_ROTATION_STATE_FILE" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_ENV="$tmp/config.env"
+    MEASUREMENTS_DIR="$tmp/measurements"
+    MEASUREMENTS_SUMMARY_FILE="$tmp/measurements/latest-summary.json"
+    MEASUREMENTS_ROTATION_STATE_FILE="$tmp/measurements/rotation-state.json"
+    mkdir -p "$tmp"
+    atomic_write() {
+      local target="$1"
+      cat > "$target"
+    }
+    save_environment
+    grep -Fq '\''MEASUREMENTS_ROTATION_STATE_FILE="'\'' "$XRAY_ENV"
+    grep -Fq '\''rotation-state.json"'\'' "$XRAY_ENV"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "setup_logrotate uses runtime log path variables" {

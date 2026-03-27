@@ -43,6 +43,33 @@ measurement_ensure_storage() {
     chmod 750 "$reports_dir" "$(dirname "$summary_file")" "$(dirname "$rotation_state_file")" 2> /dev/null || true
 }
 
+measurement_publish_json_file() {
+    local out_file="$1"
+    local mode="${2:-0640}"
+    local json_content="${3:-}"
+    local tmp_file=""
+
+    [[ -n "$out_file" ]] || return 1
+    mkdir -p "$(dirname "$out_file")" || return 1
+
+    tmp_file=$(mktemp "${out_file}.tmp.XXXXXX") || return 1
+    if ! printf '%s\n' "$json_content" > "$tmp_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+    if ! mv -f "$tmp_file" "$out_file"; then
+        rm -f "$tmp_file"
+        return 1
+    fi
+
+    chmod "$mode" "$out_file" 2> /dev/null || true
+    chown "root:${XRAY_GROUP}" "$out_file" 2> /dev/null || true
+}
+
+measurement_invalid_summary_reason() {
+    printf '%s\n' "saved measurement summary is invalid; rebuild or reimport reports"
+}
+
 measurement_rotation_state_default_json() {
     local current_primary="${1:-}"
     local current_family="${2:-}"
@@ -150,20 +177,11 @@ measurement_write_rotation_state_json() {
     local state_json="${1:-}"
     [[ -n "$state_json" ]] || return 1
     measurement_ensure_storage
-    local state_file tmp_file
+    local state_file
     state_file=$(measurement_rotation_state_file_path)
     state_json=$(measurement_rotation_state_trim_json "$state_json")
 
-    if declare -F atomic_write > /dev/null 2>&1; then
-        atomic_write "$state_file" 0640 <<< "$state_json"
-    else
-        tmp_file=$(mktemp "${state_file}.tmp.XXXXXX") || return 1
-        printf '%s\n' "$state_json" > "$tmp_file"
-        chmod 0640 "$tmp_file" 2> /dev/null || true
-        mv "$tmp_file" "$state_file"
-    fi
-    chmod 640 "$state_file" 2> /dev/null || true
-    chown "root:${XRAY_GROUP}" "$state_file" 2> /dev/null || true
+    measurement_publish_json_file "$state_file" 0640 "$state_json" || return 1
     measurement_refresh_summary
 }
 
@@ -573,9 +591,8 @@ measurement_refresh_summary() {
     mapfile -t files < <(measurement_collect_report_files)
     reports_json=$(measurement_reports_json_from_files "${files[@]}")
     aggregated_summary=$(measurement_aggregate_reports_json "$reports_json")
-    measurement_overlay_rotation_state "$aggregated_summary" > "$summary_file"
-    chmod 640 "$summary_file" 2> /dev/null || true
-    chown "root:${XRAY_GROUP}" "$summary_file" 2> /dev/null || true
+    aggregated_summary=$(measurement_overlay_rotation_state "$aggregated_summary") || return 1
+    measurement_publish_json_file "$summary_file" 0640 "$aggregated_summary"
 }
 
 measurement_save_report() {
@@ -590,24 +607,64 @@ measurement_save_report() {
         region=$(jq -r '.region // "unknown"' <<< "$report_json" 2> /dev/null || echo "unknown")
         out_file="${reports_dir}/$(measurement_report_filename "$network_tag" "$provider" "$region")"
     fi
-    printf '%s\n' "$report_json" > "$out_file"
-    chmod 640 "$out_file" 2> /dev/null || true
-    chown "root:${XRAY_GROUP}" "$out_file" 2> /dev/null || true
+    measurement_publish_json_file "$out_file" 0640 "$report_json" || return 1
     measurement_refresh_summary
     printf '%s\n' "$out_file"
 }
 
-measurement_read_summary_json() {
+measurement_summary_status_json() {
     local summary_file
     summary_file=$(measurement_summary_file_path)
-    [[ -f "$summary_file" ]] || return 1
-    if jq -e 'type == "object"' "$summary_file" > /dev/null 2>&1; then
-        local summary_json
-        summary_json=$(cat "$summary_file")
-        measurement_overlay_rotation_state "$summary_json"
+    if [[ ! -f "$summary_file" ]]; then
+        jq -n \
+            --arg state "missing" \
+            --arg reason "no saved field reports yet" \
+            --arg summary_file "$summary_file" \
+            '{
+                state: $state,
+                reason: $reason,
+                summary_file: $summary_file
+            }'
         return 0
     fi
-    return 1
+
+    if jq -e 'type == "object"' "$summary_file" > /dev/null 2>&1; then
+        local summary_json=""
+        summary_json=$(cat "$summary_file")
+        if summary_json=$(measurement_overlay_rotation_state "$summary_json" 2> /dev/null); then
+            if jq -e 'type == "object"' <<< "$summary_json" > /dev/null 2>&1; then
+                jq -n \
+                    --arg state "ok" \
+                    --arg summary_file "$summary_file" \
+                    --argjson summary "$summary_json" \
+                    '{
+                        state: $state,
+                        reason: null,
+                        summary_file: $summary_file,
+                        summary: $summary
+                    }'
+                return 0
+            fi
+        fi
+    fi
+
+    jq -n \
+        --arg state "invalid" \
+        --arg reason "$(measurement_invalid_summary_reason)" \
+        --arg summary_file "$summary_file" \
+        '{
+            state: $state,
+            reason: $reason,
+            summary_file: $summary_file
+        }'
+}
+
+measurement_read_summary_json() {
+    local status_json summary_state
+    status_json=$(measurement_summary_status_json)
+    summary_state=$(jq -r '.state // "invalid"' <<< "$status_json" 2> /dev/null || echo "invalid")
+    [[ "$summary_state" == "ok" ]] || return 1
+    jq -c '.summary' <<< "$status_json"
 }
 
 measurement_compare_reports_json() {
@@ -673,7 +730,10 @@ measurement_import_report_file() {
     [[ -n "$suffix" ]] || suffix="$(date -u '+%H%M%S%N' | cut -c1-12)"
     out_file="$(measurement_reports_dir_path)/$(measurement_report_filename "$network_tag" "$provider" "$region" | sed "s/\\.json$/-${suffix}.json/")"
 
-    measurement_save_report "$report_json" "$out_file" > /dev/null
+    measurement_save_report "$report_json" "$out_file" > /dev/null || {
+        echo "measurement import could not persist report: $source_file" >&2
+        return 1
+    }
     jq -n \
         --arg status "imported" \
         --arg source_file "$source_file" \

@@ -7,6 +7,18 @@
 
 ## [unreleased]
 
+## [7.10.1] - 2026-03-27
+
+### Changed
+- self-sync wrapper’а теперь публикует `XRAY_DATA_DIR` как чистый managed mirror, так что stale-файлы, уже удалённые из source tree, больше не переживают последующие апдейты внутри managed wrapper tree
+- GeoIP/GeoSite refresh перенесён в обычный runtime-path `update`, а generated auto-update script ужат до тонкой обёртки, которая просто запускает `xray-reality.sh update --non-interactive`
+- битый сохранённый measurement summary теперь показывается как явный degraded operator state, а не схлопывается в безликий `unknown`
+
+### Fixed
+- custom URL для GeoIP/GeoSite и checksum теперь обязаны проходить `DOWNLOAD_HOST_ALLOWLIST`, так что geo-refresh path больше не доверяет произвольным `https` origin с self-consistent checksum
+- `MEASUREMENTS_ROTATION_STATE_FILE` доведён до полного runtime-contract через config loading, policy loading, path validation, destructive guard и persistence в `config.env`
+- measurement summary/report persistence и explicit `measure-stealth.sh --output` writes переведены на atomic publish, поэтому обрезанный JSON больше не деградирует decision layer тихо
+
 ## [7.10.0] - 2026-03-27
 
 ### Changed

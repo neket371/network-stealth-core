@@ -208,3 +208,31 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "invalid measurement summary becomes explicit degraded operator state" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    MEASUREMENTS_DIR="$tmp_dir/measurements"
+    MEASUREMENTS_SUMMARY_FILE="$tmp_dir/measurements/latest-summary.json"
+    MEASUREMENTS_ROTATION_STATE_FILE="$tmp_dir/measurements/rotation-state.json"
+    mkdir -p "$MEASUREMENTS_DIR"
+    printf "{broken\n" > "$MEASUREMENTS_SUMMARY_FILE"
+    operator_runtime_state_json() {
+      cat <<EOF
+{"managed_present":true,"service_state":"active","config_state":"ok","transport":"xhttp","installed_version":"25.9.5"}
+EOF
+    }
+    payload=$(operator_decision_payload_json)
+    jq -e ".field.summary_state == \"invalid\"" <<< "$payload" > /dev/null
+    jq -e ".field.summary_state_reason == \"saved measurement summary is invalid; rebuild or reimport reports\"" <<< "$payload" > /dev/null
+    jq -e ".overall_verdict == \"warning\"" <<< "$payload" > /dev/null
+    jq -e ".decision_reason == \"saved measurement summary is invalid; rebuild or reimport reports\"" <<< "$payload" > /dev/null
+    jq -e ".next_action == \"rebuild or reimport saved field reports before trusting promotion decisions\"" <<< "$payload" > /dev/null
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
