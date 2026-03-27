@@ -56,6 +56,17 @@ fi
 # shellcheck source=modules/install/selection.sh
 source "$INSTALL_SELECTION_MODULE"
 
+OPERATOR_DECISION_MODULE="$SCRIPT_DIR/modules/health/operator_decision.sh"
+if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
+fi
+if [[ ! -f "$OPERATOR_DECISION_MODULE" ]]; then
+    log ERROR "Не найден модуль operator decision: $OPERATOR_DECISION_MODULE"
+    exit 1
+fi
+# shellcheck source=modules/health/operator_decision.sh
+source "$OPERATOR_DECISION_MODULE"
+
 optimize_system() {
     log STEP "Оптимизируем систему..."
 
@@ -299,70 +310,18 @@ maybe_promote_runtime_primary_from_observations() {
         return 1
     fi
 
-    local current_primary candidate_name candidate_reason
-    local summary_json=""
+    local current_primary decision_json candidate_name candidate_reason promotion_block_reason
     current_primary=$(runtime_config_name_at_index 0)
-    candidate_name=""
-    candidate_reason=""
-    summary_json=$(measurement_read_summary_json 2> /dev/null || true)
+    decision_json=$(operator_rotation_apply_observations "${ACTION:-runtime-mutation}" 2> /dev/null || true)
+    [[ -n "$decision_json" ]] || return 1
 
-    local last_verdict warning_streak
-    last_verdict=$(self_check_last_verdict 2> /dev/null || echo "unknown")
-    warning_streak=$(self_check_warning_streak_count 2> /dev/null || echo 0)
+    candidate_name=$(jq -r '.promotion_name // empty' <<< "$decision_json" 2> /dev/null || true)
+    candidate_reason=$(jq -r '.promotion_reason // empty' <<< "$decision_json" 2> /dev/null || true)
+    promotion_block_reason=$(jq -r '.promotion_block_reason // empty' <<< "$decision_json" 2> /dev/null || true)
 
-    if [[ "$last_verdict" == "broken" ]]; then
-        if [[ -n "$summary_json" ]]; then
-            candidate_name=$(jq -r '.best_spare // empty' <<< "$summary_json" 2> /dev/null || true)
-            if [[ -n "$candidate_name" ]]; then
-                candidate_reason=$(jq -r '
-                    if (.best_spare // empty) == "" then
-                        empty
-                    else
-                        "last self-check verdict is broken; field summary prefers "
-                        + .best_spare
-                        + " (recommended "
-                        + ((.best_spare_stats.recommended_success_rate_last5 // 0) | tostring)
-                        + "%, best "
-                        + ((.best_spare_stats.best_variant // "n/a") | tostring)
-                        + " "
-                        + ((.best_spare_stats.best_variant_success_rate_last5 // 0) | tostring)
-                        + "%)"
-                    end
-                ' <<< "$summary_json" 2> /dev/null || true)
-            fi
-        fi
-        [[ -n "$candidate_name" ]] || candidate_name=$(runtime_config_name_at_index 1)
-        [[ -n "$candidate_reason" ]] || candidate_reason="last self-check verdict is broken"
-    elif [[ "$warning_streak" =~ ^[0-9]+$ ]] && ((warning_streak >= 2)); then
-        if [[ -n "$summary_json" ]]; then
-            candidate_name=$(jq -r '.best_spare // empty' <<< "$summary_json" 2> /dev/null || true)
-            if [[ -n "$candidate_name" ]]; then
-                candidate_reason=$(jq -r '
-                    if (.best_spare // empty) == "" then
-                        empty
-                    else
-                        "last two self-check verdicts are warning; field summary prefers "
-                        + .best_spare
-                        + " (recommended "
-                        + ((.best_spare_stats.recommended_success_rate_last5 // 0) | tostring)
-                        + "%, best "
-                        + ((.best_spare_stats.best_variant // "n/a") | tostring)
-                        + " "
-                        + ((.best_spare_stats.best_variant_success_rate_last5 // 0) | tostring)
-                        + "%)"
-                    end
-                ' <<< "$summary_json" 2> /dev/null || true)
-            fi
-        fi
-        [[ -n "$candidate_name" ]] || candidate_name=$(runtime_config_name_at_index 1)
-        [[ -n "$candidate_reason" ]] || candidate_reason="last two self-check verdicts are warning"
-    else
-        local promotion_json
-        promotion_json=$(measurement_promotion_candidate_json 2> /dev/null || true)
-        if [[ -n "$promotion_json" && "$promotion_json" != "null" ]]; then
-            candidate_name=$(jq -r '.config_name // empty' <<< "$promotion_json" 2> /dev/null || true)
-            candidate_reason=$(jq -r '.reason // empty' <<< "$promotion_json" 2> /dev/null || true)
-        fi
+    if ! jq -e '.should_promote == true' <<< "$decision_json" > /dev/null 2>&1; then
+        [[ -n "$promotion_block_reason" ]] && log INFO "Rotation удержана: ${promotion_block_reason}"
+        return 1
     fi
 
     [[ -n "$candidate_name" ]] || return 1

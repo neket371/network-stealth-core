@@ -6,8 +6,8 @@ this document defines the security posture and disclosure process for **network 
 
 | version line | status |
 |---|---|
-| `7.9.x` | supported |
-| `<7.9` | unsupported in this repository |
+| `7.10.x` | supported |
+| `<7.10` | unsupported in this repository |
 
 ## reporting vulnerabilities
 
@@ -123,6 +123,7 @@ destructive path validation is intentionally exact-scope:
 | `/var/lib/xray/self-check-history.ndjson` | `root:xray` | `0640` | recent self-check history |
 | `/var/lib/xray/measurements` | `root:xray` | `0750` | saved field reports |
 | `/var/lib/xray/measurements/latest-summary.json` | `root:xray` | `0640` | aggregated field verdict |
+| `/var/lib/xray/measurements/rotation-state.json` | `root:xray` | `0640` | persisted weak-primary streak and cooldown state |
 | `/var/backups/xray` | `root:root` | `0700` | rollback sessions |
 
 ## risky overrides

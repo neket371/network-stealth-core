@@ -95,6 +95,7 @@ source "$LEGACY_TRANSPORT_CONTRACT_MODULE"
 : "${SELF_CHECK_HISTORY_FILE:=/var/lib/xray/self-check-history.ndjson}"
 : "${MEASUREMENTS_DIR:=/var/lib/xray/measurements}"
 : "${MEASUREMENTS_SUMMARY_FILE:=/var/lib/xray/measurements/latest-summary.json}"
+: "${MEASUREMENTS_ROTATION_STATE_FILE:=$(dirname "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}")/rotation-state.json}"
 
 : "${SERVER_IP:=}"
 : "${SERVER_IP6:=}"

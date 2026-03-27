@@ -64,8 +64,10 @@ the rendered summary is now the operator-grade layer:
 - `coverage: ok|warning` tells you whether the saved reports are representative enough
 - `family diversity: ok|warning` tells you whether the current config set still spans enough independent provider families
 - `long-term: ok|warning` tells you whether recent report windows show a degrading trend
+- `rotation verdict` tells you whether the stronger spare is promotable now or still cooling down
 - `operator recommendation` tells you whether to keep the primary, promote a spare, collect more data, or field-test `emergency`
 - `promotion candidate` tells you which spare `update --replan` or `repair` is likely to elevate and whether that move improves provider-family independence
+- `cooldown families` and `cooldown domains` show which recently burned paths are intentionally kept out of the next rotation round
 
 1. if the summary says `operator recommendation: promote-spare`, run:
 

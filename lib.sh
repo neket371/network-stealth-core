@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.9.1 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair, doctor)
+# Network Stealth Core 7.10.0 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair, doctor)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.9.1"
+readonly SCRIPT_VERSION="7.10.0"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
@@ -103,6 +103,7 @@ PRIMARY_PIN_DOMAIN="${PRIMARY_PIN_DOMAIN:-}"
 PRIMARY_ADAPTIVE_TOP_N="${PRIMARY_ADAPTIVE_TOP_N:-5}"
 MEASUREMENTS_DIR="${MEASUREMENTS_DIR:-/var/lib/xray/measurements}"
 MEASUREMENTS_SUMMARY_FILE="${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}"
+MEASUREMENTS_ROTATION_STATE_FILE="${MEASUREMENTS_ROTATION_STATE_FILE:-$(dirname "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}")/rotation-state.json}"
 SELF_CHECK_HISTORY_FILE="${SELF_CHECK_HISTORY_FILE:-/var/lib/xray/self-check-history.ndjson}"
 # managed strongest-direct contract epoch is sourced from modules/lib/version_contract.sh.
 STEALTH_CONTRACT_VERSION="${STEALTH_CONTRACT_VERSION:-}"

@@ -345,6 +345,24 @@ load_provider_family_field_penalties() {
             | @tsv
         ' "$MEASUREMENTS_SUMMARY_FILE" 2> /dev/null
     )
+
+    while IFS=$'\t' read -r family penalty; do
+        family="${family//$'\r'/}"
+        penalty="${penalty//$'\r'/}"
+        [[ -n "$family" ]] || continue
+        [[ "$penalty" =~ ^-?[0-9]+$ ]] || penalty=0
+        if [[ -n "${DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES[$family]:-}" ]] && [[ "${DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES[$family]}" =~ ^-?[0-9]+$ ]] && ((DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES[$family] > penalty)); then
+            continue
+        fi
+        DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES["$family"]="$penalty"
+    done < <(
+        jq -r '
+            (.rotation_state.cooldown_families // [])[]?
+            | select((.family // "") != "")
+            | [.family, 100]
+            | @tsv
+        ' "$MEASUREMENTS_SUMMARY_FILE" 2> /dev/null
+    )
 }
 
 domain_rotation_family_to_avoid() {

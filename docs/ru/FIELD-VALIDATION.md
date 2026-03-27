@@ -64,8 +64,10 @@ sudo bash scripts/measure-stealth.sh summarize \
 - `coverage: ok|warning` показывает, достаточно ли сохранённых reports для доверия полевой картине
 - `family diversity: ok|warning` показывает, достаточно ли текущий config set разведён по независимым provider family
 - `long-term: ok|warning` показывает, есть ли деградация на последних окнах отчётов
+- `rotation verdict` показывает, можно ли продвигать более сильный spare прямо сейчас или он ещё держится в cooldown
 - `operator recommendation` говорит, оставлять ли current primary, повышать spare, добирать данные или переходить к полевой проверке `emergency`
 - `promotion candidate` показывает, какой spare с высокой вероятностью поднимут `update --replan` или `repair`, и даст ли это выигрыш по provider-family independence
+- `cooldown families` и `cooldown domains` показывают, какие недавно сгоревшие пути специально удерживаются вне ближайшего rotation round
 
 1. если в summary написано `operator recommendation: promote-spare`, выполни:
 

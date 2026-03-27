@@ -6,8 +6,8 @@
 
 | линейка версий | статус |
 |---|---|
-| `7.9.x` | поддерживается |
-| `<7.9` | не поддерживается в этом репозитории |
+| `7.10.x` | поддерживается |
+| `<7.10` | не поддерживается в этом репозитории |
 
 ## сообщение об уязвимостях
 
@@ -123,6 +123,7 @@ destructive path validation намеренно жёсткая по scope:
 | `/var/lib/xray/self-check-history.ndjson` | `root:xray` | `0640` | недавняя история self-check |
 | `/var/lib/xray/measurements` | `root:xray` | `0750` | сохранённые field reports |
 | `/var/lib/xray/measurements/latest-summary.json` | `root:xray` | `0640` | агрегированный field verdict |
+| `/var/lib/xray/measurements/rotation-state.json` | `root:xray` | `0640` | сохранённые weak-primary streak и cooldown state |
 | `/var/backups/xray` | `root:root` | `0700` | rollback sessions |
 
 ## рискованные overrides

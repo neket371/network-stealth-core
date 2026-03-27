@@ -30,12 +30,242 @@ measurement_summary_file_path() {
     printf '%s\n' "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}"
 }
 
+measurement_rotation_state_file_path() {
+    printf '%s\n' "${MEASUREMENTS_ROTATION_STATE_FILE:-$(dirname "$(measurement_summary_file_path)")/rotation-state.json}"
+}
+
 measurement_ensure_storage() {
-    local reports_dir summary_file
+    local reports_dir summary_file rotation_state_file
     reports_dir=$(measurement_reports_dir_path)
     summary_file=$(measurement_summary_file_path)
-    mkdir -p "$reports_dir" "$(dirname "$summary_file")"
-    chmod 750 "$reports_dir" "$(dirname "$summary_file")" 2> /dev/null || true
+    rotation_state_file=$(measurement_rotation_state_file_path)
+    mkdir -p "$reports_dir" "$(dirname "$summary_file")" "$(dirname "$rotation_state_file")"
+    chmod 750 "$reports_dir" "$(dirname "$summary_file")" "$(dirname "$rotation_state_file")" 2> /dev/null || true
+}
+
+measurement_rotation_state_default_json() {
+    local current_primary="${1:-}"
+    local current_family="${2:-}"
+    local current_domain="${3:-}"
+    jq -n \
+        --arg generated "$(measurement_now_utc)" \
+        --arg current_primary "$current_primary" \
+        --arg current_family "$current_family" \
+        --arg current_domain "$current_domain" \
+        '{
+            generated: $generated,
+            current_primary: (if ($current_primary | length) > 0 then $current_primary else null end),
+            current_primary_family: (if ($current_family | length) > 0 then $current_family else null end),
+            current_primary_domain: (if ($current_domain | length) > 0 then $current_domain else null end),
+            primary_weak_streak: 0,
+            cooldown_families: [],
+            cooldown_domains: [],
+            last_promotion_reason: null,
+            last_stable_summary_snapshot: null
+        }'
+}
+
+measurement_rotation_state_trim_json() {
+    local state_json="${1:-}"
+    [[ -n "$state_json" ]] || state_json='{}'
+    jq '
+        .primary_weak_streak = ((.primary_weak_streak // 0) | if type == "number" then . else 0 end)
+        | .cooldown_families = (
+            (.cooldown_families // [])
+            | map(
+                select((.family // "") != "")
+                | {
+                    family: .family,
+                    reason: (.reason // null),
+                    remaining_actions: ((.remaining_actions // 0) | if type == "number" then . else 0 end)
+                }
+            )
+            | map(select(.remaining_actions > 0))
+        )
+        | .cooldown_domains = (
+            (.cooldown_domains // [])
+            | map(
+                select((.domain // "") != "")
+                | {
+                    domain: .domain,
+                    reason: (.reason // null),
+                    remaining_actions: ((.remaining_actions // 0) | if type == "number" then . else 0 end)
+                }
+            )
+            | map(select(.remaining_actions > 0))
+        )
+    ' <<< "$state_json"
+}
+
+measurement_rotation_state_resolved_json() {
+    local summary_json="${1:-"{}"}"
+    local state_file current_primary current_family current_domain state_json=""
+    state_file=$(measurement_rotation_state_file_path)
+    current_primary=$(jq -r '.current_primary // empty' <<< "$summary_json" 2> /dev/null || true)
+    current_family=$(jq -r '.current_primary_family // .current_primary_stats.provider_family // empty' <<< "$summary_json" 2> /dev/null || true)
+    current_domain=$(jq -r '.current_primary_stats.domain // empty' <<< "$summary_json" 2> /dev/null || true)
+
+    if [[ -f "$state_file" ]] && jq -e 'type == "object"' "$state_file" > /dev/null 2>&1; then
+        state_json=$(cat "$state_file")
+    else
+        measurement_rotation_state_default_json "$current_primary" "$current_family" "$current_domain"
+        return 0
+    fi
+
+    measurement_rotation_state_trim_json "$state_json" |
+        jq \
+            --arg current_primary "$current_primary" \
+            --arg current_family "$current_family" \
+            --arg current_domain "$current_domain" '
+            .current_primary = (
+                if ((.current_primary // "") | length) > 0 then
+                    .current_primary
+                elif ($current_primary | length) > 0 then
+                    $current_primary
+                else
+                    null
+                end
+            )
+            | .current_primary_family = (
+                if ((.current_primary_family // "") | length) > 0 then
+                    .current_primary_family
+                elif ($current_family | length) > 0 then
+                    $current_family
+                else
+                    null
+                end
+            )
+            | .current_primary_domain = (
+                if ((.current_primary_domain // "") | length) > 0 then
+                    .current_primary_domain
+                elif ($current_domain | length) > 0 then
+                    $current_domain
+                else
+                    null
+                end
+            )'
+}
+
+measurement_write_rotation_state_json() {
+    local state_json="${1:-}"
+    [[ -n "$state_json" ]] || return 1
+    measurement_ensure_storage
+    local state_file tmp_file
+    state_file=$(measurement_rotation_state_file_path)
+    state_json=$(measurement_rotation_state_trim_json "$state_json")
+
+    if declare -F atomic_write > /dev/null 2>&1; then
+        atomic_write "$state_file" 0640 <<< "$state_json"
+    else
+        tmp_file=$(mktemp "${state_file}.tmp.XXXXXX") || return 1
+        printf '%s\n' "$state_json" > "$tmp_file"
+        chmod 0640 "$tmp_file" 2> /dev/null || true
+        mv "$tmp_file" "$state_file"
+    fi
+    chmod 640 "$state_file" 2> /dev/null || true
+    chown "root:${XRAY_GROUP}" "$state_file" 2> /dev/null || true
+    measurement_refresh_summary
+}
+
+measurement_overlay_rotation_state() {
+    local summary_json="${1:-"{}"}"
+    local state_json=""
+    local raw_candidate_json="null"
+    local current_primary_domain=""
+    local candidate_domain=""
+    local candidate_family=""
+    local cooldown_families_json="[]"
+    local cooldown_domains_json="[]"
+    local promotion_block_reason=""
+    local rotation_verdict="keep-current-primary"
+    local field_verdict="unknown"
+    local coverage_verdict="unknown"
+    state_json=$(measurement_rotation_state_resolved_json "$summary_json")
+
+    raw_candidate_json=$(jq -c '.promotion_candidate // null' <<< "$summary_json")
+    current_primary_domain=$(jq -r '.current_primary_stats.domain // ""' <<< "$summary_json")
+    candidate_domain=$(jq -r '
+        (.promotion_candidate // null) as $candidate
+        | if $candidate == null then
+            ""
+          else
+            (
+                .best_spare_stats.domain
+                // ([.configs[]? | select(.config_name == ($candidate.config_name // "")) | .domain][0] // "")
+            )
+          end
+    ' <<< "$summary_json")
+    candidate_family=$(jq -r '.promotion_candidate.candidate_provider_family // ""' <<< "$summary_json")
+    cooldown_families_json=$(jq -c '
+        (.cooldown_families // [])
+        | map(select((.remaining_actions // 0) > 0) | .family)
+        | map(select(. != null and . != ""))
+        | unique
+        | sort
+    ' <<< "$state_json")
+    cooldown_domains_json=$(jq -c '
+        (.cooldown_domains // [])
+        | map(select((.remaining_actions // 0) > 0) | .domain)
+        | map(select(. != null and . != ""))
+        | unique
+        | sort
+    ' <<< "$state_json")
+    field_verdict=$(jq -r '.field_verdict // "unknown"' <<< "$summary_json")
+    coverage_verdict=$(jq -r '.coverage_verdict // "unknown"' <<< "$summary_json")
+
+    if [[ "$raw_candidate_json" == "null" ]]; then
+        promotion_block_reason=""
+        if [[ "$field_verdict" == "unknown" ]]; then
+            rotation_verdict="collect-more-data"
+        else
+            rotation_verdict="keep-current-primary"
+        fi
+    elif [[ "$field_verdict" == "unknown" ]]; then
+        promotion_block_reason="field summary is still unknown"
+        rotation_verdict="hold-cooldown"
+    elif [[ "$coverage_verdict" != "ok" ]]; then
+        promotion_block_reason="field coverage is not representative enough yet"
+        rotation_verdict="hold-cooldown"
+    elif jq -e --arg family "$candidate_family" 'index($family) != null' <<< "$cooldown_families_json" > /dev/null 2>&1; then
+        promotion_block_reason="candidate provider family is cooling down after recent weak-primary rotation"
+        rotation_verdict="hold-cooldown"
+    elif [[ -n "$candidate_domain" ]] && jq -e --arg domain "$candidate_domain" 'index($domain) != null' <<< "$cooldown_domains_json" > /dev/null 2>&1; then
+        promotion_block_reason="candidate domain is cooling down after recent weak-primary rotation"
+        rotation_verdict="hold-cooldown"
+    else
+        promotion_block_reason=""
+        rotation_verdict="promote-spare"
+    fi
+
+    jq \
+        --argjson state "$state_json" \
+        --argjson raw_candidate "$raw_candidate_json" \
+        --arg candidate_domain "$candidate_domain" \
+        --arg current_primary_domain "$current_primary_domain" \
+        --arg promotion_block_reason "$promotion_block_reason" \
+        --arg rotation_verdict "$rotation_verdict" \
+        --argjson cooldown_families "$cooldown_families_json" \
+        --argjson cooldown_domains "$cooldown_domains_json" '
+        . + {
+            raw_promotion_candidate: $raw_candidate,
+            promotion_candidate: (
+                if $raw_candidate != null and ($promotion_block_reason | length) == 0 then
+                    ($raw_candidate + {
+                        candidate_domain: (if ($candidate_domain | length) > 0 then $candidate_domain else null end)
+                    })
+                else
+                    null
+                end
+            ),
+            promotion_block_reason: (if ($promotion_block_reason | length) > 0 then $promotion_block_reason else null end),
+            rotation_verdict: $rotation_verdict,
+            primary_weak_streak: ($state.primary_weak_streak // 0),
+            cooldown_families: $cooldown_families,
+            cooldown_domains: $cooldown_domains,
+            rotation_state: $state,
+            current_primary_domain: (if ($current_primary_domain | length) > 0 then $current_primary_domain else null end)
+        }
+    ' <<< "$summary_json"
 }
 
 measurement_report_slug() {
@@ -290,6 +520,22 @@ measurement_render_summary_text() {
                 "recommend emergency reason: " + .recommend_emergency_reason
             end
         ),
+        "rotation verdict: " + (.rotation_verdict // "keep-current-primary"),
+        "primary weak streak: " + ((.primary_weak_streak // 0) | tostring),
+        (
+            if ((.cooldown_families // []) | length) == 0 then
+                "cooldown families: n/a"
+            else
+                "cooldown families: " + ((.cooldown_families // []) | join(", "))
+            end
+        ),
+        (
+            if ((.cooldown_domains // []) | length) == 0 then
+                "cooldown domains: n/a"
+            else
+                "cooldown domains: " + ((.cooldown_domains // []) | join(", "))
+            end
+        ),
         (
             if (.promotion_candidate // null) == null then
                 "promotion candidate: n/a"
@@ -308,8 +554,10 @@ measurement_render_summary_text() {
             end
         ),
         (
-            if (.promotion_candidate // null) == null then
+            if (.promotion_candidate // null) == null and (.promotion_block_reason // null) == null then
                 empty
+            elif (.promotion_candidate // null) == null then
+                "promotion block: " + (.promotion_block_reason // "n/a")
             else
                 "promotion reason: " + (.promotion_candidate.reason // "n/a")
             end
@@ -319,12 +567,13 @@ measurement_render_summary_text() {
 
 measurement_refresh_summary() {
     measurement_ensure_storage
-    local summary_file reports_json
+    local summary_file reports_json aggregated_summary
     summary_file=$(measurement_summary_file_path)
     local -a files=()
     mapfile -t files < <(measurement_collect_report_files)
     reports_json=$(measurement_reports_json_from_files "${files[@]}")
-    measurement_aggregate_reports_json "$reports_json" > "$summary_file"
+    aggregated_summary=$(measurement_aggregate_reports_json "$reports_json")
+    measurement_overlay_rotation_state "$aggregated_summary" > "$summary_file"
     chmod 640 "$summary_file" 2> /dev/null || true
     chown "root:${XRAY_GROUP}" "$summary_file" 2> /dev/null || true
 }
@@ -352,48 +601,21 @@ measurement_read_summary_json() {
     local summary_file
     summary_file=$(measurement_summary_file_path)
     [[ -f "$summary_file" ]] || return 1
-    cat "$summary_file"
-}
-
-measurement_status_summary_tsv() {
-    local summary_json
-    summary_json=$(measurement_read_summary_json 2> /dev/null) || return 1
-    jq -r '[
-        (.field_verdict // "unknown"),
-        (.operator_recommendation // "unknown"),
-        (.operator_recommendation_reason // "n/a"),
-        (.coverage_verdict // "unknown"),
-        (.report_count // 0 | tostring),
-        (.network_tag_count // 0 | tostring),
-        (.provider_count // 0 | tostring),
-        (.region_count // 0 | tostring),
-        (.family_diversity_verdict // "unknown"),
-        (.long_term_verdict // "unknown"),
-        (.current_primary // "n/a"),
-        (.current_primary_family // "n/a"),
-        (.current_primary_stats.recommended_success_rate_last5 // 0 | tostring),
-        (.current_primary_stats.rescue_success_rate_last5 // 0 | tostring),
-        (.current_primary_stats.trend_verdict // "unknown"),
-        (.best_spare // "n/a"),
-        (.best_spare_family // "n/a"),
-        (.best_spare_stats.recommended_success_rate_last5 // 0 | tostring),
-        (.best_spare_stats.trend_verdict // "unknown"),
-        (.recommend_emergency // false | tostring),
-        (.latest_report_generated // "unknown")
-    ] | @tsv' <<< "$summary_json"
-}
-
-measurement_promotion_candidate_json() {
-    local summary_json
-    summary_json=$(measurement_read_summary_json 2> /dev/null) || return 1
-    jq -c '.promotion_candidate // null' <<< "$summary_json"
+    if jq -e 'type == "object"' "$summary_file" > /dev/null 2>&1; then
+        local summary_json
+        summary_json=$(cat "$summary_file")
+        measurement_overlay_rotation_state "$summary_json"
+        return 0
+    fi
+    return 1
 }
 
 measurement_compare_reports_json() {
     local -a files=("$@")
-    local reports_json
+    local reports_json aggregated_summary
     reports_json=$(measurement_reports_json_from_files "${files[@]}")
-    measurement_aggregate_reports_json "$reports_json"
+    aggregated_summary=$(measurement_aggregate_reports_json "$reports_json")
+    measurement_overlay_rotation_state "$aggregated_summary"
 }
 
 measurement_validate_report_json() {

@@ -36,6 +36,7 @@ managed client variants:
 | `/var/lib/xray/self-check-history.ndjson` | недавняя история self-check |
 | `/var/lib/xray/measurements/*.json` | сохранённые field reports |
 | `/var/lib/xray/measurements/latest-summary.json` | aggregate field verdict и promotion hints |
+| `/var/lib/xray/measurements/rotation-state.json` | сохранённые weak-primary streak, cooldown family/domain и last promotion context |
 
 ## входы planner’а
 
@@ -144,10 +145,10 @@ raw xray json остаётся canonical artifact, потому что он бе
 
 - использует `scripts/measure-stealth.sh run|import|compare|prune|summarize`
 - сохраняет reports в `/var/lib/xray/measurements/`
-- агрегирует latest summary для операторов и promotion logic
+- агрегирует latest summary и сохраняет rotation cooldown state для promotion logic
 - может рекомендовать `emergency`, когда direct-варианты слишком слабы на реальных сетях
 
-`repair` и `update --replan` могут продвинуть более сильный spare-config, если недавние self-check или field data это оправдывают.
+`repair` и `update --replan` теперь используют один operator-decision layer и один cooldown-aware rotation engine, поэтому одинаково учитывают weak-primary streak и provider-family penalties.
 
 ## export layer
 
@@ -170,6 +171,7 @@ raw xray json остаётся canonical artifact, потому что он бе
 | `config.sh` | orchestration сборки конфига поверх focused-модулей runtime-contract, runtime-apply и client-artifacts |
 | `service.sh` | systemd, firewall, status, uninstall и cleanup |
 | `health.sh` | входные точки диагностики и health |
+| `modules/health/operator_decision.sh` | общий operator decision payload и cooldown-aware promotion engine |
 | `modules/health/self_check.sh` | canonical engine post-action self-check |
 | `modules/health/measurements.sh` | агрегация field reports и promotion hints |
 | `modules/lib/policy.sh` | сериализация и загрузка managed policy |

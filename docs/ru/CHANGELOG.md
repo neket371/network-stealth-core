@@ -7,6 +7,17 @@
 
 ## [unreleased]
 
+## [7.10.0] - 2026-03-27
+
+### Changed
+- добавлен persisted rotation-state contract в `/var/lib/xray/measurements/rotation-state.json`, чтобы weak-primary streak, cooldown family/domain и last promotion context переживали `repair` и `update --replan`
+- `doctor`, `status --verbose`, `diagnose`, `repair`, `update --replan` и `scripts/measure-stealth.sh summarize` переведены на один общий operator decision layer с одинаковыми verdict names, rotation state, cooldown reason и semantics следующего действия
+- `repair` и `update --replan` теперь используют один cooldown-aware promotion engine вместо раздельных spare-promotion веток
+
+### Fixed
+- path для measurement rotation-state теперь выводится из активного summary/storage path, если measurements перенаправлены, поэтому nested import и изолированные тестовые прогоны больше не шумят permission-ошибками из `/var/lib/xray/measurements`
+- overlay field-summary исправлен так, чтобы JSON-пейлоады больше не портились лишней `}` из небезопасного shell default expansion
+
 ## [7.9.1] - 2026-03-27
 
 ### Changed

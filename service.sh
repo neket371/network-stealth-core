@@ -21,6 +21,15 @@ if [[ -f "$SELF_CHECK_MODULE" ]]; then
     source "$SELF_CHECK_MODULE"
 fi
 
+OPERATOR_DECISION_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/operator_decision.sh"
+if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
+fi
+if [[ -f "$OPERATOR_DECISION_MODULE" ]]; then
+    # shellcheck source=/dev/null
+    source "$OPERATOR_DECISION_MODULE"
+fi
+
 CONFIG_SHARED_HELPERS_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/config/shared_helpers.sh"
 if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_SHARED_HELPERS_MODULE="$XRAY_DATA_DIR/modules/config/shared_helpers.sh"
@@ -372,47 +381,59 @@ status_flow_render_verbose_self_check() {
 }
 
 status_flow_render_verbose_measurements() {
-    declare -F measurement_status_summary_tsv > /dev/null 2>&1 || return 0
+    declare -F operator_decision_payload_json > /dev/null 2>&1 || return 0
 
-    local measurement_summary
-    measurement_summary=$(measurement_status_summary_tsv 2> /dev/null || true)
+    local decision_payload=""
+    decision_payload=$(operator_decision_payload_json 2> /dev/null || true)
     echo -e "${BOLD}Field measurements:${NC}"
-    if [[ -n "$measurement_summary" ]]; then
+    if [[ -n "$decision_payload" ]]; then
         local field_verdict operator_recommendation operator_reason coverage_verdict report_count network_tag_count provider_count region_count
-        local family_diversity_verdict long_term_verdict
+        local family_diversity_verdict long_term_verdict rotation_verdict weak_streak latest_generated
         local current_primary current_primary_family current_primary_recommended current_primary_rescue current_primary_trend
-        local best_spare best_spare_family best_spare_recommended best_spare_trend recommend_emergency latest_generated
-        IFS=$'\t' read -r \
-            field_verdict \
-            operator_recommendation \
-            operator_reason \
-            coverage_verdict \
-            report_count \
-            network_tag_count \
-            provider_count \
-            region_count \
-            family_diversity_verdict \
-            long_term_verdict \
-            current_primary \
-            current_primary_family \
-            current_primary_recommended \
-            current_primary_rescue \
-            current_primary_trend \
-            best_spare \
-            best_spare_family \
-            best_spare_recommended \
-            best_spare_trend \
-            recommend_emergency \
-            latest_generated <<< "$measurement_summary"
+        local best_spare best_spare_family best_spare_recommended best_spare_trend recommend_emergency
+        local cooldown_families cooldown_domains promotion_block_reason
+        field_verdict=$(jq -r '.field.field_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        operator_recommendation=$(jq -r '.decision_recommendation // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        operator_reason=$(jq -r '.decision_reason // "n/a"' <<< "$decision_payload" 2> /dev/null || echo "n/a")
+        coverage_verdict=$(jq -r '.field.coverage_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        report_count=$(jq -r '.field.report_count // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        network_tag_count=$(jq -r '.field.network_tag_count // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        provider_count=$(jq -r '.field.provider_count // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        region_count=$(jq -r '.field.region_count // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        family_diversity_verdict=$(jq -r '.field.family_diversity_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        long_term_verdict=$(jq -r '.field.long_term_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        rotation_verdict=$(jq -r '.field.rotation_verdict // "keep-current-primary"' <<< "$decision_payload" 2> /dev/null || echo "keep-current-primary")
+        weak_streak=$(jq -r '.field.primary_weak_streak // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        current_primary=$(jq -r '.field.current_primary // "n/a"' <<< "$decision_payload" 2> /dev/null || echo "n/a")
+        current_primary_family=$(jq -r '.field.current_primary_family // "n/a"' <<< "$decision_payload" 2> /dev/null || echo "n/a")
+        current_primary_recommended=$(jq -r '.field.current_primary_stats.recommended_success_rate_last5 // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        current_primary_rescue=$(jq -r '.field.current_primary_stats.rescue_success_rate_last5 // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        current_primary_trend=$(jq -r '.field.current_primary_stats.trend_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        best_spare=$(jq -r '.field.best_spare // "n/a"' <<< "$decision_payload" 2> /dev/null || echo "n/a")
+        best_spare_family=$(jq -r '.field.best_spare_family // "n/a"' <<< "$decision_payload" 2> /dev/null || echo "n/a")
+        best_spare_recommended=$(jq -r '.field.best_spare_stats.recommended_success_rate_last5 // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
+        best_spare_trend=$(jq -r '.field.best_spare_stats.trend_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        recommend_emergency=$(jq -r '.field.recommend_emergency // false' <<< "$decision_payload" 2> /dev/null || echo false)
+        latest_generated=$(jq -r '.field.latest_report_generated // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        cooldown_families=$(jq -r '(.field.cooldown_families // []) | join(", ")' <<< "$decision_payload" 2> /dev/null || true)
+        cooldown_domains=$(jq -r '(.field.cooldown_domains // []) | join(", ")' <<< "$decision_payload" 2> /dev/null || true)
+        promotion_block_reason=$(jq -r '.field.promotion_block_reason // empty' <<< "$decision_payload" 2> /dev/null || true)
         echo -e "  Verdict: ${field_verdict}"
         echo -e "  Recommendation: ${operator_recommendation}"
         echo -e "  Reason: ${operator_reason}"
         echo -e "  Coverage: ${coverage_verdict} (${report_count} reports, ${network_tag_count} networks, ${provider_count} providers, ${region_count} regions)"
         echo -e "  Family diversity: ${family_diversity_verdict}"
         echo -e "  Long-term trend: ${long_term_verdict}"
+        echo -e "  Rotation: ${rotation_verdict} (weak streak ${weak_streak})"
         echo -e "  Current primary: ${current_primary} [${current_primary_family}] (recommended ${current_primary_recommended}%, rescue ${current_primary_rescue}%, trend ${current_primary_trend})"
         echo -e "  Best spare: ${best_spare} [${best_spare_family}] (recommended ${best_spare_recommended}%, trend ${best_spare_trend})"
         echo -e "  Recommend emergency: ${recommend_emergency}"
+        if [[ -n "$cooldown_families" || -n "$cooldown_domains" ]]; then
+            echo -e "  Cooldowns: families=${cooldown_families:-none}, domains=${cooldown_domains:-none}"
+        fi
+        if [[ -n "$promotion_block_reason" ]]; then
+            echo -e "  Rotation block: ${promotion_block_reason}"
+        fi
         echo -e "  Latest report: ${latest_generated}"
     else
         echo -e "  Verdict: ${YELLOW}нет данных${NC}"

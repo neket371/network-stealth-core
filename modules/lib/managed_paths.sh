@@ -21,6 +21,7 @@
 : "${SELF_CHECK_STATE_FILE:=/var/lib/xray/self-check.json}"
 : "${SELF_CHECK_HISTORY_FILE:=/var/lib/xray/self-check-history.ndjson}"
 : "${MEASUREMENTS_SUMMARY_FILE:=/var/lib/xray/measurements/latest-summary.json}"
+: "${MEASUREMENTS_ROTATION_STATE_FILE:=$(dirname "${MEASUREMENTS_SUMMARY_FILE:-/var/lib/xray/measurements/latest-summary.json}")/rotation-state.json}"
 : "${MEASUREMENTS_DIR:=/var/lib/xray/measurements}"
 
 managed_path_normalize() {
@@ -92,7 +93,8 @@ managed_config_state_file_paths() {
         "$XRAY_MANAGED_CUSTOM_DOMAINS_FILE" \
         "$SELF_CHECK_STATE_FILE" \
         "$SELF_CHECK_HISTORY_FILE" \
-        "$MEASUREMENTS_SUMMARY_FILE"
+        "$MEASUREMENTS_SUMMARY_FILE" \
+        "$MEASUREMENTS_ROTATION_STATE_FILE"
 }
 
 managed_log_file_paths() {

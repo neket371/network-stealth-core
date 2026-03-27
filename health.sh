@@ -33,6 +33,17 @@ fi
 # shellcheck source=modules/health/measurements.sh
 source "$MEASUREMENTS_MODULE"
 
+OPERATOR_DECISION_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/operator_decision.sh"
+if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
+fi
+if [[ ! -f "$OPERATOR_DECISION_MODULE" ]]; then
+    echo "ERROR: не найден модуль operator decision: $OPERATOR_DECISION_MODULE" >&2
+    exit 1
+fi
+# shellcheck source=modules/health/operator_decision.sh
+source "$OPERATOR_DECISION_MODULE"
+
 DOCTOR_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/doctor.sh"
 if [[ ! -f "$DOCTOR_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     DOCTOR_MODULE="$XRAY_DATA_DIR/modules/health/doctor.sh"
@@ -646,6 +657,15 @@ diagnose() {
             fi
             if [[ -n "$measurement_summary_json" ]]; then
                 jq '.' <<< "$measurement_summary_json" 2> /dev/null || printf '%s\n' "$measurement_summary_json"
+            fi
+        fi
+        if declare -F operator_decision_payload_json > /dev/null 2>&1; then
+            echo ""
+            echo "===== OPERATOR DECISION ====="
+            local operator_decision_json=""
+            operator_decision_json=$(operator_decision_payload_json 2> /dev/null || true)
+            if [[ -n "$operator_decision_json" ]]; then
+                jq '.' <<< "$operator_decision_json" 2> /dev/null || printf '%s\n' "$operator_decision_json"
             fi
         fi
         echo ""

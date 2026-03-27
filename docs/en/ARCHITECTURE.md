@@ -36,6 +36,7 @@ the project now splits managed policy from generated runtime state.
 | `/var/lib/xray/self-check-history.ndjson` | recent self-check history |
 | `/var/lib/xray/measurements/*.json` | saved field reports |
 | `/var/lib/xray/measurements/latest-summary.json` | aggregate field verdict and promotion hints |
+| `/var/lib/xray/measurements/rotation-state.json` | persisted weak-primary streak, cooldown families/domains, and last promotion context |
 
 ## planner inputs
 
@@ -146,10 +147,10 @@ there are two observation loops:
 
 - uses `scripts/measure-stealth.sh run|import|compare|prune|summarize`
 - saves reports under `/var/lib/xray/measurements/`
-- aggregates the latest summary to help operators and promotion logic
+- aggregates the latest summary and persists rotation cooldown state for promotion logic
 - may recommend `emergency` when direct variants are too weak on real networks
 
-`repair` and `update --replan` can promote a stronger spare config when recent self-check or field data justifies it.
+`repair` and `update --replan` now share one operator-decision layer and one cooldown-aware rotation engine, so the same weak-primary streak and provider-family penalties are applied to both actions.
 
 ## export layer
 
@@ -172,6 +173,7 @@ that support map is written to `export/capabilities.json`.
 | `config.sh` | config orchestration over focused runtime-contract, runtime-apply, and client-artifact modules |
 | `service.sh` | systemd, firewall, status, uninstall, and cleanup |
 | `health.sh` | diagnostics and health entrypoints |
+| `modules/health/operator_decision.sh` | shared operator decision payload and cooldown-aware promotion engine |
 | `modules/health/self_check.sh` | canonical post-action self-check engine |
 | `modules/health/measurements.sh` | saved field report aggregation and promotion hints |
 | `modules/lib/policy.sh` | managed policy serialization and loading |

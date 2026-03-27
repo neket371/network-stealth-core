@@ -89,6 +89,7 @@ sudo xray-reality.sh repair --non-interactive --yes
 
 - пересобирает `clients.txt`, `clients-links.txt`, `clients.json`, raw xray exports, capability matrix и canary bundle
 - обновляет `policy.json`
+- использует тот же cooldown-aware rotation engine, что и `update --replan`, поэтому слабый primary и недавно деградировавшие provider family не возвращаются в верхний слот сразу
 - может повысить более сильный spare-config, если недавние verdict’ы показывают, что текущий primary слабый
 
 ### update
@@ -118,7 +119,7 @@ xray-reality.sh doctor
 
 - что с runtime прямо сейчас
 - какой последний self-check verdict
-- что говорит последний сохранённый field summary
+- что говорит последний сохранённый field и rotation verdict
 - что делать следующим действием
 
 ### краткий статус
@@ -142,6 +143,7 @@ sudo xray-reality.sh status --verbose
 - качество покрытия сохранённых reports
 - diversity по provider family для текущего config set
 - long-term trend verdict по последним окнам отчётов
+- rotation verdict, weak-primary streak и любые cooldown family/domain
 - operator recommendation и причина
 - текущий primary config с недавними `recommended`/`rescue` rate, provider family и trend
 - лучший spare config с недавним `recommended` rate, provider family и trend
@@ -204,7 +206,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 обычный вызов без subcommand ведёт себя как `run`.
-`summarize` теперь печатает тот же operator-facing recommendation layer, который потом читают `status --verbose`, `doctor`, `diagnose`, `repair` и `update --replan`: качество покрытия, spread по сетям и провайдерам, provider-family diversity, long-term trend, статистику current primary, статистику лучшего spare и возможный promotion candidate.
+`summarize` теперь печатает тот же operator-facing recommendation layer, который потом читают `status --verbose`, `doctor`, `diagnose`, `repair` и `update --replan`: качество покрытия, spread по сетям и провайдерам, provider-family diversity, long-term trend, статистику current primary, статистику лучшего spare, rotation verdict, cooldown state и возможный promotion candidate.
 
 runtime smoke, hosted CI и busy-host lifecycle checks сами по себе не доказывают anti-dpi эффективность в реальных сетях.
 для этого уровня используй отдельный playbook: [FIELD-VALIDATION.md](FIELD-VALIDATION.md).
@@ -249,6 +251,7 @@ env 'xray.browser.dialer=127.0.0.1:11050' xray run -config /path/to/emergency.js
 | `/var/lib/xray/self-check.json` | последний self-check verdict |
 | `/var/lib/xray/self-check-history.ndjson` | недавняя история self-check |
 | `/var/lib/xray/measurements/latest-summary.json` | последняя field-summary |
+| `/var/lib/xray/measurements/rotation-state.json` | сохранённые weak-primary streak и cooldown state |
 
 ## rollback и uninstall
 

@@ -89,6 +89,7 @@ sudo xray-reality.sh repair --non-interactive --yes
 
 - rebuilds `clients.txt`, `clients-links.txt`, `clients.json`, raw xray exports, capability matrix, and canary bundle
 - refreshes `policy.json`
+- uses the same cooldown-aware rotation engine as `update --replan`, so weak primaries and recently burned provider families do not jump back into the top slot immediately
 - may promote a better spare config when recent verdicts show the current primary is weak
 
 ### update
@@ -118,7 +119,7 @@ it should fit on one screen and answer four things immediately:
 
 - current runtime state
 - last self-check verdict
-- latest saved field recommendation
+- latest saved field and rotation verdict
 - next action to take
 
 ### concise status
@@ -142,6 +143,7 @@ verbose status should show:
 - coverage quality for saved reports
 - provider-family diversity for the current config set
 - long-term trend verdict across recent report windows
+- rotation verdict, weak-primary streak, and any cooldown families/domains
 - operator recommendation and reason
 - current primary config with recent `recommended`/`rescue` rates, provider family, and trend
 - best spare config with recent `recommended` rate, provider family, and trend
@@ -204,7 +206,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 plain invocation without a subcommand behaves like `run`.
-`summarize` now prints the same operator-facing recommendation layer that `status --verbose`, `doctor`, `diagnose`, `repair`, and `update --replan` read: coverage quality, network/provider spread, provider-family diversity, long-term trend, current primary stats, best spare stats, and any promotion candidate.
+`summarize` now prints the same operator-facing recommendation layer that `status --verbose`, `doctor`, `diagnose`, `repair`, and `update --replan` read: coverage quality, network/provider spread, provider-family diversity, long-term trend, current primary stats, best spare stats, rotation verdict, cooldown state, and any promotion candidate.
 
 runtime smoke, hosted CI, and busy-host lifecycle checks do not prove real-network anti-dpi effectiveness by themselves.
 for that layer, use the separate playbook in [FIELD-VALIDATION.md](FIELD-VALIDATION.md).
@@ -249,6 +251,7 @@ do not use the dotted `export` form in bash or other POSIX shells: dotted env na
 | `/var/lib/xray/self-check.json` | last self-check verdict |
 | `/var/lib/xray/self-check-history.ndjson` | recent self-check history |
 | `/var/lib/xray/measurements/latest-summary.json` | latest field summary |
+| `/var/lib/xray/measurements/rotation-state.json` | persisted weak-primary streak and cooldown state |
 
 ## rollback and uninstall
 

@@ -7,6 +7,17 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.10.0] - 2026-03-27
+
+### Changed
+- added a persisted rotation-state contract under `/var/lib/xray/measurements/rotation-state.json`, so weak-primary streaks, cooldown families/domains, and the last promotion context survive across `repair` and `update --replan`
+- unified `doctor`, `status --verbose`, `diagnose`, `repair`, `update --replan`, and `scripts/measure-stealth.sh summarize` on one operator decision layer with the same verdict names, rotation state, cooldown reasons, and next-action semantics
+- made `repair` and `update --replan` share one cooldown-aware promotion engine instead of separate spare-promotion branches
+
+### Fixed
+- derived the measurement rotation-state path from the active summary/storage path when measurements are redirected, so nested report imports and isolated test runs no longer leak permission noise from `/var/lib/xray/measurements`
+- fixed the measurement summary overlay path to keep JSON payloads intact instead of appending a stray `}` through an unsafe shell default expansion
+
 ## [7.9.1] - 2026-03-27
 
 ### Changed
