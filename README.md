@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.8.1-0f766e"></a>
+  <a href="https://github.com/neket371/network-stealth-core/releases"><img alt="release" src="https://img.shields.io/badge/release-v7.9.0-0f766e"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-97ca00"></a>
   <a href="docs/en/OPERATIONS.md"><img alt="platform" src="https://img.shields.io/badge/platform-ubuntu%2024.04-1d4ed8"></a>
   <a href="Makefile"><img alt="qa" src="https://img.shields.io/badge/qa-make%20ci-334155"></a>
@@ -52,8 +52,8 @@ for production-like installs, pin the bootstrap wrapper to an exact repo commit.
 ### pinned bootstrap by release tag
 
 ```bash
-curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.8.1/xray-reality.sh -o /tmp/xray-reality.sh
-sudo XRAY_REPO_REF=v7.8.1 bash /tmp/xray-reality.sh install
+curl -fL https://raw.githubusercontent.com/neket371/network-stealth-core/v7.9.0/xray-reality.sh -o /tmp/xray-reality.sh
+sudo XRAY_REPO_REF=v7.9.0 bash /tmp/xray-reality.sh install
 ```
 
 use this when you want the exact published release without looking up the full commit first.
@@ -92,6 +92,7 @@ sudo xray-reality.sh install --advanced
 | `update` | update xray-core and rebuild managed state |
 | `repair` | reconcile service, firewall, policy, and client artifacts |
 | `status` | runtime status summary |
+| `doctor` | short operator verdict with the next action |
 | `logs [xray\|health\|all]` | view logs |
 | `diagnose` | collect diagnostics |
 | `rollback [dir]` | restore backup session |
@@ -112,7 +113,8 @@ sudo xray-reality.sh install --advanced
 - `recommended` and `rescue` are validated by post-action self-check
 - `emergency` is exported honestly as raw xray only and is meant for field testing, not fake link templates
 - `update --replan` and `repair` may promote a stronger spare config using self-check history and saved field measurements
-- `status --verbose`, `diagnose`, and `scripts/measure-stealth.sh summarize` now surface one operator-facing field summary: verdict, coverage quality, family diversity, long-term trend, recommendation, and promotion candidate
+- `doctor` is a read-only one-screen verdict for runtime health, last self-check, field recommendation, and the next action to take
+- `status --verbose`, `doctor`, `diagnose`, and `scripts/measure-stealth.sh summarize` now surface one operator-facing field summary: verdict, coverage quality, family diversity, long-term trend, recommendation, and promotion candidate
 - server-side DNS stays intentionally IPv4-first (`queryStrategy: UseIPv4`) even when IPv6 listeners are enabled; dual-stack here means client ingress coverage, not IPv6-preferred outbound resolution
 
 ## state and artifact surface
@@ -130,7 +132,7 @@ managed installs now keep these files in sync:
 - `/var/lib/xray/self-check.json` — last post-action verdict
 - `/var/lib/xray/self-check-history.ndjson` — recent self-check history
 - `/var/lib/xray/measurements/` — saved field reports from `scripts/measure-stealth.sh`
-- `/var/lib/xray/measurements/latest-summary.json` — aggregated field verdict used by `status --verbose`, `diagnose`, `repair`, and `update --replan`
+- `/var/lib/xray/measurements/latest-summary.json` — aggregated field verdict used by `status --verbose`, `doctor`, `diagnose`, `repair`, and `update --replan`
 
 ## measurement and canary workflow
 
@@ -164,7 +166,7 @@ sudo bash scripts/measure-stealth.sh prune \
 for remote rf testing, send the generated canary bundle from `export/canary/` and use the raw xray configs there.
 set `xray.browser.dialer` on the client side when you intentionally test the `emergency` variant; on POSIX shells use `env 'xray.browser.dialer=127.0.0.1:11050' ...` instead of `export`.
 hosted CI, nightly runtime smoke, and busy-host lifecycle checks validate runtime correctness only; use [docs/en/FIELD-VALIDATION.md](docs/en/FIELD-VALIDATION.md) when you need real-network anti-dpi proof.
-`summarize` now prints an operator-facing verdict: coverage quality, network/provider spread, current primary stats, best spare stats, and the recommendation that `status --verbose`, `diagnose`, `repair`, and `update --replan` follow.
+`summarize` now prints an operator-facing verdict: coverage quality, network/provider spread, current primary stats, best spare stats, and the recommendation that `status --verbose`, `doctor`, `diagnose`, `repair`, and `update --replan` follow.
 `import --dir` now walks nested report trees, skips non-report JSON files, and deduplicates already imported reports by content hash instead of failing the whole batch on one stray manifest or copied report.
 
 ## maintainer-only validation docs

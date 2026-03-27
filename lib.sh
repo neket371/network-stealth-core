@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.8.1 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair)
+# Network Stealth Core 7.9.0 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair, doctor)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.8.1"
+readonly SCRIPT_VERSION="7.9.0"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
@@ -981,6 +981,10 @@ main() {
             strict_validate_runtime_inputs "diagnose"
             require_root
             diagnose_flow
+            ;;
+        doctor)
+            strict_validate_runtime_inputs "doctor"
+            doctor_flow
             ;;
         rollback)
             strict_validate_runtime_inputs "rollback"

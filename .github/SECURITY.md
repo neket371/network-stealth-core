@@ -6,8 +6,8 @@ this document defines the security posture and disclosure process for **network 
 
 | version line | status |
 |---|---|
-| `7.8.x` | supported |
-| `<7.8` | unsupported in this repository |
+| `7.9.x` | supported |
+| `<7.9` | unsupported in this repository |
 
 ## reporting vulnerabilities
 

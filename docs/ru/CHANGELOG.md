@@ -7,6 +7,13 @@
 
 ## [unreleased]
 
+## [7.9.0] - 2026-03-27
+
+### Changed
+- добавлен read-only `doctor`, который собирает в один экран runtime state, последний self-check, сохранённую field recommendation и следующее операторское действие
+- ordering запасных конфигов теперь сильнее уходит от provider family текущего primary, когда сохранённый field summary уже рекомендует rotation, так что `build_domain_plan` держит более широкое family-разделение после primary-слота
+- нормализация normal/legacy transport перенесена в общий legacy transport contract вместо разбросанных `grpc/http2/h2` case-блоков по hot-path модулям
+
 ## [7.8.1] - 2026-03-26
 
 ### Changed
