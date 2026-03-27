@@ -119,26 +119,25 @@ client_variant_import_hint() {
 }
 
 transport_display_name() {
-    local transport="${1:-${TRANSPORT:-xhttp}}"
-    case "${transport,,}" in
+    local transport
+    transport=$(transport_normalize "${1:-${TRANSPORT:-xhttp}}")
+    case "$transport" in
         xhttp) printf '%s' "xhttp" ;;
-        http2 | h2 | http/2) printf '%s' "http/2" ;;
-        *) printf '%s' "grpc" ;;
+        http2) printf '%s' "http/2" ;;
+        grpc) printf '%s' "grpc" ;;
+        *) printf '%s' "$transport" ;;
     esac
 }
 
 transport_endpoint_label() {
-    local transport="${1:-${TRANSPORT:-xhttp}}"
-    case "${transport,,}" in
+    local transport
+    transport=$(transport_normalize "${1:-${TRANSPORT:-xhttp}}")
+    case "$transport" in
         xhttp) printf '%s' "xhttp path" ;;
-        http2 | h2 | http/2) printf '%s' "http/2 path" ;;
-        *) printf '%s' "grpc service" ;;
+        http2) printf '%s' "http/2 path" ;;
+        grpc) printf '%s' "grpc service" ;;
+        *) printf '%s' "transport endpoint" ;;
     esac
-}
-
-transport_is_legacy() {
-    local transport="${1:-${TRANSPORT:-xhttp}}"
-    [[ "${transport,,}" == "grpc" || "${transport,,}" == "http2" || "${transport,,}" == "h2" || "${transport,,}" == "http/2" ]]
 }
 
 client_link_prefix_for_tier() {

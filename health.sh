@@ -33,6 +33,17 @@ fi
 # shellcheck source=modules/health/measurements.sh
 source "$MEASUREMENTS_MODULE"
 
+DOCTOR_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/doctor.sh"
+if [[ ! -f "$DOCTOR_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+    DOCTOR_MODULE="$XRAY_DATA_DIR/modules/health/doctor.sh"
+fi
+if [[ ! -f "$DOCTOR_MODULE" ]]; then
+    echo "ERROR: не найден модуль doctor: $DOCTOR_MODULE" >&2
+    exit 1
+fi
+# shellcheck source=modules/health/doctor.sh
+source "$DOCTOR_MODULE"
+
 health_monitoring_collect_port_lines() {
     # shellcheck disable=SC2034 # nameref writes caller variables.
     local -n out_v4_ref="$1"

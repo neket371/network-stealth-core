@@ -216,13 +216,13 @@ status_flow_render_config_summary() {
         | select((.listen // "0.0.0.0") | test(":") | not)
         | .streamSettings.network // "xhttp"
         ' "$XRAY_CONFIG" 2> /dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')
+    transport_normalize_assign transport_mode "$transport_mode"
     case "$transport_mode" in
-        h2 | http/2) transport_mode="http2" ;;
-        grpc | xhttp) ;;
+        grpc | http2 | xhttp) ;;
         *) transport_mode="unknown" ;;
     esac
     echo -e "  Transport: ${transport_mode}"
-    if [[ "$transport_mode" == "grpc" || "$transport_mode" == "http2" ]]; then
+    if transport_is_legacy "$transport_mode"; then
         echo -e "  Режим: legacy transport (рекомендуется xray-reality.sh migrate-stealth)"
     elif [[ "$transport_mode" == "unknown" ]]; then
         echo -e "  Режим: ${YELLOW}нераспознанный транспорт${NC}"

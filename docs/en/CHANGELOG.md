@@ -7,6 +7,12 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- re-ships the operator-focused `doctor` and planner anti-correlation tranche on the actual code commit after the `v7.9.0` release-prep-only tag slipped out
+- added a read-only `doctor` command that condenses runtime state, the latest self-check, the saved field recommendation, and the next operator action into one screen
+- made spare ordering lean away from the current primary provider family when saved field summaries already recommend rotation, so `build_domain_plan` keeps broader family separation after the primary slot
+- moved normal/legacy transport normalization into the shared legacy transport contract instead of keeping scattered `grpc/http2/h2` case handling in hot-path modules
+
 ## [7.9.0] - 2026-03-27
 
 ### Changed

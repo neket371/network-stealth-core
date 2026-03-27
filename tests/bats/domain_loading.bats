@@ -287,6 +287,39 @@ EOF
     [ "${lines[1]}" = "bad.com" ]
 }
 
+@test "prioritize_cycle_for_field_conditions avoids current primary family in spare ordering" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    log() { :; }
+    summary_file=$(mktemp)
+    trap "rm -f \"$summary_file\"" EXIT
+    cat > "$summary_file" <<EOF
+{"current_primary_family":"bluefam","operator_recommendation":"promote-spare","provider_family_stats":[]}
+EOF
+    MEASUREMENTS_SUMMARY_FILE="$summary_file"
+    declare -gA DOMAIN_PROVIDER_FAMILIES=(
+      ["same-family.com"]="bluefam"
+      ["independent.com"]="greenfam"
+    )
+    declare -gA DOMAIN_PRIORITY_MAP=(
+      ["same-family.com"]="10"
+      ["independent.com"]="0"
+    )
+    declare -gA DOMAIN_RISK_MAP=(
+      ["same-family.com"]="normal"
+      ["independent.com"]="normal"
+    )
+    load_provider_family_field_penalties
+    cycle=("same-family.com" "independent.com")
+    prioritize_cycle_for_field_conditions cycle ranked "" "$(domain_rotation_family_to_avoid "")"
+    printf "%s\n" "${ranked[@]}"
+   '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "independent.com" ]
+    [ "${lines[1]}" = "same-family.com" ]
+}
+
 @test "tier_ru has 150 unique domains and full map coverage" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -407,6 +440,37 @@ EOF
     [ "$status" -eq 0 ]
     [ "${lines[0]}" = "total=8" ]
     [ "${lines[1]}" = "adjacent=0" ]
+}
+
+@test "build_domain_plan pushes spares away from the primary family" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    log() { :; }
+    summary_file=$(mktemp)
+    trap "rm -f \"$summary_file\"" EXIT
+    cat > "$summary_file" <<EOF
+{"current_primary_family":"bluefam","operator_recommendation":"promote-spare","provider_family_stats":[]}
+EOF
+    MEASUREMENTS_SUMMARY_FILE="$summary_file"
+    declare -gA DOMAIN_PROVIDER_FAMILIES=(
+      ["a.com"]="bluefam"
+      ["b.com"]="bluefam"
+      ["c.com"]="greenfam"
+    )
+    AVAILABLE_DOMAINS=("a.com" "b.com" "c.com")
+    SPIDER_MODE=true
+    PRIMARY_DOMAIN_MODE="pinned"
+    PRIMARY_PIN_DOMAIN="a.com"
+    load_provider_family_field_penalties
+    build_domain_plan 3 true
+
+    printf "first=%s\n" "${DOMAIN_SELECTION_PLAN[0]}"
+    printf "second=%s\n" "${DOMAIN_SELECTION_PLAN[1]}"
+  '
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "first=a.com" ]
+    [ "${lines[1]}" = "second=c.com" ]
 }
 
 @test "filter_quarantined_domains excludes domain in active cooldown" {

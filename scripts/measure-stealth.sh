@@ -425,6 +425,7 @@ measure_import() {
                     '. + [$file]' <<< "$duplicate_files_json")
                 ((duplicate_count += 1))
                 ;;
+            *) ;;
         esac
     done
 

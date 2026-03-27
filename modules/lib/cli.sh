@@ -16,7 +16,7 @@ source "$GLOBAL_CONTRACT_MODULE"
 cli_is_action() {
     local value="${1:-}"
     case "$value" in
-        install | add-clients | add-keys | update | repair | migrate-stealth | diagnose | rollback | uninstall | status | logs | check-update)
+        install | add-clients | add-keys | update | repair | migrate-stealth | diagnose | doctor | rollback | uninstall | status | logs | check-update)
             return 0
             ;;
         *)
@@ -303,6 +303,9 @@ cli_handle_long_option_action() {
             ;;
         diagnose)
             ACTION="diagnose"
+            ;;
+        doctor)
+            ACTION="doctor"
             ;;
         *)
             return 1

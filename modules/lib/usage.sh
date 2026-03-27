@@ -13,6 +13,7 @@ Commands:
   repair                         Re-apply units/firewall/monitoring and recover artifacts
   migrate-stealth                Convert managed legacy or pre-v7 xhttp installs to strongest direct stack
   status                         Show current configuration and status
+  doctor                         Short operator verdict with next action
   logs [xray|health|all]         View service logs (default: all)
   diagnose                       Collect diagnostics
   rollback [dir]                 Roll back to backup

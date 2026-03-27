@@ -152,6 +152,9 @@ dry_run_summary() {
         diagnose)
             echo -e "${BOLD}Шаги:${NC} сбор диагностики (systemd, сеть, ресурсы)"
             ;;
+        doctor)
+            echo -e "${BOLD}Шаги:${NC} короткий verdict по runtime, self-check и field summary"
+            ;;
         rollback)
             echo -e "${BOLD}Шаги:${NC} восстановление из бэкапа ${ROLLBACK_DIR:-последнего}"
             ;;
@@ -592,10 +595,9 @@ validate_install_config() {
         normalized_tier="tier_ru"
     fi
     DOMAIN_TIER="$normalized_tier"
+    transport_normalize_assign TRANSPORT "$TRANSPORT"
     case "$TRANSPORT" in
-        "" | xhttp)
-            TRANSPORT="xhttp"
-            ;;
+        xhttp) ;;
         grpc | http2)
             log ERROR "TRANSPORT=${TRANSPORT} больше не поддерживается в v7; используйте xhttp или migrate-stealth для legacy install"
             return 1
@@ -622,7 +624,7 @@ validate_install_config() {
             MUX_MODE="off"
             ;;
     esac
-    if [[ "$TRANSPORT" == "xhttp" && "$MUX_MODE" != "off" ]]; then
+    if transport_is_xhttp "$TRANSPORT" && [[ "$MUX_MODE" != "off" ]]; then
         log WARN "MUX не используется в xhttp-first режиме; принудительно отключаем"
         MUX_MODE="off"
     fi
@@ -663,13 +665,13 @@ detect_current_managed_transport() {
             | select((.listen // "0.0.0.0") | test(":") | not)
             | .streamSettings.network // "xhttp"
         ' "$XRAY_CONFIG" 2> /dev/null | head -n 1 | tr '[:upper:]' '[:lower:]')
+        transport_normalize_assign transport_mode "$transport_mode"
         case "$transport_mode" in
-            h2 | http/2) printf '%s\n' "http2" ;;
-            grpc | xhttp) printf '%s\n' "$transport_mode" ;;
-            "") printf '%s\n' "${TRANSPORT:-xhttp}" ;;
+            grpc | http2 | xhttp) printf '%s\n' "$transport_mode" ;;
+            "") printf '%s\n' "$(transport_normalize "${TRANSPORT:-xhttp}")" ;;
             *) printf '%s\n' "unknown" ;;
         esac
         return 0
     fi
-    printf '%s\n' "${TRANSPORT:-xhttp}"
+    printf '%s\n' "$(transport_normalize "${TRANSPORT:-xhttp}")"
 }

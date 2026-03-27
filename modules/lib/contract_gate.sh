@@ -2,10 +2,7 @@
 # shellcheck shell=bash
 
 contract_gate_transport_is_legacy() {
-    case "${1:-}" in
-        grpc | http2) return 0 ;;
-        *) return 1 ;;
-    esac
+    transport_is_legacy "${1:-}"
 }
 
 managed_install_contract_present() {

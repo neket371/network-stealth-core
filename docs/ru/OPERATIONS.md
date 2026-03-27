@@ -107,6 +107,20 @@ sudo xray-reality.sh update --replan --non-interactive --yes
 
 ## статус и диагностика
 
+### doctor
+
+```bash
+xray-reality.sh doctor
+```
+
+`doctor` — короткий read-only verdict для оператора.
+он должен влезать в один экран и сразу отвечать на четыре вопроса:
+
+- что с runtime прямо сейчас
+- какой последний self-check verdict
+- что говорит последний сохранённый field summary
+- что делать следующим действием
+
 ### краткий статус
 
 ```bash
@@ -190,7 +204,7 @@ sudo bash scripts/measure-stealth.sh prune \
 ```
 
 обычный вызов без subcommand ведёт себя как `run`.
-`summarize` теперь печатает тот же operator-facing recommendation layer, который потом читают `status --verbose`, `diagnose`, `repair` и `update --replan`: качество покрытия, spread по сетям и провайдерам, provider-family diversity, long-term trend, статистику current primary, статистику лучшего spare и возможный promotion candidate.
+`summarize` теперь печатает тот же operator-facing recommendation layer, который потом читают `status --verbose`, `doctor`, `diagnose`, `repair` и `update --replan`: качество покрытия, spread по сетям и провайдерам, provider-family diversity, long-term trend, статистику current primary, статистику лучшего spare и возможный promotion candidate.
 
 runtime smoke, hosted CI и busy-host lifecycle checks сами по себе не доказывают anti-dpi эффективность в реальных сетях.
 для этого уровня используй отдельный playbook: [FIELD-VALIDATION.md](FIELD-VALIDATION.md).

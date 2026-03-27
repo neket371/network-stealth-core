@@ -19,7 +19,7 @@ DOC_FILES=(
     .github/CONTRIBUTING.ru.md
 )
 
-VALID_ACTIONS='install|add-clients|add-keys|update|repair|migrate-stealth|diagnose|rollback|uninstall|status|logs|check-update'
+VALID_ACTIONS='install|add-clients|add-keys|update|repair|migrate-stealth|diagnose|doctor|rollback|uninstall|status|logs|check-update'
 SELF_HOSTED_WORKFLOW=".github/workflows/self-hosted-smoke.yml"
 
 fail=0

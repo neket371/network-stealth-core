@@ -316,10 +316,19 @@ load_priority_domains() {
 
 load_provider_family_field_penalties() {
     declare -gA DOMAIN_PROVIDER_FAMILY_FIELD_PENALTIES=()
+    declare -g DOMAIN_FIELD_CURRENT_PRIMARY_FAMILY=""
+    declare -g DOMAIN_FIELD_OPERATOR_RECOMMENDATION="unknown"
 
     [[ -n "${MEASUREMENTS_SUMMARY_FILE:-}" && -f "${MEASUREMENTS_SUMMARY_FILE:-}" ]] || return 0
     command -v jq > /dev/null 2>&1 || return 0
     jq empty "$MEASUREMENTS_SUMMARY_FILE" > /dev/null 2>&1 || return 0
+
+    DOMAIN_FIELD_CURRENT_PRIMARY_FAMILY="$(
+        jq -r '.current_primary_family // empty' "$MEASUREMENTS_SUMMARY_FILE" 2> /dev/null || true
+    )"
+    DOMAIN_FIELD_OPERATOR_RECOMMENDATION="$(
+        jq -r '.operator_recommendation // "unknown"' "$MEASUREMENTS_SUMMARY_FILE" 2> /dev/null || true
+    )"
 
     local family penalty
     while IFS=$'\t' read -r family penalty; do
@@ -336,6 +345,24 @@ load_provider_family_field_penalties() {
             | @tsv
         ' "$MEASUREMENTS_SUMMARY_FILE" 2> /dev/null
     )
+}
+
+domain_rotation_family_to_avoid() {
+    local fallback_family="${1:-}"
+    local current_family="${DOMAIN_FIELD_CURRENT_PRIMARY_FAMILY:-}"
+    local recommendation="${DOMAIN_FIELD_OPERATOR_RECOMMENDATION:-unknown}"
+
+    if [[ -n "$current_family" && "$recommendation" != "keep-current-primary" ]]; then
+        printf '%s\n' "$current_family"
+        return 0
+    fi
+
+    if [[ -n "$fallback_family" ]]; then
+        printf '%s\n' "$fallback_family"
+        return 0
+    fi
+
+    printf '%s\n' ""
 }
 
 domain_provider_family_field_penalty() {
@@ -388,8 +415,9 @@ prioritize_cycle_for_field_conditions() {
     local pool_name="$1"
     local out_name="$2"
     local previous_domain="${3:-}"
+    local avoid_family="${4:-}"
     local previous_family=""
-    local i domain family same_domain same_family penalty risk_weight priority priority_sort
+    local i domain family same_domain same_family same_avoid_family penalty risk_weight priority priority_sort
     if [[ -n "$previous_domain" ]]; then
         previous_family=$(domain_provider_family_for "$previous_domain" 2> /dev/null || true)
     fi
@@ -406,26 +434,31 @@ prioritize_cycle_for_field_conditions() {
             [[ -n "$family" ]] || family="$domain"
             same_domain=0
             same_family=0
+            same_avoid_family=0
             if [[ -n "$previous_domain" && "$domain" == "$previous_domain" ]]; then
                 same_domain=1
             fi
             if [[ -n "$previous_family" && "$family" == "$previous_family" ]]; then
                 same_family=1
             fi
+            if [[ -n "$avoid_family" && "$family" == "$avoid_family" ]]; then
+                same_avoid_family=1
+            fi
             penalty=$(domain_provider_family_field_penalty "$family")
             [[ "$penalty" =~ ^-?[0-9]+$ ]] || penalty=0
             risk_weight=$(domain_risk_weight "$domain")
             priority=$(domain_priority_weight "$domain")
             priority_sort=$((-priority))
-            printf '%d\t%d\t%06d\t%06d\t%08d\t%06d\t%s\n' \
+            printf '%d\t%d\t%d\t%06d\t%06d\t%08d\t%06d\t%s\n' \
                 "$same_domain" \
                 "$same_family" \
+                "$same_avoid_family" \
                 "$penalty" \
                 "$risk_weight" \
                 "$priority_sort" \
                 "$i" \
                 "$domain"
-        done | sort -t$'\t' -k1,1n -k2,2n -k3,3n -k4,4n -k5,5n -k6,6n | cut -f7-
+        done | sort -t$'\t' -k1,1n -k2,2n -k3,3n -k4,4n -k5,5n -k6,6n -k7,7n | cut -f8-
     )
 }
 
@@ -590,8 +623,10 @@ build_domain_plan() {
     local -a working=("${AVAILABLE_DOMAINS[@]}")
     if [[ "$include_primary" == "true" ]]; then
         local primary
+        local primary_family
         primary=$(select_primary_domain)
         DOMAIN_SELECTION_PLAN+=("$primary")
+        primary_family=$(domain_provider_family_for "$primary" 2> /dev/null || true)
 
         local -a filtered=()
         local removed=false
@@ -618,8 +653,12 @@ build_domain_plan() {
         if [[ ${#DOMAIN_SELECTION_PLAN[@]} -gt 0 ]]; then
             prev_domain="${DOMAIN_SELECTION_PLAN[$((${#DOMAIN_SELECTION_PLAN[@]} - 1))]}"
         fi
+        local avoid_family=""
+        if [[ "$include_primary" == "true" ]]; then
+            avoid_family=$(domain_rotation_family_to_avoid "${primary_family:-}")
+        fi
         local -a prioritized_cycle=()
-        prioritize_cycle_for_field_conditions cycle prioritized_cycle "$prev_domain"
+        prioritize_cycle_for_field_conditions cycle prioritized_cycle "$prev_domain" "$avoid_family"
         if [[ ${#prioritized_cycle[@]} -gt 0 ]]; then
             cycle=("${prioritized_cycle[@]}")
         fi

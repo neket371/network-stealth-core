@@ -7,6 +7,12 @@
 
 ## [unreleased]
 
+### Changed
+- повторно выпускает tranche с операторским `doctor` и анти-корреляцией planner уже на реальном кодовом коммите после того, как `v7.9.0` ушёл как release-prep-only тег
+- добавлена read-only команда `doctor`, которая собирает runtime state, последний self-check, сохранённую field recommendation и следующее операторское действие в один экран
+- spare ordering теперь уводится от family текущего primary, когда сохранённый field summary уже рекомендует rotation, так что `build_domain_plan` держит более широкое разделение family после primary
+- normal/legacy transport normalization вынесена в общий legacy transport contract вместо разрозненных `grpc/http2/h2` case-веток по hot-path модулям
+
 ## [7.9.0] - 2026-03-27
 
 ### Changed

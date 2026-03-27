@@ -19,6 +19,8 @@ generate_inbound_json() {
     local decryption_value="${14:-none}"
     local direct_flow="${15:-${XRAY_DIRECT_FLOW:-xtls-rprx-vision}}"
 
+    transport_normalize_assign transport_mode "$transport_mode"
+
     if ! printf '%s\n' "$sni_json" | jq -e 'type == "array"' > /dev/null 2>&1; then
         sni_json=$(jq -cn --arg sni "$sni_json" '[$sni]')
     fi
@@ -238,7 +240,7 @@ generate_routing_json() {
 }
 
 setup_mux_settings() {
-    if [[ "${TRANSPORT:-xhttp}" == "xhttp" ]]; then
+    if transport_is_xhttp "${TRANSPORT:-xhttp}"; then
         MUX_ENABLED=false
         # shellcheck disable=SC2034 # global runtime state consumed by save_environment and tests
         MUX_CONCURRENCY=0
