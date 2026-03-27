@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.9.1] - 2026-03-27
+
 ### Changed
 - re-ships the operator-focused `doctor` and planner anti-correlation tranche on the actual code commit after the `v7.9.0` release-prep-only tag slipped out
 - added a read-only `doctor` command that condenses runtime state, the latest self-check, the saved field recommendation, and the next operator action into one screen
