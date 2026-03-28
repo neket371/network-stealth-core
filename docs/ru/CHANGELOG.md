@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.10.5] - 2026-03-28
+
 ### Changed
 - повторно выпускает tranche с rollback-hardening для managed wrapper tree и явным degraded state для `rotation-state.json` уже на реальном кодовом коммите после того, как `v7.10.4` ушёл как release-prep-only тег
 
