@@ -70,6 +70,13 @@ policy_json_from_runtime() {
         --arg auto_update "${AUTO_UPDATE:-true}" \
         --arg auto_update_oncalendar "${AUTO_UPDATE_ONCALENDAR:-weekly}" \
         --arg auto_update_random_delay "${AUTO_UPDATE_RANDOM_DELAY:-1h}" \
+        --arg download_host_allowlist "${DOWNLOAD_HOST_ALLOWLIST:-github.com,api.github.com,objects.githubusercontent.com,raw.githubusercontent.com,release-assets.githubusercontent.com,ghproxy.com}" \
+        --arg geo_verify_hash "${GEO_VERIFY_HASH:-true}" \
+        --arg geo_verify_strict "${GEO_VERIFY_STRICT:-false}" \
+        --arg geoip_url "${XRAY_GEOIP_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat}" \
+        --arg geosite_url "${XRAY_GEOSITE_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat}" \
+        --arg geoip_sha256_url "${XRAY_GEOIP_SHA256_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat.sha256sum}" \
+        --arg geosite_sha256_url "${XRAY_GEOSITE_SHA256_URL:-https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat.sha256sum}" \
         --arg replan "${REPLAN:-false}" \
         '{
             schema_version: 1,
@@ -109,6 +116,15 @@ policy_json_from_runtime() {
                 auto_update: ($auto_update == "true"),
                 oncalendar: $auto_update_oncalendar,
                 random_delay: $auto_update_random_delay,
+                download_host_allowlist: $download_host_allowlist,
+                geo_verify_hash: ($geo_verify_hash == "true"),
+                geo_verify_strict: ($geo_verify_strict == "true"),
+                geo_assets: {
+                    geoip_url: $geoip_url,
+                    geosite_url: $geosite_url,
+                    geoip_sha256_url: $geoip_sha256_url,
+                    geosite_sha256_url: $geosite_sha256_url
+                },
                 replan: ($replan == "true")
             }
         }'
@@ -197,6 +213,48 @@ load_policy_file() {
     loaded_rotation_state_file=$(jq -r '.measurement.rotation_state_file // empty' "$file" 2> /dev/null || true)
     if [[ -n "$loaded_rotation_state_file" && "$loaded_rotation_state_file" != "null" ]]; then
         MEASUREMENTS_ROTATION_STATE_FILE="$loaded_rotation_state_file"
+    fi
+
+    local loaded_download_host_allowlist
+    loaded_download_host_allowlist=$(jq -r '.update.download_host_allowlist // empty' "$file" 2> /dev/null || true)
+    if [[ -n "$loaded_download_host_allowlist" && "$loaded_download_host_allowlist" != "null" ]]; then
+        DOWNLOAD_HOST_ALLOWLIST="$loaded_download_host_allowlist"
+    fi
+
+    local loaded_geo_verify_hash
+    loaded_geo_verify_hash=$(jq -r 'if .update.geo_verify_hash == true then "true" elif .update.geo_verify_hash == false then "false" else empty end' "$file" 2> /dev/null || true)
+    if [[ "$loaded_geo_verify_hash" == "true" || "$loaded_geo_verify_hash" == "false" ]]; then
+        GEO_VERIFY_HASH="$loaded_geo_verify_hash"
+    fi
+
+    local loaded_geo_verify_strict
+    loaded_geo_verify_strict=$(jq -r 'if .update.geo_verify_strict == true then "true" elif .update.geo_verify_strict == false then "false" else empty end' "$file" 2> /dev/null || true)
+    if [[ "$loaded_geo_verify_strict" == "true" || "$loaded_geo_verify_strict" == "false" ]]; then
+        GEO_VERIFY_STRICT="$loaded_geo_verify_strict"
+    fi
+
+    local loaded_geoip_url
+    loaded_geoip_url=$(jq -r '.update.geo_assets.geoip_url // empty' "$file" 2> /dev/null || true)
+    if [[ -n "$loaded_geoip_url" && "$loaded_geoip_url" != "null" ]]; then
+        XRAY_GEOIP_URL="$loaded_geoip_url"
+    fi
+
+    local loaded_geosite_url
+    loaded_geosite_url=$(jq -r '.update.geo_assets.geosite_url // empty' "$file" 2> /dev/null || true)
+    if [[ -n "$loaded_geosite_url" && "$loaded_geosite_url" != "null" ]]; then
+        XRAY_GEOSITE_URL="$loaded_geosite_url"
+    fi
+
+    local loaded_geoip_sha256_url
+    loaded_geoip_sha256_url=$(jq -r '.update.geo_assets.geoip_sha256_url // empty' "$file" 2> /dev/null || true)
+    if [[ -n "$loaded_geoip_sha256_url" && "$loaded_geoip_sha256_url" != "null" ]]; then
+        XRAY_GEOIP_SHA256_URL="$loaded_geoip_sha256_url"
+    fi
+
+    local loaded_geosite_sha256_url
+    loaded_geosite_sha256_url=$(jq -r '.update.geo_assets.geosite_sha256_url // empty' "$file" 2> /dev/null || true)
+    if [[ -n "$loaded_geosite_sha256_url" && "$loaded_geosite_sha256_url" != "null" ]]; then
+        XRAY_GEOSITE_SHA256_URL="$loaded_geosite_sha256_url"
     fi
 
     local loaded_flow

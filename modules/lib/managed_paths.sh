@@ -156,12 +156,9 @@ managed_geo_directories() {
         dirs+=("$(xray_geo_dir)")
     elif [[ -n "${XRAY_GEO_DIR:-}" ]]; then
         dirs+=("$XRAY_GEO_DIR")
-    fi
-
-    if [[ -n "${XRAY_BIN:-}" ]]; then
+    elif [[ -n "${XRAY_BIN:-}" ]]; then
         dirs+=("$(dirname "$XRAY_BIN")")
     fi
-    dirs+=("/usr/local/share/xray")
 
     managed_path_emit_unique "${dirs[@]}"
 }

@@ -48,6 +48,29 @@ REQUIRED_BOOTSTRAP_TREE_FILES=(
     modules/install/bootstrap.sh
 )
 
+emit_bootstrap_runtime_required_files() {
+    local module_dir="$1"
+    local rel health_file measurements_file
+
+    health_file="$module_dir/health.sh"
+    if [[ -f "$health_file" ]]; then
+        for rel in \
+            modules/health/self_check.sh \
+            modules/health/measurements.sh \
+            modules/health/operator_decision.sh \
+            modules/health/doctor.sh; do
+            if grep -Fq "$rel" "$health_file" 2> /dev/null; then
+                printf '%s\n' "$rel"
+            fi
+        done
+    fi
+
+    measurements_file="$module_dir/modules/health/measurements.sh"
+    if [[ -f "$measurements_file" ]] && grep -Fq 'measurements_aggregate.jq' "$measurements_file" 2> /dev/null; then
+        printf '%s\n' "modules/health/measurements_aggregate.jq"
+    fi
+}
+
 parse_bootstrap_bool() {
     local value="${1:-}"
     local default="${2:-false}"
@@ -362,6 +385,12 @@ module_dir_has_required_files() {
             return 1
         fi
     done
+    while IFS= read -r rel; do
+        [[ -n "$rel" ]] || continue
+        if [[ ! -f "$module_dir/$rel" ]]; then
+            return 1
+        fi
+    done < <(emit_bootstrap_runtime_required_files "$module_dir")
     return 0
 }
 

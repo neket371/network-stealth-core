@@ -7,6 +7,12 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Fixed
+- stopped measurement and self-check storage helpers from chmodding pre-existing custom parent directories, so custom state-file overrides no longer risk permission drift on shared system paths
+- made the managed geo registry follow only the active GeoIP/GeoSite directory contract instead of always treating `/usr/local/share/xray` as project-owned
+- persisted custom GeoIP/GeoSite asset URLs and checksum URLs through both `config.env` and policy round-trips, so saved runtime state no longer silently falls back to default origins
+- made wrapper completeness validation track the current health runtime modules and `measurements_aggregate.jq`, so incomplete custom or pinned trees fail before later runtime sourcing
+
 ## [7.10.2] - 2026-03-27
 
 ### Fixed

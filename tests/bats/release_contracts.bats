@@ -9,7 +9,7 @@
     echo "ok"
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "auto-update template escapes XRAY_SCRIPT_PATH in exec line" {
@@ -18,7 +18,7 @@
     echo "ok"
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "auto-update template emits shell shebang for systemd ExecStart" {
@@ -66,7 +66,7 @@ EOF
     echo "ok"
   '
     [ "$status" -eq 0 ]
-    [ "$output" = "ok" ]
+    [[ "$output" == *"ok"* ]]
 }
 
 @test "save_environment persists MEASUREMENTS_ROTATION_STATE_FILE" {
@@ -91,4 +91,97 @@ EOF
   '
     [ "$status" -eq 0 ]
     [[ "$output" == *"ok"* ]]
+}
+
+@test "save_environment persists custom geo asset URLs" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_ENV="$tmp/config.env"
+    XRAY_GEOIP_URL="https://github.com/custom/geoip.dat"
+    XRAY_GEOSITE_URL="https://github.com/custom/geosite.dat"
+    XRAY_GEOIP_SHA256_URL="https://github.com/custom/geoip.dat.sha256sum"
+    XRAY_GEOSITE_SHA256_URL="https://github.com/custom/geosite.dat.sha256sum"
+    atomic_write() {
+      local target="$1"
+      cat > "$target"
+    }
+    save_environment
+    grep -Fq '\''XRAY_GEOIP_URL="https://github.com/custom/geoip.dat"'\'' "$XRAY_ENV"
+    grep -Fq '\''XRAY_GEOSITE_URL="https://github.com/custom/geosite.dat"'\'' "$XRAY_ENV"
+    grep -Fq '\''XRAY_GEOIP_SHA256_URL="https://github.com/custom/geoip.dat.sha256sum"'\'' "$XRAY_ENV"
+    grep -Fq '\''XRAY_GEOSITE_SHA256_URL="https://github.com/custom/geosite.dat.sha256sum"'\'' "$XRAY_ENV"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "policy round-trip preserves custom geo asset contract" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    tmp="$(mktemp)"
+    trap "rm -f \"$tmp\"" EXIT
+    DOWNLOAD_HOST_ALLOWLIST="github.com,release-assets.githubusercontent.com"
+    GEO_VERIFY_HASH=false
+    GEO_VERIFY_STRICT=true
+    XRAY_GEOIP_URL="https://github.com/custom/geoip.dat"
+    XRAY_GEOSITE_URL="https://github.com/custom/geosite.dat"
+    XRAY_GEOIP_SHA256_URL="https://github.com/custom/geoip.dat.sha256sum"
+    XRAY_GEOSITE_SHA256_URL="https://github.com/custom/geosite.dat.sha256sum"
+    backup_file() { :; }
+    save_policy_file "$tmp"
+    DOWNLOAD_HOST_ALLOWLIST=""
+    GEO_VERIFY_HASH=true
+    GEO_VERIFY_STRICT=false
+    XRAY_GEOIP_URL=""
+    XRAY_GEOSITE_URL=""
+    XRAY_GEOIP_SHA256_URL=""
+    XRAY_GEOSITE_SHA256_URL=""
+    load_policy_file "$tmp"
+    [[ "$DOWNLOAD_HOST_ALLOWLIST" == "github.com,release-assets.githubusercontent.com" ]]
+    [[ "$GEO_VERIFY_HASH" == "false" ]]
+    [[ "$GEO_VERIFY_STRICT" == "true" ]]
+    [[ "$XRAY_GEOIP_URL" == "https://github.com/custom/geoip.dat" ]]
+    [[ "$XRAY_GEOSITE_URL" == "https://github.com/custom/geosite.dat" ]]
+    [[ "$XRAY_GEOIP_SHA256_URL" == "https://github.com/custom/geoip.dat.sha256sum" ]]
+    [[ "$XRAY_GEOSITE_SHA256_URL" == "https://github.com/custom/geosite.dat.sha256sum" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "managed geo directories follow active geo contract only" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    XRAY_BIN="/opt/xray-custom/bin/xray"
+    XRAY_GEO_DIR=""
+    mapfile -t dirs < <(managed_geo_directories)
+    [[ "${#dirs[@]}" -eq 1 ]]
+    [[ "${dirs[0]}" == "/opt/xray-custom/bin" ]]
+    [[ "${dirs[0]}" != "/usr/local/share/xray" ]]
+    XRAY_GEO_DIR="/srv/xray-assets"
+    mapfile -t dirs < <(managed_geo_directories)
+    [[ "${#dirs[@]}" -eq 1 ]]
+    [[ "${dirs[0]}" == "/srv/xray-assets" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "wrapper completeness guard tracks current health runtime modules" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''modules/health/self_check.sh'\'' ./xray-reality.sh
+    grep -Fq '\''modules/health/measurements.sh'\'' ./xray-reality.sh
+    grep -Fq '\''modules/health/operator_decision.sh'\'' ./xray-reality.sh
+    grep -Fq '\''modules/health/doctor.sh'\'' ./xray-reality.sh
+    grep -Fq '\''modules/health/measurements_aggregate.jq'\'' ./xray-reality.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
 }

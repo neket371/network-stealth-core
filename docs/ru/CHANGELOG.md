@@ -7,6 +7,12 @@
 
 ## [unreleased]
 
+### Fixed
+- measurement и self-check storage helpers больше не делают `chmod` на уже существующих custom parent-directory, так что override state-файлов больше не может тихо увести права у shared system path
+- managed geo registry теперь следует только активному контракту директории для GeoIP/GeoSite и больше не считает `/usr/local/share/xray` проектным каталогом по умолчанию
+- custom URL для GeoIP/GeoSite и checksum теперь переживают и `config.env`, и policy round-trip, так что сохранённый runtime state больше не откатывается молча к default origin
+- wrapper completeness validation теперь отслеживает актуальные health runtime modules и `measurements_aggregate.jq`, поэтому неполное custom/pinned tree падает до позднего runtime source
+
 ## [7.10.2] - 2026-03-27
 
 ### Fixed

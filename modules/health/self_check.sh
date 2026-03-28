@@ -85,6 +85,21 @@ self_check_history_file_path() {
     printf '%s\n' "$(dirname "$state_file")/self-check-history.ndjson"
 }
 
+self_check_ensure_private_storage_dir() {
+    local dir="${1:-}"
+    local existed=false
+
+    [[ -n "$dir" ]] || return 1
+    if [[ -d "$dir" ]]; then
+        existed=true
+    fi
+
+    mkdir -p "$dir" || return 1
+    if [[ "$existed" != true ]]; then
+        chmod 750 "$dir" 2> /dev/null || true
+    fi
+}
+
 self_check_default_urls() {
     printf '%s\n' "${SELF_CHECK_URLS:-https://cp.cloudflare.com/generate_204,https://www.gstatic.com/generate_204}"
 }
@@ -559,8 +574,7 @@ self_check_write_state_json() {
     local state_json="$1"
     local state_file
     state_file=$(self_check_state_file_path)
-    mkdir -p "$(dirname "$state_file")"
-    chmod 750 "$(dirname "$state_file")" 2> /dev/null || true
+    self_check_ensure_private_storage_dir "$(dirname "$state_file")" || return 1
     self_check_backup_file "$state_file"
     printf '%s\n' "$state_json" | self_check_atomic_write "$state_file" 0640 || return 1
     chown "root:${XRAY_GROUP}" "$state_file" 2> /dev/null || true
@@ -577,8 +591,7 @@ self_check_append_history_json() {
     local state_json="$1"
     local history_file
     history_file=$(self_check_history_file_path)
-    mkdir -p "$(dirname "$history_file")"
-    chmod 750 "$(dirname "$history_file")" 2> /dev/null || true
+    self_check_ensure_private_storage_dir "$(dirname "$history_file")" || return 1
     self_check_backup_file "$history_file"
     touch "$history_file"
     chmod 640 "$history_file" 2> /dev/null || true

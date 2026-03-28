@@ -34,13 +34,29 @@ measurement_rotation_state_file_path() {
     printf '%s\n' "${MEASUREMENTS_ROTATION_STATE_FILE:-$(dirname "$(measurement_summary_file_path)")/rotation-state.json}"
 }
 
+measurement_ensure_private_storage_dir() {
+    local dir="${1:-}"
+    local existed=false
+
+    [[ -n "$dir" ]] || return 1
+    if [[ -d "$dir" ]]; then
+        existed=true
+    fi
+
+    mkdir -p "$dir" || return 1
+    if [[ "$existed" != true ]]; then
+        chmod 750 "$dir" 2> /dev/null || true
+    fi
+}
+
 measurement_ensure_storage() {
     local reports_dir summary_file rotation_state_file
     reports_dir=$(measurement_reports_dir_path)
     summary_file=$(measurement_summary_file_path)
     rotation_state_file=$(measurement_rotation_state_file_path)
-    mkdir -p "$reports_dir" "$(dirname "$summary_file")" "$(dirname "$rotation_state_file")"
-    chmod 750 "$reports_dir" "$(dirname "$summary_file")" "$(dirname "$rotation_state_file")" 2> /dev/null || true
+    measurement_ensure_private_storage_dir "$reports_dir" || return 1
+    measurement_ensure_private_storage_dir "$(dirname "$summary_file")" || return 1
+    measurement_ensure_private_storage_dir "$(dirname "$rotation_state_file")" || return 1
 }
 
 measurement_publish_json_file() {
