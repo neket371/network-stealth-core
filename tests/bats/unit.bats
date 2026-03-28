@@ -2118,7 +2118,7 @@ EOF
 }
 
 @test "install result prints russian quick start instead of dumping full links file" {
-    run bash -eo pipefail -c "grep -Fq 'INSTALL_OUTPUT_MODULE=\"\$SCRIPT_DIR/modules/install/output.sh\"' ./install.sh; grep -Fq 'source \"\$INSTALL_OUTPUT_MODULE\"' ./install.sh; grep -Fq 'build_install_quick_start_file()' ./modules/install/output.sh; grep -Fq 'header_text=' ./modules/install/output.sh; grep -Fq 'все ссылки: \${XRAY_KEYS}/clients-links.txt' ./modules/install/output.sh; echo ok"
+    run bash -eo pipefail -c "grep -Fq 'INSTALL_OUTPUT_MODULE=\"\$ROOT_MODULE_DIR/modules/install/output.sh\"' ./install.sh; grep -Fq 'source \"\$INSTALL_OUTPUT_MODULE\"' ./install.sh; grep -Fq 'build_install_quick_start_file()' ./modules/install/output.sh; grep -Fq 'header_text=' ./modules/install/output.sh; grep -Fq 'все ссылки: \${XRAY_KEYS}/clients-links.txt' ./modules/install/output.sh; echo ok"
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
@@ -2392,11 +2392,11 @@ JSON
 
 @test "config and client-artifact layers source dedicated modules" {
     run bash -eo pipefail -c '
-    grep -Fq '\''CONFIG_RUNTIME_CONTRACT_MODULE="$SCRIPT_DIR/modules/config/runtime_contract.sh"'\'' ./config.sh
+    grep -Fq '\''CONFIG_RUNTIME_CONTRACT_MODULE="$ROOT_MODULE_DIR/modules/config/runtime_contract.sh"'\'' ./config.sh
     grep -Fq '\''source "$CONFIG_RUNTIME_CONTRACT_MODULE"'\'' ./config.sh
-    grep -Fq '\''CONFIG_RUNTIME_APPLY_MODULE="$SCRIPT_DIR/modules/config/runtime_apply.sh"'\'' ./config.sh
+    grep -Fq '\''CONFIG_RUNTIME_APPLY_MODULE="$ROOT_MODULE_DIR/modules/config/runtime_apply.sh"'\'' ./config.sh
     grep -Fq '\''source "$CONFIG_RUNTIME_APPLY_MODULE"'\'' ./config.sh
-    grep -Fq '\''CONFIG_CLIENT_ARTIFACTS_MODULE="$SCRIPT_DIR/modules/config/client_artifacts.sh"'\'' ./config.sh
+    grep -Fq '\''CONFIG_CLIENT_ARTIFACTS_MODULE="$ROOT_MODULE_DIR/modules/config/client_artifacts.sh"'\'' ./config.sh
     grep -Fq '\''source "$CONFIG_CLIENT_ARTIFACTS_MODULE"'\'' ./config.sh
     grep -Fq '\''CONFIG_CLIENT_FORMATS_MODULE="${CLIENT_ARTIFACTS_DIR}/client_formats.sh"'\'' ./modules/config/client_artifacts.sh
     grep -Fq '\''source "$CONFIG_CLIENT_FORMATS_MODULE"'\'' ./modules/config/client_artifacts.sh
@@ -2545,7 +2545,7 @@ JSON
 
 @test "install sources dedicated output module" {
     run bash -eo pipefail -c '
-    grep -Fq '\''INSTALL_OUTPUT_MODULE="$SCRIPT_DIR/modules/install/output.sh"'\'' ./install.sh
+    grep -Fq '\''INSTALL_OUTPUT_MODULE="$ROOT_MODULE_DIR/modules/install/output.sh"'\'' ./install.sh
     grep -Fq '\''source "$INSTALL_OUTPUT_MODULE"'\'' ./install.sh
     grep -q '\''show_install_result() {'\'' ./modules/install/output.sh
     grep -q '\''print_install_links_summary() {'\'' ./modules/install/output.sh
@@ -2557,7 +2557,7 @@ JSON
 
 @test "install sources dedicated selection module" {
     run bash -eo pipefail -c '
-    grep -Fq '\''INSTALL_SELECTION_MODULE="$SCRIPT_DIR/modules/install/selection.sh"'\'' ./install.sh
+    grep -Fq '\''INSTALL_SELECTION_MODULE="$ROOT_MODULE_DIR/modules/install/selection.sh"'\'' ./install.sh
     grep -Fq '\''source "$INSTALL_SELECTION_MODULE"'\'' ./install.sh
     grep -q '\''auto_configure() {'\'' ./modules/install/selection.sh
     grep -q '\''ask_domain_profile() {'\'' ./modules/install/selection.sh
@@ -2570,7 +2570,7 @@ JSON
 
 @test "install sources dedicated xray runtime module" {
     run bash -eo pipefail -c '
-    grep -Fq '\''INSTALL_XRAY_RUNTIME_MODULE="$SCRIPT_DIR/modules/install/xray_runtime.sh"'\'' ./install.sh
+    grep -Fq '\''INSTALL_XRAY_RUNTIME_MODULE="$ROOT_MODULE_DIR/modules/install/xray_runtime.sh"'\'' ./install.sh
     grep -Fq '\''source "$INSTALL_XRAY_RUNTIME_MODULE"'\'' ./install.sh
     grep -q '\''confirm_minisign_fallback() {'\'' ./modules/install/xray_runtime.sh
     grep -q '\''install_minisign() {'\'' ./modules/install/xray_runtime.sh
@@ -5001,7 +5001,7 @@ EOF
 
 @test "service sources dedicated uninstall module" {
     run bash -eo pipefail -c '
-    grep -Fq '\''SERVICE_UNINSTALL_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/service/uninstall.sh"'\'' ./service.sh
+    grep -Fq '\''SERVICE_UNINSTALL_MODULE="${ROOT_MODULE_DIR}/modules/service/uninstall.sh"'\'' ./service.sh
     grep -Fq '\''source "$SERVICE_UNINSTALL_MODULE"'\'' ./service.sh
     grep -q '\''uninstall_all() {'\'' ./modules/service/uninstall.sh
     grep -q '\''uninstall_has_managed_artifacts() {'\'' ./modules/service/uninstall.sh
@@ -5014,7 +5014,7 @@ EOF
 
 @test "service sources dedicated runtime module" {
     run bash -eo pipefail -c '
-    grep -Fq '\''SERVICE_RUNTIME_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/service/runtime.sh"'\'' ./service.sh
+    grep -Fq '\''SERVICE_RUNTIME_MODULE="${ROOT_MODULE_DIR}/modules/service/runtime.sh"'\'' ./service.sh
     grep -Fq '\''source "$SERVICE_RUNTIME_MODULE"'\'' ./service.sh
     grep -q '\''create_systemd_service() {'\'' ./modules/service/runtime.sh
     grep -q '\''start_services() {'\'' ./modules/service/runtime.sh

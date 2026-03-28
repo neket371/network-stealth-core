@@ -63,6 +63,7 @@ measurement_publish_json_file() {
     local out_file="$1"
     local mode="${2:-0640}"
     local json_content="${3:-}"
+    local owner_spec="${4:-}"
     local tmp_file=""
 
     [[ -n "$out_file" ]] || return 1
@@ -78,8 +79,25 @@ measurement_publish_json_file() {
         return 1
     fi
 
-    chmod "$mode" "$out_file" 2> /dev/null || true
-    chown "root:${XRAY_GROUP}" "$out_file" 2> /dev/null || true
+    if [[ -n "$mode" ]]; then
+        chmod "$mode" "$out_file" 2> /dev/null || true
+    fi
+    if [[ -n "$owner_spec" ]]; then
+        chown "$owner_spec" "$out_file" 2> /dev/null || true
+    fi
+}
+
+measurement_publish_managed_json_file() {
+    local out_file="$1"
+    local mode="${2:-0640}"
+    local json_content="${3:-}"
+    measurement_publish_json_file "$out_file" "$mode" "$json_content" "root:${XRAY_GROUP}"
+}
+
+measurement_publish_explicit_output_json_file() {
+    local out_file="$1"
+    local json_content="${2:-}"
+    measurement_publish_json_file "$out_file" "" "$json_content"
 }
 
 measurement_invalid_summary_reason() {
@@ -258,7 +276,7 @@ measurement_write_rotation_state_json() {
     state_file=$(measurement_rotation_state_file_path)
     state_json=$(measurement_rotation_state_trim_json "$state_json")
 
-    measurement_publish_json_file "$state_file" 0640 "$state_json" || return 1
+    measurement_publish_managed_json_file "$state_file" 0640 "$state_json" || return 1
     measurement_refresh_summary
 }
 
@@ -693,7 +711,7 @@ measurement_refresh_summary() {
     reports_json=$(measurement_reports_json_from_files "${files[@]}")
     aggregated_summary=$(measurement_aggregate_reports_json "$reports_json")
     aggregated_summary=$(measurement_overlay_rotation_state "$aggregated_summary") || return 1
-    measurement_publish_json_file "$summary_file" 0640 "$aggregated_summary"
+    measurement_publish_managed_json_file "$summary_file" 0640 "$aggregated_summary"
 }
 
 measurement_save_report() {
@@ -708,7 +726,7 @@ measurement_save_report() {
         region=$(jq -r '.region // "unknown"' <<< "$report_json" 2> /dev/null || echo "unknown")
         out_file="${reports_dir}/$(measurement_report_filename "$network_tag" "$provider" "$region")"
     fi
-    measurement_publish_json_file "$out_file" 0640 "$report_json" || return 1
+    measurement_publish_managed_json_file "$out_file" 0640 "$report_json" || return 1
     measurement_refresh_summary
     printf '%s\n' "$out_file"
 }

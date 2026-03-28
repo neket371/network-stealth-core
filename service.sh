@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
-GLOBAL_CONTRACT_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/lib/globals_contract.sh"
+ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
+
+GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
@@ -12,7 +14,7 @@ fi
 # shellcheck source=modules/lib/globals_contract.sh
 source "$GLOBAL_CONTRACT_MODULE"
 
-SELF_CHECK_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/self_check.sh"
+SELF_CHECK_MODULE="${ROOT_MODULE_DIR}/modules/health/self_check.sh"
 if [[ ! -f "$SELF_CHECK_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SELF_CHECK_MODULE="$XRAY_DATA_DIR/modules/health/self_check.sh"
 fi
@@ -21,7 +23,7 @@ if [[ -f "$SELF_CHECK_MODULE" ]]; then
     source "$SELF_CHECK_MODULE"
 fi
 
-OPERATOR_DECISION_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/operator_decision.sh"
+OPERATOR_DECISION_MODULE="${ROOT_MODULE_DIR}/modules/health/operator_decision.sh"
 if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
 fi
@@ -30,7 +32,7 @@ if [[ -f "$OPERATOR_DECISION_MODULE" ]]; then
     source "$OPERATOR_DECISION_MODULE"
 fi
 
-CONFIG_SHARED_HELPERS_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/config/shared_helpers.sh"
+CONFIG_SHARED_HELPERS_MODULE="${ROOT_MODULE_DIR}/modules/config/shared_helpers.sh"
 if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_SHARED_HELPERS_MODULE="$XRAY_DATA_DIR/modules/config/shared_helpers.sh"
 fi
@@ -39,7 +41,7 @@ if [[ -f "$CONFIG_SHARED_HELPERS_MODULE" ]]; then
     source "$CONFIG_SHARED_HELPERS_MODULE"
 fi
 
-SERVICE_UNINSTALL_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/service/uninstall.sh"
+SERVICE_UNINSTALL_MODULE="${ROOT_MODULE_DIR}/modules/service/uninstall.sh"
 if [[ ! -f "$SERVICE_UNINSTALL_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SERVICE_UNINSTALL_MODULE="$XRAY_DATA_DIR/modules/service/uninstall.sh"
 fi
@@ -50,7 +52,7 @@ fi
 # shellcheck source=modules/service/uninstall.sh
 source "$SERVICE_UNINSTALL_MODULE"
 
-SERVICE_RUNTIME_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/service/runtime.sh"
+SERVICE_RUNTIME_MODULE="${ROOT_MODULE_DIR}/modules/service/runtime.sh"
 if [[ ! -f "$SERVICE_RUNTIME_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SERVICE_RUNTIME_MODULE="$XRAY_DATA_DIR/modules/service/runtime.sh"
 fi

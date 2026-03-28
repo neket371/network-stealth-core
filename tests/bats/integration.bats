@@ -688,6 +688,62 @@ EOF
     [[ "$output" == *"wrapper-ok"* ]]
 }
 
+@test "wrapper prefers persisted trusted XRAY_DATA_DIR tree over a stale local source tree" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    custom="$tmp/custom-data"
+    stale="$tmp/stale-tree"
+    mkdir -p "$tmp/mockbin"
+
+    build_minimal_tree() {
+      local root="$1"
+      local marker="$2"
+      mkdir -p "$root/modules/lib" "$root/modules/config" "$root/modules/install"
+      cat > "$root/xray-reality.sh" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+EOF
+      cat > "$root/lib.sh" << EOF
+#!/usr/bin/env bash
+MODULE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+main() { echo "$marker"; }
+EOF
+      chmod +x "$root/lib.sh" "$root/xray-reality.sh"
+      : > "$root/install.sh"
+      : > "$root/config.sh"
+      : > "$root/service.sh"
+      : > "$root/health.sh"
+      : > "$root/export.sh"
+      : > "$root/modules/lib/validation.sh"
+      : > "$root/modules/lib/globals_contract.sh"
+      : > "$root/modules/lib/firewall.sh"
+      : > "$root/modules/lib/lifecycle.sh"
+      : > "$root/modules/lib/common_utils.sh"
+      : > "$root/modules/lib/runtime_reuse.sh"
+      : > "$root/modules/lib/domain_sources.sh"
+      : > "$root/modules/config/domain_planner.sh"
+      : > "$root/modules/config/shared_helpers.sh"
+      : > "$root/modules/config/add_clients.sh"
+      : > "$root/modules/install/bootstrap.sh"
+    }
+
+    build_minimal_tree "$custom" "wrapper-ok"
+    build_minimal_tree "$stale" "stale-tree"
+    cp ./xray-reality.sh "$stale/xray-reality.sh"
+    chmod +x "$stale/xray-reality.sh"
+
+    cat > "$tmp/config.env" <<EOF
+XRAY_DATA_DIR="$custom"
+XRAY_ALLOW_CUSTOM_DATA_DIR=true
+EOF
+
+    PATH="$tmp/mockbin:$PATH" XRAY_ENV="$tmp/config.env" bash "$stale/xray-reality.sh" --help
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"wrapper-ok"* ]]
+    [[ "$output" != *"stale-tree"* ]]
+}
+
 @test "wrapper keeps default trusted SCRIPT_DIR flow without custom opt-in" {
     run bash -eo pipefail -c '
     set -euo pipefail

@@ -93,6 +93,46 @@ EOF
     [[ "$output" == *"ok"* ]]
 }
 
+@test "save_environment persists custom XRAY_DATA_DIR bootstrap contract" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./config.sh
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    XRAY_ENV="$tmp/config.env"
+    XRAY_DATA_DIR="$tmp/runtime-tree"
+    XRAY_ALLOW_CUSTOM_DATA_DIR=true
+    atomic_write() {
+      local target="$1"
+      cat > "$target"
+    }
+    save_environment
+    grep -Fq "XRAY_DATA_DIR=\"$tmp/runtime-tree\"" "$XRAY_ENV"
+    grep -Fq "XRAY_ALLOW_CUSTOM_DATA_DIR=\"true\"" "$XRAY_ENV"
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "load_config_file accepts persisted XRAY_ALLOW_CUSTOM_DATA_DIR bootstrap flag" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    tmp="$(mktemp)"
+    trap "rm -f \"$tmp\"" EXIT
+    cat > "$tmp" <<EOF
+XRAY_DATA_DIR="/tmp/custom-runtime-tree"
+XRAY_ALLOW_CUSTOM_DATA_DIR="true"
+EOF
+    load_config_file "$tmp"
+    [[ "$XRAY_DATA_DIR" == "/tmp/custom-runtime-tree" ]]
+    [[ "$XRAY_ALLOW_CUSTOM_DATA_DIR" == "true" ]]
+    echo "ok"
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
 @test "save_environment persists custom geo asset URLs" {
     run bash -eo pipefail -c '
     source ./lib.sh
@@ -175,6 +215,7 @@ EOF
 
 @test "wrapper completeness guard tracks current health runtime modules" {
     run bash -eo pipefail -c '
+    grep -Fq '\''lib.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/self_check.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/measurements.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/operator_decision.sh'\'' ./xray-reality.sh

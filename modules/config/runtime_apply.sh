@@ -144,6 +144,8 @@ save_environment() {
         if [[ -n "${XRAY_DOMAINS_FILE:-}" ]]; then
             write_env_kv XRAY_DOMAINS_FILE "$XRAY_DOMAINS_FILE"
         fi
+        write_env_kv XRAY_DATA_DIR "$XRAY_DATA_DIR"
+        write_env_kv XRAY_ALLOW_CUSTOM_DATA_DIR "$XRAY_ALLOW_CUSTOM_DATA_DIR"
         write_env_kv MUX_ENABLED "$MUX_ENABLED"
         write_env_kv MUX_CONCURRENCY "$MUX_CONCURRENCY"
         write_env_kv SHORT_ID_BYTES_MIN "$SHORT_ID_BYTES_MIN"

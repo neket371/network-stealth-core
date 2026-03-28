@@ -65,7 +65,7 @@ measure_write_output_json() {
     local out_file="$1"
     local json_payload="$2"
     [[ -n "$out_file" ]] || return 0
-    measurement_publish_json_file "$out_file" 0640 "$json_payload"
+    measurement_publish_explicit_output_json_file "$out_file" "$json_payload"
 }
 
 measure_require_valid_clients_json() {

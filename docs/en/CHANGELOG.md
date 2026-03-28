@@ -7,6 +7,16 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.10.6] - 2026-03-28
+
+### Fixed
+- made the wrapper resolve one coherent trusted source tree before sourcing `lib.sh` and the root entrypoints, so stale local `lib.sh` copies can no longer mix with modules coming from another trusted tree
+- persisted `XRAY_DATA_DIR` and `XRAY_ALLOW_CUSTOM_DATA_DIR` through the normal `config.env` round-trip and taught the bootstrap wrapper to load them early and prefer that trusted managed tree over a stale local bootstrap tree on the next run
+- split managed measurement-state publishing from explicit `scripts/measure-stealth.sh --output` publishing, so ad-hoc output files no longer get forced into the internal `root:xray` ownership contract or the managed `0640` mode
+
+### Changed
+- clarified docs to describe `XRAY_DATA_DIR` as a mirror of the runnable managed source set instead of claiming it is a byte-for-byte mirror of the whole repository checkout
+
 ## [7.10.5] - 2026-03-28
 
 ### Changed

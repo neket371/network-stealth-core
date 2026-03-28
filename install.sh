@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
-GLOBAL_CONTRACT_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/lib/globals_contract.sh"
+ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
+
+GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
@@ -12,7 +14,7 @@ fi
 # shellcheck source=modules/lib/globals_contract.sh
 source "$GLOBAL_CONTRACT_MODULE"
 
-INSTALL_BOOTSTRAP_MODULE="$SCRIPT_DIR/modules/install/bootstrap.sh"
+INSTALL_BOOTSTRAP_MODULE="$ROOT_MODULE_DIR/modules/install/bootstrap.sh"
 if [[ ! -f "$INSTALL_BOOTSTRAP_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_BOOTSTRAP_MODULE="$XRAY_DATA_DIR/modules/install/bootstrap.sh"
 fi
@@ -23,7 +25,7 @@ fi
 # shellcheck source=/dev/null
 source "$INSTALL_BOOTSTRAP_MODULE"
 
-INSTALL_OUTPUT_MODULE="$SCRIPT_DIR/modules/install/output.sh"
+INSTALL_OUTPUT_MODULE="$ROOT_MODULE_DIR/modules/install/output.sh"
 if [[ ! -f "$INSTALL_OUTPUT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_OUTPUT_MODULE="$XRAY_DATA_DIR/modules/install/output.sh"
 fi
@@ -34,7 +36,7 @@ fi
 # shellcheck source=modules/install/output.sh
 source "$INSTALL_OUTPUT_MODULE"
 
-INSTALL_XRAY_RUNTIME_MODULE="$SCRIPT_DIR/modules/install/xray_runtime.sh"
+INSTALL_XRAY_RUNTIME_MODULE="$ROOT_MODULE_DIR/modules/install/xray_runtime.sh"
 if [[ ! -f "$INSTALL_XRAY_RUNTIME_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_XRAY_RUNTIME_MODULE="$XRAY_DATA_DIR/modules/install/xray_runtime.sh"
 fi
@@ -45,7 +47,7 @@ fi
 # shellcheck source=modules/install/xray_runtime.sh
 source "$INSTALL_XRAY_RUNTIME_MODULE"
 
-INSTALL_SELECTION_MODULE="$SCRIPT_DIR/modules/install/selection.sh"
+INSTALL_SELECTION_MODULE="$ROOT_MODULE_DIR/modules/install/selection.sh"
 if [[ ! -f "$INSTALL_SELECTION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_SELECTION_MODULE="$XRAY_DATA_DIR/modules/install/selection.sh"
 fi
@@ -56,7 +58,7 @@ fi
 # shellcheck source=modules/install/selection.sh
 source "$INSTALL_SELECTION_MODULE"
 
-OPERATOR_DECISION_MODULE="$SCRIPT_DIR/modules/health/operator_decision.sh"
+OPERATOR_DECISION_MODULE="$ROOT_MODULE_DIR/modules/health/operator_decision.sh"
 if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
 fi

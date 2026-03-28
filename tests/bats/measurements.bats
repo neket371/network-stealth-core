@@ -271,3 +271,40 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "measurement_publish_json_file leaves explicit output ownership unchanged" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    owner_log="$tmp_dir/chown.log"
+    mode_log="$tmp_dir/chmod.log"
+    chown() { printf "%s\n" "$*" >> "$owner_log"; }
+    chmod() { printf "%s\n" "$*" >> "$mode_log"; }
+    measurement_publish_explicit_output_json_file "$tmp_dir/out.json" "{\"ok\":true}"
+    test -f "$tmp_dir/out.json"
+    ! test -s "$owner_log"
+    ! test -s "$mode_log"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "measurement_publish_managed_json_file keeps managed root:xray ownership contract" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    owner_log="$tmp_dir/chown.log"
+    chown() { printf "%s\n" "$*" >> "$owner_log"; }
+    measurement_publish_managed_json_file "$tmp_dir/out.json" 0640 "{\"ok\":true}"
+    test -f "$tmp_dir/out.json"
+    grep -Fq "root:${XRAY_GROUP} $tmp_dir/out.json" "$owner_log"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.10.5 - Wrapper
+# Network Stealth Core 7.10.6 - Wrapper
 
 set -euo pipefail
 
@@ -13,8 +13,10 @@ if [[ -z "$SCRIPT_DIR" ]]; then
 fi
 MODULE_DIR=""
 DEFAULT_DATA_DIR="/usr/local/share/xray-reality"
+XRAY_ENV="${XRAY_ENV:-/etc/xray-reality/config.env}"
 XRAY_DATA_DIR="${XRAY_DATA_DIR:-$DEFAULT_DATA_DIR}"
 XRAY_ALLOW_CUSTOM_DATA_DIR="${XRAY_ALLOW_CUSTOM_DATA_DIR:-false}"
+XRAY_DATA_DIR_LOADED_FROM_ENV_FILE=false
 REPO_URL="${XRAY_REPO_URL:-https://github.com/neket371/network-stealth-core.git}"
 REPO_REF="${XRAY_REPO_REF:-${XRAY_REPO_BRANCH:-}}"
 REPO_COMMIT="${XRAY_REPO_COMMIT:-}"
@@ -30,6 +32,7 @@ FORWARD_ARGS=()
 # keep this list compatible with historical tags used by migrate-stealth coverage.
 # newer module splits must not make older pinned trees look invalid to the wrapper.
 REQUIRED_BOOTSTRAP_TREE_FILES=(
+    lib.sh
     install.sh
     config.sh
     service.sh
@@ -85,6 +88,45 @@ parse_bootstrap_bool() {
             echo "$default"
             ;;
     esac
+}
+
+load_wrapper_bootstrap_env_overrides() {
+    local file="${XRAY_ENV:-/etc/xray-reality/config.env}"
+    local line key value first_char last_char
+
+    [[ -n "$file" && -f "$file" ]] || return 0
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ "$line" == *"="* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key//[[:space:]]/}"
+        value="${value#"${value%%[![:space:]]*}"}"
+        value="${value%"${value##*[![:space:]]}"}"
+        if [[ ${#value} -ge 2 ]]; then
+            first_char="${value:0:1}"
+            last_char="${value: -1}"
+            if [[ ("$first_char" == '"' && "$last_char" == '"') || ("$first_char" == "'" && "$last_char" == "'") ]]; then
+                value="${value:1:${#value}-2}"
+            fi
+        fi
+
+        case "$key" in
+            XRAY_DATA_DIR)
+                if [[ "${XRAY_DATA_DIR:-$DEFAULT_DATA_DIR}" == "$DEFAULT_DATA_DIR" && -n "$value" ]]; then
+                    XRAY_DATA_DIR="$value"
+                    XRAY_DATA_DIR_LOADED_FROM_ENV_FILE=true
+                fi
+                ;;
+            XRAY_ALLOW_CUSTOM_DATA_DIR)
+                if [[ "${XRAY_ALLOW_CUSTOM_DATA_DIR:-false}" == "false" && -n "$value" ]]; then
+                    XRAY_ALLOW_CUSTOM_DATA_DIR="$value"
+                fi
+                ;;
+            *) ;;
+        esac
+    done < "$file"
 }
 
 normalize_wrapper_path() {
@@ -304,20 +346,6 @@ normalize_repo_ref_alias() {
     esac
 }
 
-has_forwarded_arg() {
-    local expected="$1"
-    local arg
-    if ((${#FORWARD_ARGS[@]} == 0)); then
-        return 1
-    fi
-    for arg in "${FORWARD_ARGS[@]}"; do
-        if [[ "$arg" == "$expected" ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
-
 wrapper_requested_action() {
     local arg
     for arg in "${FORWARD_ARGS[@]}"; do
@@ -398,9 +426,14 @@ resolve_module_dir() {
     local -a candidates=()
     local candidate
 
-    [[ -n "$SCRIPT_DIR" ]] && candidates+=("$SCRIPT_DIR")
-    if [[ -n "$XRAY_DATA_DIR" && "$XRAY_DATA_DIR" != "$SCRIPT_DIR" ]]; then
+    if [[ "${XRAY_DATA_DIR_LOADED_FROM_ENV_FILE:-false}" == "true" && -n "$XRAY_DATA_DIR" && "$XRAY_DATA_DIR" != "$SCRIPT_DIR" ]]; then
         candidates+=("$XRAY_DATA_DIR")
+        [[ -n "$SCRIPT_DIR" ]] && candidates+=("$SCRIPT_DIR")
+    else
+        [[ -n "$SCRIPT_DIR" ]] && candidates+=("$SCRIPT_DIR")
+        if [[ -n "$XRAY_DATA_DIR" && "$XRAY_DATA_DIR" != "$SCRIPT_DIR" ]]; then
+            candidates+=("$XRAY_DATA_DIR")
+        fi
     fi
 
     for candidate in "${candidates[@]}"; do
@@ -448,6 +481,7 @@ verify_pinned_commit() {
     echo "Pinned source commit verified: $head"
 }
 
+load_wrapper_bootstrap_env_overrides
 BOOTSTRAP_REQUIRE_PIN=$(parse_bootstrap_bool "$BOOTSTRAP_REQUIRE_PIN" true)
 BOOTSTRAP_AUTO_PIN=$(parse_bootstrap_bool "$BOOTSTRAP_AUTO_PIN" true)
 XRAY_ALLOW_CUSTOM_DATA_DIR=$(parse_bootstrap_bool "$XRAY_ALLOW_CUSTOM_DATA_DIR" false)
@@ -582,15 +616,7 @@ BOOTSTRAP_DEFAULT_REF=$(normalize_bootstrap_default_ref "$BOOTSTRAP_DEFAULT_REF"
 REPO_REF=$(normalize_repo_ref_alias "$REPO_REF")
 validate_wrapper_data_dir_trust
 
-LIB_PATH=""
-for dir in "$SCRIPT_DIR" "$XRAY_DATA_DIR"; do
-    if [[ -n "$dir" && -f "$dir/lib.sh" ]]; then
-        LIB_PATH="$dir/lib.sh"
-        break
-    fi
-done
-
-if [[ -z "$LIB_PATH" ]] || { [[ -z "$SCRIPT_DIR" || ! -f "$SCRIPT_DIR/config.sh" ]] && has_forwarded_arg "install"; }; then
+if ! resolve_module_dir; then
     echo "Downloading Network Stealth Core..."
     require_safe_repo_url "$REPO_URL"
     if ! command -v git > /dev/null 2>&1; then
@@ -674,12 +700,6 @@ if [[ -z "$LIB_PATH" ]] || { [[ -z "$SCRIPT_DIR" || ! -f "$SCRIPT_DIR/config.sh"
         print_bootstrap_pin_warning "$requested_action"
     fi
     SCRIPT_DIR="$INSTALL_DIR"
-    LIB_PATH="$INSTALL_DIR/lib.sh"
-fi
-
-if [[ ! -f "$LIB_PATH" ]]; then
-    echo "lib.sh not found" >&2
-    exit 1
 fi
 
 if ! resolve_module_dir; then
@@ -687,6 +707,13 @@ if ! resolve_module_dir; then
     echo "  - SCRIPT_DIR: ${SCRIPT_DIR:-<empty>}" >&2
     echo "  - XRAY_DATA_DIR: ${XRAY_DATA_DIR:-<empty>}" >&2
     echo "Try re-running the install or check the repository." >&2
+    exit 1
+fi
+
+SCRIPT_DIR="$MODULE_DIR"
+LIB_PATH="$MODULE_DIR/lib.sh"
+if [[ ! -f "$LIB_PATH" ]]; then
+    echo "lib.sh not found in resolved trusted tree: $MODULE_DIR" >&2
     exit 1
 fi
 

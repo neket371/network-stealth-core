@@ -98,15 +98,15 @@ this keeps uninstall/rollback/repair aligned on the same scope and avoids both f
 
 ## managed source-tree publish
 
-wrapper self-sync now publishes the managed source tree as a staged whole-tree mirror.
+wrapper self-sync now publishes the managed runnable source set as a staged whole-tree mirror.
 
 instead of copying `modules/`, `data/`, and `scripts/` first and then patching root files in place, the flow now:
 
 1. prepares a clean empty staging tree
-2. copies only the current repo content into that staging tree
-3. atomically swaps the full staged tree into `XRAY_DATA_DIR`
+2. copies only the current managed runnable source set into that staging tree
+3. atomically swaps the full staged managed tree into `XRAY_DATA_DIR`
 
-this removes the previous mixed-tree window where modules could already be new while root entrypoints still came from the older tree after a partial copy failure, and it also removes stale files that were deleted from the source tree upstream.
+this removes the previous mixed-tree window where modules could already be new while root entrypoints still came from the older tree after a partial copy failure, and it also removes stale files that were deleted from the managed runnable source set upstream.
 
 ## migration boundary
 

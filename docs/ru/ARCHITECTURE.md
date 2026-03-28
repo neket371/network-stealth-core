@@ -96,15 +96,15 @@ destructive actions теперь используют один общий regist
 
 ## публикация managed source tree
 
-self-sync wrapper’а теперь публикует managed source tree как staged whole-tree mirror.
+self-sync wrapper’а теперь публикует runnable managed source set как staged whole-tree mirror.
 
 вместо старой схемы, где `modules/`, `data/` и `scripts/` копировались отдельно, а root-файлы потом накладывались поверх живого tree, новый flow:
 
 1. готовит чистый пустой staging-tree
-2. кладёт туда только актуальное содержимое репозитория
-3. атомарно переключает весь staged tree в `XRAY_DATA_DIR`
+2. кладёт туда только актуальный runnable managed source set
+3. атомарно переключает весь staged managed tree в `XRAY_DATA_DIR`
 
-так убирается прежнее окно смешанного состояния, когда модули уже новые, а root entrypoints ещё старые или частично скопированные после сбоя, и одновременно исчезают stale-файлы, уже удалённые из upstream source tree.
+так убирается прежнее окно смешанного состояния, когда модули уже новые, а root entrypoints ещё старые или частично скопированные после сбоя, и одновременно исчезают stale-файлы, уже удалённые из upstream runnable managed source set.
 
 ## граница миграции
 

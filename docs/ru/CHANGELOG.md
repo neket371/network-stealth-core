@@ -7,6 +7,16 @@
 
 ## [unreleased]
 
+## [7.10.6] - 2026-03-28
+
+### Fixed
+- wrapper теперь сначала выбирает один coherent trusted source tree и только потом source’ит `lib.sh` и root entrypoints, так что stale локальная копия `lib.sh` больше не смешивается с модулями из другого trusted tree
+- `XRAY_DATA_DIR` и `XRAY_ALLOW_CUSTOM_DATA_DIR` теперь переживают обычный `config.env` round-trip, а bootstrap wrapper загружает их рано и предпочитает этот trusted managed tree stale локальному bootstrap tree на следующем запуске
+- managed measurement-state publish теперь отделён от явного `scripts/measure-stealth.sh --output`, так что ad-hoc output-файлы больше не затягиваются насильно ни во внутренний ownership-контракт `root:xray`, ни в managed mode `0640`
+
+### Changed
+- docs теперь честно описывают `XRAY_DATA_DIR` как mirror runnable managed source set, а не как буквальный byte-for-byte mirror всего checkout репозитория
+
 ## [7.10.5] - 2026-03-28
 
 ### Changed

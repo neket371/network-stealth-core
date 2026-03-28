@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-GLOBAL_CONTRACT_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/lib/globals_contract.sh"
+ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
+
+GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
@@ -11,7 +13,7 @@ fi
 # shellcheck source=modules/lib/globals_contract.sh
 source "$GLOBAL_CONTRACT_MODULE"
 
-SELF_CHECK_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/self_check.sh"
+SELF_CHECK_MODULE="${ROOT_MODULE_DIR}/modules/health/self_check.sh"
 if [[ ! -f "$SELF_CHECK_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SELF_CHECK_MODULE="$XRAY_DATA_DIR/modules/health/self_check.sh"
 fi
@@ -22,7 +24,7 @@ fi
 # shellcheck source=modules/health/self_check.sh
 source "$SELF_CHECK_MODULE"
 
-MEASUREMENTS_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/measurements.sh"
+MEASUREMENTS_MODULE="${ROOT_MODULE_DIR}/modules/health/measurements.sh"
 if [[ ! -f "$MEASUREMENTS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     MEASUREMENTS_MODULE="$XRAY_DATA_DIR/modules/health/measurements.sh"
 fi
@@ -33,7 +35,7 @@ fi
 # shellcheck source=modules/health/measurements.sh
 source "$MEASUREMENTS_MODULE"
 
-OPERATOR_DECISION_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/operator_decision.sh"
+OPERATOR_DECISION_MODULE="${ROOT_MODULE_DIR}/modules/health/operator_decision.sh"
 if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
 fi
@@ -44,7 +46,7 @@ fi
 # shellcheck source=modules/health/operator_decision.sh
 source "$OPERATOR_DECISION_MODULE"
 
-DOCTOR_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/health/doctor.sh"
+DOCTOR_MODULE="${ROOT_MODULE_DIR}/modules/health/doctor.sh"
 if [[ ! -f "$DOCTOR_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
     DOCTOR_MODULE="$XRAY_DATA_DIR/modules/health/doctor.sh"
 fi
