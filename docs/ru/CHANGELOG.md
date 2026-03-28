@@ -7,6 +7,8 @@
 
 ## [unreleased]
 
+## [7.10.3] - 2026-03-28
+
 ### Fixed
 - measurement и self-check storage helpers больше не делают `chmod` на уже существующих custom parent-directory, так что override state-файлов больше не может тихо увести права у shared system path
 - managed geo registry теперь следует только активному контракту директории для GeoIP/GeoSite и больше не считает `/usr/local/share/xray` проектным каталогом по умолчанию

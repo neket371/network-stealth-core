@@ -7,6 +7,8 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.10.3] - 2026-03-28
+
 ### Fixed
 - stopped measurement and self-check storage helpers from chmodding pre-existing custom parent directories, so custom state-file overrides no longer risk permission drift on shared system paths
 - made the managed geo registry follow only the active GeoIP/GeoSite directory contract instead of always treating `/usr/local/share/xray` as project-owned
