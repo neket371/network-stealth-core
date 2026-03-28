@@ -54,3 +54,56 @@
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "install_self_sync_tree mirrors wrapper entrypoint and removes stale files" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./modules/lib/lifecycle.sh
+    source ./modules/install/bootstrap.sh
+    log() { :; }
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    src="$tmp/src"
+    dest="$tmp/dest"
+    mkdir -p "$src/modules" "$src/data" "$src/scripts" "$dest"
+    while IFS= read -r root_file; do
+      printf "%s\n" "$root_file" > "$src/$root_file"
+    done < <(install_self_source_tree_root_files)
+    printf "stale\n" > "$dest/stale.txt"
+    printf "old\n" > "$dest/xray-reality.sh"
+    install_self_sync_tree "$src" "$dest"
+    test -f "$dest/xray-reality.sh"
+    grep -Fq "xray-reality.sh" "$dest/xray-reality.sh"
+    ! test -e "$dest/stale.txt"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}
+
+@test "directory backup snapshots restore XRAY_DATA_DIR after failed session" {
+    run bash -eo pipefail -c '
+    tmp="$(mktemp -d)"
+    trap "rm -rf \"$tmp\"" EXIT
+    tree="$tmp/xray-data"
+    mkdir -p "$tree"
+    printf "old\n" > "$tree/original.txt"
+    (
+      source ./lib.sh
+      source ./modules/lib/lifecycle.sh
+      log() { :; }
+      XRAY_DATA_DIR="$tree"
+      XRAY_BACKUP="$tmp/backups"
+      backup_file "$XRAY_DATA_DIR"
+      rm -rf "$XRAY_DATA_DIR"
+      mkdir -p "$XRAY_DATA_DIR"
+      printf "new\n" > "$XRAY_DATA_DIR/new.txt"
+      exit 1
+    ) || true
+    test -f "$tree/original.txt"
+    ! test -e "$tree/new.txt"
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ok"* ]]
+}

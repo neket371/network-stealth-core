@@ -107,23 +107,23 @@ rotate_backups() {
 
 backup_file() {
     local target="$1"
-    if [[ ! -e "$target" ]]; then
+    if [[ ! -e "$target" && ! -L "$target" ]]; then
         record_created_path "$target"
         return 0
     fi
-    if [[ -f "$target" ]]; then
-        ensure_backup_session
-        if [[ ! -f "${BACKUP_SESSION_DIR}${target}" ]]; then
-            mkdir -p "${BACKUP_SESSION_DIR}$(dirname "$target")"
-            cp -a "$target" "${BACKUP_SESSION_DIR}${target}"
-            BACKUP_STACK+=("$target")
-            log INFO "Сохранён бэкап: ${BACKUP_SESSION_DIR}${target}"
-        fi
-        if [[ "$KEEP_LOCAL_BACKUPS" == true ]] && [[ ! -f "${target}.backup" ]]; then
-            cp -a "$target" "${target}.backup"
-            LOCAL_BACKUP_MAP["$target"]=1
-            log INFO "Создан бэкап: ${target}.backup"
-        fi
+
+    ensure_backup_session
+    if [[ ! -e "${BACKUP_SESSION_DIR}${target}" && ! -L "${BACKUP_SESSION_DIR}${target}" ]]; then
+        mkdir -p "${BACKUP_SESSION_DIR}$(dirname "$target")"
+        cp -a "$target" "${BACKUP_SESSION_DIR}${target}"
+        BACKUP_STACK+=("$target")
+        log INFO "Сохранён бэкап: ${BACKUP_SESSION_DIR}${target}"
+    fi
+
+    if [[ -f "$target" && "$KEEP_LOCAL_BACKUPS" == true ]] && [[ ! -f "${target}.backup" ]]; then
+        cp -a "$target" "${target}.backup"
+        LOCAL_BACKUP_MAP["$target"]=1
+        log INFO "Создан бэкап: ${target}.backup"
     fi
 }
 
@@ -219,31 +219,42 @@ runtime_quiesce_for_restore() {
     fi
 }
 
-restore_file_from_snapshot() {
+restore_path_from_snapshot() {
     local source_path="$1"
     local dest_path="$2"
-    local dest_dir tmp_path link_target
+    local dest_dir tmp_path tmp_root link_target
 
     dest_dir="$(dirname "$dest_path")"
     mkdir -p "$dest_dir"
-    tmp_path="$(mktemp "${dest_dir}/.$(basename "$dest_path").restore.XXXXXX")"
     if [[ -L "$source_path" ]]; then
+        tmp_path="$(mktemp "${dest_dir}/.$(basename "$dest_path").restore.XXXXXX")"
         rm -f "$tmp_path"
         link_target="$(readlink "$source_path")" || return 1
         if ! ln -s "$link_target" "$tmp_path"; then
             rm -f "$tmp_path"
             return 1
         fi
+    elif [[ -d "$source_path" ]]; then
+        tmp_root="$(mktemp -d "${dest_dir}/.$(basename "$dest_path").restore-root.XXXXXX")" || return 1
+        tmp_path="${tmp_root}/$(basename "$dest_path")"
+        if ! cp -a "$source_path" "$tmp_path"; then
+            rm -rf "$tmp_root"
+            return 1
+        fi
+        rm -rf "$dest_path" 2> /dev/null || true
     else
+        tmp_path="$(mktemp "${dest_dir}/.$(basename "$dest_path").restore.XXXXXX")"
         if ! cp -a "$source_path" "$tmp_path"; then
             rm -f "$tmp_path"
             return 1
         fi
     fi
     if ! mv -f "$tmp_path" "$dest_path"; then
-        rm -f "$tmp_path"
+        rm -f "$tmp_path" 2> /dev/null || true
+        rm -rf "$tmp_root" 2> /dev/null || true
         return 1
     fi
+    rm -rf "$tmp_root" 2> /dev/null || true
     return 0
 }
 
@@ -357,8 +368,8 @@ cleanup_on_error() {
                     mv "${backup}.backup" "$backup"
                     restored=true
                     log INFO "Восстановлен: $backup"
-                elif [[ -n "$BACKUP_SESSION_DIR" ]] && [[ -f "${BACKUP_SESSION_DIR}${backup}" ]]; then
-                    if restore_file_from_snapshot "${BACKUP_SESSION_DIR}${backup}" "$backup"; then
+                elif [[ -n "$BACKUP_SESSION_DIR" ]] && [[ -e "${BACKUP_SESSION_DIR}${backup}" || -L "${BACKUP_SESSION_DIR}${backup}" ]]; then
+                    if restore_path_from_snapshot "${BACKUP_SESSION_DIR}${backup}" "$backup"; then
                         restored=true
                         log INFO "Восстановлен из сессии: $backup"
                     fi

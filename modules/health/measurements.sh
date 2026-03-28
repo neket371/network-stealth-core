@@ -86,6 +86,10 @@ measurement_invalid_summary_reason() {
     printf '%s\n' "saved measurement summary is invalid; rebuild or reimport reports"
 }
 
+measurement_invalid_rotation_state_reason() {
+    printf '%s\n' "saved rotation state is invalid; reset or rebuild measurement rotation state"
+}
+
 measurement_rotation_state_default_json() {
     local current_primary="${1:-}"
     local current_family="${2:-}"
@@ -140,22 +144,48 @@ measurement_rotation_state_trim_json() {
     ' <<< "$state_json"
 }
 
-measurement_rotation_state_resolved_json() {
+measurement_rotation_state_status_json() {
     local summary_json="${1:-"{}"}"
     local state_file current_primary current_family current_domain state_json=""
+    local default_state_json=""
     state_file=$(measurement_rotation_state_file_path)
     current_primary=$(jq -r '.current_primary // empty' <<< "$summary_json" 2> /dev/null || true)
     current_family=$(jq -r '.current_primary_family // .current_primary_stats.provider_family // empty' <<< "$summary_json" 2> /dev/null || true)
     current_domain=$(jq -r '.current_primary_stats.domain // empty' <<< "$summary_json" 2> /dev/null || true)
+    default_state_json=$(measurement_rotation_state_default_json "$current_primary" "$current_family" "$current_domain")
 
-    if [[ -f "$state_file" ]] && jq -e 'type == "object"' "$state_file" > /dev/null 2>&1; then
-        state_json=$(cat "$state_file")
-    else
-        measurement_rotation_state_default_json "$current_primary" "$current_family" "$current_domain"
+    if [[ ! -f "$state_file" ]]; then
+        jq -n \
+            --arg state "missing" \
+            --arg reason "no saved rotation state yet" \
+            --arg state_file "$state_file" \
+            --argjson rotation_state "$default_state_json" \
+            '{
+                state: $state,
+                reason: $reason,
+                state_file: $state_file,
+                rotation_state: $rotation_state
+            }'
         return 0
     fi
 
-    measurement_rotation_state_trim_json "$state_json" |
+    if ! jq -e 'type == "object"' "$state_file" > /dev/null 2>&1; then
+        jq -n \
+            --arg state "invalid" \
+            --arg reason "$(measurement_invalid_rotation_state_reason)" \
+            --arg state_file "$state_file" \
+            --argjson rotation_state "$default_state_json" \
+            '{
+                state: $state,
+                reason: $reason,
+                state_file: $state_file,
+                rotation_state: $rotation_state
+            }'
+        return 0
+    fi
+
+    state_json=$(cat "$state_file")
+    state_json=$(measurement_rotation_state_trim_json "$state_json" |
         jq \
             --arg current_primary "$current_primary" \
             --arg current_family "$current_family" \
@@ -186,7 +216,38 @@ measurement_rotation_state_resolved_json() {
                 else
                     null
                 end
-            )'
+            )') || {
+        jq -n \
+            --arg state "invalid" \
+            --arg reason "$(measurement_invalid_rotation_state_reason)" \
+            --arg state_file "$state_file" \
+            --argjson rotation_state "$default_state_json" \
+            '{
+                state: $state,
+                reason: $reason,
+                state_file: $state_file,
+                rotation_state: $rotation_state
+            }'
+        return 0
+    }
+
+    jq -n \
+        --arg state "ok" \
+        --arg state_file "$state_file" \
+        --argjson rotation_state "$state_json" \
+        '{
+            state: $state,
+            reason: null,
+            state_file: $state_file,
+            rotation_state: $rotation_state
+        }'
+}
+
+measurement_rotation_state_resolved_json() {
+    local summary_json="${1:-"{}"}"
+    local status_json=""
+    status_json=$(measurement_rotation_state_status_json "$summary_json")
+    jq -c '.rotation_state' <<< "$status_json"
 }
 
 measurement_write_rotation_state_json() {
@@ -203,6 +264,7 @@ measurement_write_rotation_state_json() {
 
 measurement_overlay_rotation_state() {
     local summary_json="${1:-"{}"}"
+    local rotation_state_status_json=""
     local state_json=""
     local raw_candidate_json="null"
     local current_primary_domain=""
@@ -212,9 +274,16 @@ measurement_overlay_rotation_state() {
     local cooldown_domains_json="[]"
     local promotion_block_reason=""
     local rotation_verdict="keep-current-primary"
+    local rotation_state_status="missing"
+    local rotation_state_reason=""
+    local rotation_state_file=""
     local field_verdict="unknown"
     local coverage_verdict="unknown"
-    state_json=$(measurement_rotation_state_resolved_json "$summary_json")
+    rotation_state_status_json=$(measurement_rotation_state_status_json "$summary_json")
+    state_json=$(jq -c '.rotation_state' <<< "$rotation_state_status_json")
+    rotation_state_status=$(jq -r '.state // "missing"' <<< "$rotation_state_status_json")
+    rotation_state_reason=$(jq -r '.reason // empty' <<< "$rotation_state_status_json")
+    rotation_state_file=$(jq -r '.state_file // empty' <<< "$rotation_state_status_json")
 
     raw_candidate_json=$(jq -c '.promotion_candidate // null' <<< "$summary_json")
     current_primary_domain=$(jq -r '.current_primary_stats.domain // ""' <<< "$summary_json")
@@ -247,7 +316,10 @@ measurement_overlay_rotation_state() {
     field_verdict=$(jq -r '.field_verdict // "unknown"' <<< "$summary_json")
     coverage_verdict=$(jq -r '.coverage_verdict // "unknown"' <<< "$summary_json")
 
-    if [[ "$raw_candidate_json" == "null" ]]; then
+    if [[ "$rotation_state_status" == "invalid" ]]; then
+        promotion_block_reason="$rotation_state_reason"
+        rotation_verdict="invalid-rotation-state"
+    elif [[ "$raw_candidate_json" == "null" ]]; then
         promotion_block_reason=""
         if [[ "$field_verdict" == "unknown" ]]; then
             rotation_verdict="collect-more-data"
@@ -278,6 +350,9 @@ measurement_overlay_rotation_state() {
         --arg current_primary_domain "$current_primary_domain" \
         --arg promotion_block_reason "$promotion_block_reason" \
         --arg rotation_verdict "$rotation_verdict" \
+        --arg rotation_state_status "$rotation_state_status" \
+        --arg rotation_state_reason "$rotation_state_reason" \
+        --arg rotation_state_file "$rotation_state_file" \
         --argjson cooldown_families "$cooldown_families_json" \
         --argjson cooldown_domains "$cooldown_domains_json" '
         . + {
@@ -293,6 +368,9 @@ measurement_overlay_rotation_state() {
             ),
             promotion_block_reason: (if ($promotion_block_reason | length) > 0 then $promotion_block_reason else null end),
             rotation_verdict: $rotation_verdict,
+            rotation_state_status: $rotation_state_status,
+            rotation_state_reason: (if ($rotation_state_reason | length) > 0 then $rotation_state_reason else null end),
+            rotation_state_file: (if ($rotation_state_file | length) > 0 then $rotation_state_file else null end),
             primary_weak_streak: ($state.primary_weak_streak // 0),
             cooldown_families: $cooldown_families,
             cooldown_domains: $cooldown_domains,
@@ -555,6 +633,13 @@ measurement_render_summary_text() {
             end
         ),
         "rotation verdict: " + (.rotation_verdict // "keep-current-primary"),
+        (
+            if (.rotation_state_status // "ok") == "invalid" then
+                "rotation state: invalid | " + ((.rotation_state_reason // "n/a") | tostring)
+            else
+                empty
+            end
+        ),
         "primary weak streak: " + ((.primary_weak_streak // 0) | tostring),
         (
             if ((.cooldown_families // []) | length) == 0 then

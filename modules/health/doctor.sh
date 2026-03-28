@@ -33,6 +33,7 @@ doctor_flow() {
     local field_verdict field_recommendation field_reason
     local coverage_verdict family_diversity long_term summary_state summary_state_reason
     local rotation_verdict weak_streak cooldown_families cooldown_domains
+    local rotation_state_status rotation_state_reason
     local best_spare best_spare_family promotion_block_reason
 
     overall_verdict=$(jq -r '.overall_verdict // "unknown"' <<< "$payload" 2> /dev/null || echo "unknown")
@@ -53,6 +54,8 @@ doctor_flow() {
     long_term=$(jq -r '.field.long_term_verdict // "unknown"' <<< "$payload" 2> /dev/null || echo "unknown")
     summary_state=$(jq -r '.field.summary_state // "missing"' <<< "$payload" 2> /dev/null || echo "missing")
     summary_state_reason=$(jq -r '.field.summary_state_reason // empty' <<< "$payload" 2> /dev/null || true)
+    rotation_state_status=$(jq -r '.field.rotation_state_status // "unknown"' <<< "$payload" 2> /dev/null || echo "unknown")
+    rotation_state_reason=$(jq -r '.field.rotation_state_reason // empty' <<< "$payload" 2> /dev/null || true)
     rotation_verdict=$(jq -r '.field.rotation_verdict // "keep-current-primary"' <<< "$payload" 2> /dev/null || echo "keep-current-primary")
     weak_streak=$(jq -r '.field.primary_weak_streak // 0' <<< "$payload" 2> /dev/null || echo 0)
     cooldown_families=$(jq -r '(.field.cooldown_families // []) | join(", ")' <<< "$payload" 2> /dev/null || true)
@@ -79,6 +82,9 @@ doctor_flow() {
     echo -e "Field details: coverage=${coverage_verdict}, families=${family_diversity}, trend=${long_term}, best spare=${best_spare} [${best_spare_family}]"
     if [[ "$summary_state" != "ok" ]]; then
         echo -e "Field summary: ${summary_state}${summary_state_reason:+ | ${summary_state_reason}}"
+    fi
+    if [[ "$rotation_state_status" == "invalid" ]]; then
+        echo -e "Rotation state: ${rotation_state_status}${rotation_state_reason:+ | ${rotation_state_reason}}"
     fi
     echo -e "Rotation: ${rotation_verdict} | weak streak=${weak_streak}"
     if [[ -n "$cooldown_families" || -n "$cooldown_domains" ]]; then

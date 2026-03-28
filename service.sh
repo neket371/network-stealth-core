@@ -391,7 +391,7 @@ status_flow_render_verbose_measurements() {
         local family_diversity_verdict long_term_verdict rotation_verdict weak_streak latest_generated
         local current_primary current_primary_family current_primary_recommended current_primary_rescue current_primary_trend
         local best_spare best_spare_family best_spare_recommended best_spare_trend recommend_emergency
-        local cooldown_families cooldown_domains promotion_block_reason summary_state summary_state_reason
+        local cooldown_families cooldown_domains promotion_block_reason summary_state summary_state_reason rotation_state_status rotation_state_reason
         field_verdict=$(jq -r '.field.field_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
         operator_recommendation=$(jq -r '.decision_recommendation // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
         operator_reason=$(jq -r '.decision_reason // "n/a"' <<< "$decision_payload" 2> /dev/null || echo "n/a")
@@ -404,6 +404,8 @@ status_flow_render_verbose_measurements() {
         long_term_verdict=$(jq -r '.field.long_term_verdict // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
         summary_state=$(jq -r '.field.summary_state // "missing"' <<< "$decision_payload" 2> /dev/null || echo "missing")
         summary_state_reason=$(jq -r '.field.summary_state_reason // empty' <<< "$decision_payload" 2> /dev/null || true)
+        rotation_state_status=$(jq -r '.field.rotation_state_status // "unknown"' <<< "$decision_payload" 2> /dev/null || echo "unknown")
+        rotation_state_reason=$(jq -r '.field.rotation_state_reason // empty' <<< "$decision_payload" 2> /dev/null || true)
         rotation_verdict=$(jq -r '.field.rotation_verdict // "keep-current-primary"' <<< "$decision_payload" 2> /dev/null || echo "keep-current-primary")
         weak_streak=$(jq -r '.field.primary_weak_streak // 0' <<< "$decision_payload" 2> /dev/null || echo 0)
         current_primary=$(jq -r '.field.current_primary // "n/a"' <<< "$decision_payload" 2> /dev/null || echo "n/a")
@@ -428,6 +430,9 @@ status_flow_render_verbose_measurements() {
         echo -e "  Long-term trend: ${long_term_verdict}"
         if [[ "$summary_state" != "ok" ]]; then
             echo -e "  Summary state: ${summary_state}${summary_state_reason:+ (${summary_state_reason})}"
+        fi
+        if [[ "$rotation_state_status" == "invalid" ]]; then
+            echo -e "  Rotation state: ${rotation_state_status}${rotation_state_reason:+ (${rotation_state_reason})}"
         fi
         echo -e "  Rotation: ${rotation_verdict} (weak streak ${weak_streak})"
         echo -e "  Current primary: ${current_primary} [${current_primary_family}] (recommended ${current_primary_recommended}%, rescue ${current_primary_rescue}%, trend ${current_primary_trend})"

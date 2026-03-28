@@ -185,3 +185,14 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "managed source tree root files include wrapper entrypoint" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    mapfile -t roots < <(managed_source_tree_root_files)
+    [[ " ${roots[*]} " == *" xray-reality.sh "* ]]
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}

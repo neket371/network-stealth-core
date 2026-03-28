@@ -155,6 +155,7 @@ install_self_source_tree_root_files() {
         return 0
     fi
     printf '%s\n' \
+        xray-reality.sh \
         domains.tiers \
         sni_pools.map \
         transport_endpoints.map \
@@ -199,7 +200,7 @@ install_self_copy_file_into_stage() {
 install_self_publish_staged_tree() {
     local stage_root="$1"
     local dest_root="$2"
-    local dest_parent dest_name backup_root
+    local dest_parent dest_name backup_root restored_backup=false
 
     dest_parent=$(dirname "$dest_root")
     dest_name=$(basename "$dest_root")
@@ -217,9 +218,13 @@ install_self_publish_staged_tree() {
     if ! mv "$stage_root" "$dest_root"; then
         rm -rf -- "$stage_root" 2> /dev/null || true
         if [[ -n "$backup_root" && -d "${backup_root}/${dest_name}" ]]; then
-            mv "${backup_root}/${dest_name}" "$dest_root" || true
+            if mv "${backup_root}/${dest_name}" "$dest_root"; then
+                restored_backup=true
+            fi
         fi
-        rm -rf "$backup_root"
+        if [[ "$restored_backup" == true ]]; then
+            rm -rf "$backup_root"
+        fi
         return 1
     fi
 
@@ -230,6 +235,7 @@ install_self_sync_tree() {
     local src_root="$1"
     local dest_root="$2"
     local dest_parent dest_name stage_root root_file src_path
+    local dest_exists=false
 
     dest_parent=$(dirname "$dest_root")
     dest_name=$(basename "$dest_root")
@@ -242,6 +248,19 @@ install_self_sync_tree() {
         log ERROR "Не удалось создать staging-каталог для managed source tree"
         exit 1
     }
+
+    if [[ -d "$dest_root" ]]; then
+        dest_exists=true
+        if declare -F backup_file > /dev/null 2>&1; then
+            backup_file "$dest_root" || {
+                rm -rf "$stage_root"
+                log ERROR "Не удалось сохранить rollback-снимок managed source tree"
+                exit 1
+            }
+        fi
+    elif declare -F record_created_path > /dev/null 2>&1; then
+        record_created_path "$dest_root"
+    fi
 
     if ! install_self_copy_tree_into_stage "$src_root/modules" "$stage_root" "modules"; then
         rm -rf "$stage_root"
@@ -270,7 +289,11 @@ install_self_sync_tree() {
     done < <(install_self_source_tree_root_files)
 
     if ! install_self_publish_staged_tree "$stage_root" "$dest_root"; then
-        log ERROR "Не удалось атомарно обновить managed source tree в ${dest_root}"
+        if [[ "$dest_exists" == true ]]; then
+            log ERROR "Не удалось атомарно обновить managed source tree в ${dest_root}; предыдущий tree сохранён в rollback snapshot"
+        else
+            log ERROR "Не удалось атомарно обновить managed source tree в ${dest_root}"
+        fi
         exit 1
     fi
 }

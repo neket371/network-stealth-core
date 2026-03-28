@@ -236,3 +236,38 @@ EOF
     [ "$status" -eq 0 ]
     [ "$output" = "ok" ]
 }
+
+@test "invalid rotation state becomes explicit degraded operator state" {
+    run bash -eo pipefail -c '
+    source ./lib.sh
+    source ./health.sh
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf \"$tmp_dir\"" EXIT
+    MEASUREMENTS_DIR="$tmp_dir/measurements"
+    MEASUREMENTS_SUMMARY_FILE="$tmp_dir/measurements/latest-summary.json"
+    MEASUREMENTS_ROTATION_STATE_FILE="$tmp_dir/measurements/rotation-state.json"
+    mkdir -p "$MEASUREMENTS_DIR"
+    cat > "$MEASUREMENTS_SUMMARY_FILE" <<EOF
+{"field_verdict":"warning","coverage_verdict":"ok","operator_recommendation":"promote-spare","operator_recommendation_reason":"rotate to Config 2","current_primary":"Config 1","current_primary_family":"vk","current_primary_stats":{"domain":"vk.com","recommended_success_rate_last5":20,"rescue_success_rate_last5":40},"best_spare":"Config 2","best_spare_family":"yandex","best_spare_stats":{"domain":"yandex.ru","recommended_success_rate_last5":100},"promotion_candidate":{"config_name":"Config 2","reason":"rotate to Config 2","candidate_provider_family":"yandex"},"configs":[{"config_name":"Config 1","domain":"vk.com","provider_family":"vk"},{"config_name":"Config 2","domain":"yandex.ru","provider_family":"yandex"}]}
+EOF
+    printf "{broken\n" > "$MEASUREMENTS_ROTATION_STATE_FILE"
+    operator_runtime_state_json() {
+      cat <<EOF
+{"managed_present":true,"service_state":"active","config_state":"ok","transport":"xhttp","installed_version":"25.9.5"}
+EOF
+    }
+    payload=$(operator_decision_payload_json)
+    jq -e ".field.rotation_state_status == \"invalid\"" <<< "$payload" > /dev/null
+    jq -e ".field.rotation_state_reason == \"saved rotation state is invalid; reset or rebuild measurement rotation state\"" <<< "$payload" > /dev/null
+    jq -e ".field.rotation_verdict == \"invalid-rotation-state\"" <<< "$payload" > /dev/null
+    jq -e ".field.promotion_candidate == null" <<< "$payload" > /dev/null
+    jq -e ".overall_verdict == \"warning\"" <<< "$payload" > /dev/null
+    jq -e ".decision_reason == \"saved rotation state is invalid; reset or rebuild measurement rotation state\"" <<< "$payload" > /dev/null
+    jq -e ".next_action == \"reset or rebuild saved rotation state before trusting promotion decisions\"" <<< "$payload" > /dev/null
+    text=$(measurement_render_summary_text "$(measurement_read_summary_json)")
+    [[ "$text" == *"rotation state: invalid | saved rotation state is invalid; reset or rebuild measurement rotation state"* ]]
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}

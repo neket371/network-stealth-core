@@ -7,6 +7,9 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+### Changed
+- re-ships the managed wrapper-tree rollback and rotation-state hardening tranche on the actual code commit after the `v7.10.4` release-prep-only tag slipped out
+
 ## [7.10.4] - 2026-03-28
 
 ### Changed

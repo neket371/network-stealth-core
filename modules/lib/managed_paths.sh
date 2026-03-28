@@ -193,6 +193,7 @@ managed_runtime_artifacts_present() {
 
 managed_source_tree_root_files() {
     printf '%s\n' \
+        xray-reality.sh \
         domains.tiers \
         sni_pools.map \
         transport_endpoints.map \

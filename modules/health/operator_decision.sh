@@ -222,6 +222,9 @@ operator_field_summary_json() {
         promotion_block_reason: null,
         summary_state: $summary_state,
         summary_state_reason: (if ($summary_reason | length) > 0 then $summary_reason else null end),
+        rotation_state_status: "unknown",
+        rotation_state_reason: null,
+        rotation_state_file: null,
         summary_file: (if ($summary_file | length) > 0 then $summary_file else null end),
         rotation_state: {
             primary_weak_streak: 0,
@@ -239,6 +242,7 @@ operator_decision_overall_verdict() {
     local decision_recommendation="$5"
     local coverage_verdict="$6"
     local summary_state="${7:-missing}"
+    local rotation_state_status="${8:-missing}"
 
     if [[ "$managed_present" != "true" ]]; then
         printf '%s\n' "not-installed"
@@ -278,6 +282,10 @@ operator_decision_overall_verdict() {
         printf '%s\n' "warning"
         return 0
     fi
+    if [[ "$rotation_state_status" == "invalid" ]]; then
+        printf '%s\n' "warning"
+        return 0
+    fi
 
     case "$decision_recommendation" in
         promote-spare | field-test-emergency | collect-more-data | watch-and-collect-more | hold-cooldown)
@@ -300,6 +308,7 @@ operator_decision_next_action() {
     local decision_recommendation="$2"
     local recommend_emergency="$3"
     local summary_state="${4:-missing}"
+    local rotation_state_status="${5:-missing}"
 
     case "$overall_verdict" in
         not-installed)
@@ -311,6 +320,10 @@ operator_decision_next_action() {
         warning)
             if [[ "$summary_state" == "invalid" ]]; then
                 printf '%s\n' "rebuild or reimport saved field reports before trusting promotion decisions"
+                return 0
+            fi
+            if [[ "$rotation_state_status" == "invalid" ]]; then
+                printf '%s\n' "reset or rebuild saved rotation state before trusting promotion decisions"
                 return 0
             fi
             case "$decision_recommendation" in
@@ -347,7 +360,7 @@ operator_decision_payload_json() {
     self_check_json=$(operator_self_check_summary_json)
     field_json=$(operator_field_summary_json)
 
-    local managed_present service_state config_state self_check_verdict decision_recommendation coverage_verdict recommend_emergency overall_verdict next_action summary_state
+    local managed_present service_state config_state self_check_verdict decision_recommendation coverage_verdict recommend_emergency overall_verdict next_action summary_state rotation_state_status
     managed_present=$(jq -r '.managed_present' <<< "$runtime_json")
     service_state=$(jq -r '.service_state // "unknown"' <<< "$runtime_json")
     config_state=$(jq -r '.config_state // "missing"' <<< "$runtime_json")
@@ -355,6 +368,7 @@ operator_decision_payload_json() {
     coverage_verdict=$(jq -r '.coverage_verdict // "unknown"' <<< "$field_json")
     recommend_emergency=$(jq -r '.recommend_emergency // false' <<< "$field_json")
     summary_state=$(jq -r '.summary_state // "missing"' <<< "$field_json")
+    rotation_state_status=$(jq -r '.rotation_state_status // "missing"' <<< "$field_json")
 
     decision_recommendation=$(jq -r '
         if (.promotion_candidate // null) != null then
@@ -365,6 +379,10 @@ operator_decision_payload_json() {
             (.operator_recommendation // "unknown")
         end
     ' <<< "$field_json")
+
+    if [[ "$rotation_state_status" == "invalid" ]]; then
+        decision_recommendation="hold-cooldown"
+    fi
 
     if [[ "$decision_recommendation" == "promote-spare" ]] && [[ "${self_check_verdict,,}" != "broken" ]]; then
         if ! jq -e '(.primary_weak_streak // 0) >= 2' <<< "$field_json" > /dev/null 2>&1; then
@@ -379,8 +397,9 @@ operator_decision_payload_json() {
         "$self_check_verdict" \
         "$decision_recommendation" \
         "$coverage_verdict" \
-        "$summary_state")
-    next_action=$(operator_decision_next_action "$overall_verdict" "$decision_recommendation" "$recommend_emergency" "$summary_state")
+        "$summary_state" \
+        "$rotation_state_status")
+    next_action=$(operator_decision_next_action "$overall_verdict" "$decision_recommendation" "$recommend_emergency" "$summary_state" "$rotation_state_status")
 
     jq -n \
         --argjson runtime "$runtime_json" \
@@ -397,6 +416,8 @@ operator_decision_payload_json() {
             decision_reason: (
                 if (($field.summary_state // "missing") == "invalid") then
                     ($field.summary_state_reason // "saved measurement summary is invalid")
+                elif (($field.rotation_state_status // "missing") == "invalid") then
+                    ($field.rotation_state_reason // "saved rotation state is invalid")
                 elif $decision_recommendation == "promote-spare" then
                     ($field.promotion_candidate.reason // $field.operator_recommendation_reason // "n/a")
                 elif $decision_recommendation == "hold-cooldown" then
