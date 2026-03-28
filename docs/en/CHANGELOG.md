@@ -7,6 +7,16 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.10.4] - 2026-03-28
+
+### Changed
+- made managed wrapper self-sync mirror the full source-tree root set including `xray-reality.sh`, so `$XRAY_DATA_DIR` stays a real runnable mirror instead of a partial module dump
+
+### Fixed
+- folded `XRAY_DATA_DIR` self-sync into the normal rollback snapshot flow, so failed `install`, `update`, or `repair` no longer leave a new managed code tree on top of rolled-back runtime state
+- hardened staged wrapper-tree publish so a failed restore move no longer deletes the only old tree blindly; the previous tree now survives until rollback recovery can finish
+- exposed an invalid saved `rotation-state.json` as explicit degraded operator state instead of silently resetting cooldown and weak-primary history to defaults
+
 ## [7.10.3] - 2026-03-28
 
 ### Fixed

@@ -7,6 +7,16 @@
 
 ## [unreleased]
 
+## [7.10.4] - 2026-03-28
+
+### Changed
+- self-sync managed wrapper tree теперь зеркалит полный root-набор source tree, включая `xray-reality.sh`, так что `$XRAY_DATA_DIR` остаётся реально запускаемым mirror, а не частичной выгрузкой модулей
+
+### Fixed
+- `XRAY_DATA_DIR` self-sync включён в обычный rollback snapshot flow, поэтому неуспешный `install`, `update` или `repair` больше не оставляет новый managed code tree поверх откатанного runtime state
+- staged publish wrapper tree теперь не удаляет старое дерево вслепую, если restore move назад тоже сорвался; предыдущий tree сохраняется до завершения rollback recovery
+- битый сохранённый `rotation-state.json` теперь показывается как явный degraded operator state, а не молча сбрасывает cooldown и weak-primary history к default state
+
 ## [7.10.3] - 2026-03-28
 
 ### Fixed
