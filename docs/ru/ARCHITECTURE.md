@@ -106,6 +106,8 @@ self-sync wrapper’а теперь публикует runnable managed source s
 
 так убирается прежнее окно смешанного состояния, когда модули уже новые, а root entrypoints ещё старые или частично скопированные после сбоя, и одновременно исчезают stale-файлы, уже удалённые из upstream runnable managed source set.
 
+после выбора этого managed tree wrapper держит strict source-tree loading, поэтому дальнейшие root/lib bootstrap-шаги уже fail-closed и не подмешивают молча модули из соседнего stale tree.
+
 ## граница миграции
 
 `migrate-stealth` — единственный mutating-мост со старых managed-контрактов.

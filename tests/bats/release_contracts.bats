@@ -215,12 +215,24 @@ EOF
 
 @test "wrapper completeness guard tracks current health runtime modules" {
     run bash -eo pipefail -c '
+    grep -Fq '\''xray-reality.sh'\'' ./xray-reality.sh
     grep -Fq '\''lib.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/self_check.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/measurements.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/operator_decision.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/doctor.sh'\'' ./xray-reality.sh
     grep -Fq '\''modules/health/measurements_aggregate.jq'\'' ./xray-reality.sh
+    echo ok
+  '
+    [ "$status" -eq 0 ]
+    [ "$output" = "ok" ]
+}
+
+@test "install_self copies the canonical wrapper from the selected managed tree" {
+    run bash -eo pipefail -c '
+    grep -Fq '\''wrapper_src="${SCRIPT_DIR}/xray-reality.sh"'\'' ./modules/install/bootstrap.sh
+    grep -Fq '\''if [[ -f "$wrapper_src" ]]; then'\'' ./modules/install/bootstrap.sh
+    grep -Fq '\''src="$wrapper_src"'\'' ./modules/install/bootstrap.sh
     echo ok
   '
     [ "$status" -eq 0 ]

@@ -7,6 +7,14 @@ versioning: [semantic versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [unreleased]
 
+## [7.10.7] - 2026-03-29
+
+### Fixed
+- made direct trusted `XRAY_DATA_DIR` env overrides win over a stale local bootstrap tree too, not only the persisted `config.env` override path
+- tightened wrapper/bootstrap loading around one coherent trusted source tree and stopped the root/lib fallback chain from silently mixing files from different trees once strict wrapper loading is active
+- made `install_self()` copy the canonical wrapper from the selected managed tree instead of re-installing the originally launched stale wrapper path
+- extended trusted custom-tree validation to runtime `.jq` assets such as `modules/health/measurements_aggregate.jq`, so escaped or unsafe non-shell runtime files fail before operator decision code can load them
+
 ## [7.10.6] - 2026-03-28
 
 ### Fixed

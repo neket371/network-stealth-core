@@ -4,7 +4,7 @@
 ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
 
 GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -15,7 +15,7 @@ fi
 source "$GLOBAL_CONTRACT_MODULE"
 
 SELF_CHECK_MODULE="${ROOT_MODULE_DIR}/modules/health/self_check.sh"
-if [[ ! -f "$SELF_CHECK_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$SELF_CHECK_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SELF_CHECK_MODULE="$XRAY_DATA_DIR/modules/health/self_check.sh"
 fi
 if [[ -f "$SELF_CHECK_MODULE" ]]; then
@@ -24,7 +24,7 @@ if [[ -f "$SELF_CHECK_MODULE" ]]; then
 fi
 
 OPERATOR_DECISION_MODULE="${ROOT_MODULE_DIR}/modules/health/operator_decision.sh"
-if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$OPERATOR_DECISION_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
 fi
 if [[ -f "$OPERATOR_DECISION_MODULE" ]]; then
@@ -33,7 +33,7 @@ if [[ -f "$OPERATOR_DECISION_MODULE" ]]; then
 fi
 
 CONFIG_SHARED_HELPERS_MODULE="${ROOT_MODULE_DIR}/modules/config/shared_helpers.sh"
-if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_SHARED_HELPERS_MODULE="$XRAY_DATA_DIR/modules/config/shared_helpers.sh"
 fi
 if [[ -f "$CONFIG_SHARED_HELPERS_MODULE" ]]; then
@@ -42,7 +42,7 @@ if [[ -f "$CONFIG_SHARED_HELPERS_MODULE" ]]; then
 fi
 
 SERVICE_UNINSTALL_MODULE="${ROOT_MODULE_DIR}/modules/service/uninstall.sh"
-if [[ ! -f "$SERVICE_UNINSTALL_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$SERVICE_UNINSTALL_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SERVICE_UNINSTALL_MODULE="$XRAY_DATA_DIR/modules/service/uninstall.sh"
 fi
 if [[ ! -f "$SERVICE_UNINSTALL_MODULE" ]]; then
@@ -53,7 +53,7 @@ fi
 source "$SERVICE_UNINSTALL_MODULE"
 
 SERVICE_RUNTIME_MODULE="${ROOT_MODULE_DIR}/modules/service/runtime.sh"
-if [[ ! -f "$SERVICE_RUNTIME_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$SERVICE_RUNTIME_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SERVICE_RUNTIME_MODULE="$XRAY_DATA_DIR/modules/service/runtime.sh"
 fi
 if [[ ! -f "$SERVICE_RUNTIME_MODULE" ]]; then

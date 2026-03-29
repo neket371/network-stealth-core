@@ -108,6 +108,8 @@ instead of copying `modules/`, `data/`, and `scripts/` first and then patching r
 
 this removes the previous mixed-tree window where modules could already be new while root entrypoints still came from the older tree after a partial copy failure, and it also removes stale files that were deleted from the managed runnable source set upstream.
 
+after the wrapper resolves that managed tree, it keeps strict source-tree loading enabled, so later root and lib bootstrap steps fail closed instead of silently mixing modules from a neighboring stale tree.
+
 ## migration boundary
 
 `migrate-stealth` is the only mutating bridge from older managed contracts.

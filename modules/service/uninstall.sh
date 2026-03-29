@@ -31,7 +31,7 @@
 : "${NC:=}"
 
 MANAGED_PATHS_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../lib" && pwd)/managed_paths.sh"
-if [[ ! -f "$MANAGED_PATHS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$MANAGED_PATHS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     MANAGED_PATHS_MODULE="$XRAY_DATA_DIR/modules/lib/managed_paths.sh"
 fi
 if [[ ! -f "$MANAGED_PATHS_MODULE" ]]; then

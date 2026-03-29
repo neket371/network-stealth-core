@@ -3,7 +3,7 @@
 ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
 
 GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -14,7 +14,7 @@ fi
 source "$GLOBAL_CONTRACT_MODULE"
 
 SELF_CHECK_MODULE="${ROOT_MODULE_DIR}/modules/health/self_check.sh"
-if [[ ! -f "$SELF_CHECK_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$SELF_CHECK_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     SELF_CHECK_MODULE="$XRAY_DATA_DIR/modules/health/self_check.sh"
 fi
 if [[ ! -f "$SELF_CHECK_MODULE" ]]; then
@@ -25,7 +25,7 @@ fi
 source "$SELF_CHECK_MODULE"
 
 MEASUREMENTS_MODULE="${ROOT_MODULE_DIR}/modules/health/measurements.sh"
-if [[ ! -f "$MEASUREMENTS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$MEASUREMENTS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     MEASUREMENTS_MODULE="$XRAY_DATA_DIR/modules/health/measurements.sh"
 fi
 if [[ ! -f "$MEASUREMENTS_MODULE" ]]; then
@@ -36,7 +36,7 @@ fi
 source "$MEASUREMENTS_MODULE"
 
 OPERATOR_DECISION_MODULE="${ROOT_MODULE_DIR}/modules/health/operator_decision.sh"
-if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$OPERATOR_DECISION_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
 fi
 if [[ ! -f "$OPERATOR_DECISION_MODULE" ]]; then
@@ -47,7 +47,7 @@ fi
 source "$OPERATOR_DECISION_MODULE"
 
 DOCTOR_MODULE="${ROOT_MODULE_DIR}/modules/health/doctor.sh"
-if [[ ! -f "$DOCTOR_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$DOCTOR_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     DOCTOR_MODULE="$XRAY_DATA_DIR/modules/health/doctor.sh"
 fi
 if [[ ! -f "$DOCTOR_MODULE" ]]; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.10.6 - Wrapper
+# Network Stealth Core 7.10.7 - Wrapper
 
 set -euo pipefail
 
@@ -14,6 +14,10 @@ fi
 MODULE_DIR=""
 DEFAULT_DATA_DIR="/usr/local/share/xray-reality"
 XRAY_ENV="${XRAY_ENV:-/etc/xray-reality/config.env}"
+XRAY_DATA_DIR_SET_BY_ENV=false
+if [[ -n "${XRAY_DATA_DIR+x}" ]]; then
+    XRAY_DATA_DIR_SET_BY_ENV=true
+fi
 XRAY_DATA_DIR="${XRAY_DATA_DIR:-$DEFAULT_DATA_DIR}"
 XRAY_ALLOW_CUSTOM_DATA_DIR="${XRAY_ALLOW_CUSTOM_DATA_DIR:-false}"
 XRAY_DATA_DIR_LOADED_FROM_ENV_FILE=false
@@ -32,6 +36,7 @@ FORWARD_ARGS=()
 # keep this list compatible with historical tags used by migrate-stealth coverage.
 # newer module splits must not make older pinned trees look invalid to the wrapper.
 REQUIRED_BOOTSTRAP_TREE_FILES=(
+    xray-reality.sh
     lib.sh
     install.sh
     config.sh
@@ -221,9 +226,9 @@ validate_wrapper_source_tree_trust() {
     while IFS= read -r -d '' entry_path; do
         validate_wrapper_source_entry_trust "$base_dir" "$entry_path"
     done < <(
-        find "$base_dir" -maxdepth 1 \( -type f -o -type l \) -name '*.sh' -print0
+        find "$base_dir" -maxdepth 1 \( -type f -o -type l \) \( -name '*.sh' -o -name '*.jq' \) -print0
         if [[ -d "$base_dir/modules" ]]; then
-            find "$base_dir/modules" \( -type f -o -type l \) -name '*.sh' -print0
+            find "$base_dir/modules" \( -type f -o -type l \) \( -name '*.sh' -o -name '*.jq' \) -print0
         fi
     )
 }
@@ -425,8 +430,17 @@ module_dir_has_required_files() {
 resolve_module_dir() {
     local -a candidates=()
     local candidate
+    local prefer_managed_tree=false
 
-    if [[ "${XRAY_DATA_DIR_LOADED_FROM_ENV_FILE:-false}" == "true" && -n "$XRAY_DATA_DIR" && "$XRAY_DATA_DIR" != "$SCRIPT_DIR" ]]; then
+    if [[ -n "$XRAY_DATA_DIR" && "$XRAY_DATA_DIR" != "$SCRIPT_DIR" ]]; then
+        if [[ "${XRAY_DATA_DIR_LOADED_FROM_ENV_FILE:-false}" == "true" ]]; then
+            prefer_managed_tree=true
+        elif [[ "${XRAY_DATA_DIR_SET_BY_ENV:-false}" == "true" && "$XRAY_DATA_DIR" != "$DEFAULT_DATA_DIR" ]]; then
+            prefer_managed_tree=true
+        fi
+    fi
+
+    if [[ "$prefer_managed_tree" == "true" ]]; then
         candidates+=("$XRAY_DATA_DIR")
         [[ -n "$SCRIPT_DIR" ]] && candidates+=("$SCRIPT_DIR")
     else
@@ -712,6 +726,7 @@ fi
 
 SCRIPT_DIR="$MODULE_DIR"
 LIB_PATH="$MODULE_DIR/lib.sh"
+export XRAY_SOURCE_TREE_STRICT=true
 if [[ ! -f "$LIB_PATH" ]]; then
     echo "lib.sh not found in resolved trusted tree: $MODULE_DIR" >&2
     exit 1

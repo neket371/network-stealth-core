@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 VERSION_CONTRACT_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/version_contract.sh"
-if [[ ! -f "$VERSION_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$VERSION_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     VERSION_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/version_contract.sh"
 fi
 if [[ ! -f "$VERSION_CONTRACT_MODULE" ]]; then
@@ -13,7 +13,7 @@ fi
 source "$VERSION_CONTRACT_MODULE"
 
 LEGACY_TRANSPORT_CONTRACT_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/legacy_transport_contract.sh"
-if [[ ! -f "$LEGACY_TRANSPORT_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LEGACY_TRANSPORT_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LEGACY_TRANSPORT_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/legacy_transport_contract.sh"
 fi
 if [[ ! -f "$LEGACY_TRANSPORT_CONTRACT_MODULE" ]]; then

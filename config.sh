@@ -4,7 +4,7 @@
 ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
 
 GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -15,7 +15,7 @@ fi
 source "$GLOBAL_CONTRACT_MODULE"
 
 CONFIG_DOMAIN_MODULE="$ROOT_MODULE_DIR/modules/config/domain_planner.sh"
-if [[ ! -f "$CONFIG_DOMAIN_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_DOMAIN_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_DOMAIN_MODULE="$XRAY_DATA_DIR/modules/config/domain_planner.sh"
 fi
 if [[ ! -f "$CONFIG_DOMAIN_MODULE" ]]; then
@@ -26,7 +26,7 @@ fi
 source "$CONFIG_DOMAIN_MODULE"
 
 CONFIG_SHARED_HELPERS_MODULE="$ROOT_MODULE_DIR/modules/config/shared_helpers.sh"
-if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_SHARED_HELPERS_MODULE="$XRAY_DATA_DIR/modules/config/shared_helpers.sh"
 fi
 if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" ]]; then
@@ -37,7 +37,7 @@ fi
 source "$CONFIG_SHARED_HELPERS_MODULE"
 
 CONFIG_RUNTIME_CONTRACT_MODULE="$ROOT_MODULE_DIR/modules/config/runtime_contract.sh"
-if [[ ! -f "$CONFIG_RUNTIME_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_RUNTIME_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_RUNTIME_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/config/runtime_contract.sh"
 fi
 if [[ ! -f "$CONFIG_RUNTIME_CONTRACT_MODULE" ]]; then
@@ -48,7 +48,7 @@ fi
 source "$CONFIG_RUNTIME_CONTRACT_MODULE"
 
 CONFIG_RUNTIME_APPLY_MODULE="$ROOT_MODULE_DIR/modules/config/runtime_apply.sh"
-if [[ ! -f "$CONFIG_RUNTIME_APPLY_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_RUNTIME_APPLY_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_RUNTIME_APPLY_MODULE="$XRAY_DATA_DIR/modules/config/runtime_apply.sh"
 fi
 if [[ ! -f "$CONFIG_RUNTIME_APPLY_MODULE" ]]; then
@@ -59,7 +59,7 @@ fi
 source "$CONFIG_RUNTIME_APPLY_MODULE"
 
 CONFIG_CLIENT_ARTIFACTS_MODULE="$ROOT_MODULE_DIR/modules/config/client_artifacts.sh"
-if [[ ! -f "$CONFIG_CLIENT_ARTIFACTS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_CLIENT_ARTIFACTS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_CLIENT_ARTIFACTS_MODULE="$XRAY_DATA_DIR/modules/config/client_artifacts.sh"
 fi
 if [[ ! -f "$CONFIG_CLIENT_ARTIFACTS_MODULE" ]]; then
@@ -70,7 +70,7 @@ fi
 source "$CONFIG_CLIENT_ARTIFACTS_MODULE"
 
 CONFIG_ADD_CLIENTS_MODULE="$ROOT_MODULE_DIR/modules/config/add_clients.sh"
-if [[ ! -f "$CONFIG_ADD_CLIENTS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_ADD_CLIENTS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_ADD_CLIENTS_MODULE="$XRAY_DATA_DIR/modules/config/add_clients.sh"
 fi
 if [[ ! -f "$CONFIG_ADD_CLIENTS_MODULE" ]]; then

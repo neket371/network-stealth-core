@@ -6,6 +6,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$ROOT_DIR"
 # shellcheck disable=SC2034 # consumed by sourced runtime modules
 MODULE_DIR="$ROOT_DIR"
+export XRAY_SOURCE_TREE_STRICT=true
 DEFAULT_CLIENTS_JSON="/etc/xray/private/keys/clients.json"
 DEFAULT_VARIANTS="recommended,rescue"
 

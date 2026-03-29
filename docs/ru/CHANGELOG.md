@@ -7,6 +7,14 @@
 
 ## [unreleased]
 
+## [7.10.7] - 2026-03-29
+
+### Fixed
+- direct trusted override `XRAY_DATA_DIR` теперь тоже выигрывает у stale локального bootstrap tree, а не только путь, сохранённый через `config.env`
+- wrapper/bootstrap loading ужесточён до одного coherent trusted source tree, поэтому после включения strict wrapper mode root/lib fallback chain больше не склеивает файлы из разных деревьев
+- `install_self()` теперь копирует канонический wrapper из выбранного managed tree вместо повторной установки того stale wrapper, с которого изначально стартовал процесс
+- trusted validation для custom tree расширена на runtime `.jq` assets вроде `modules/health/measurements_aggregate.jq`, так что escaped или unsafe non-shell runtime files падают до загрузки operator decision кода
+
 ## [7.10.6] - 2026-03-28
 
 ### Fixed

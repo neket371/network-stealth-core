@@ -240,6 +240,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/common_utils.sh"
@@ -307,6 +308,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/common_utils.sh"
@@ -385,6 +387,7 @@ EOF
     : > "$custom/service.sh"
     : > "$custom/health.sh"
     : > "$custom/export.sh"
+    : > "$custom/xray-reality.sh"
     : > "$custom/modules/lib/validation.sh"
     : > "$custom/modules/lib/common_utils.sh"
     : > "$custom/modules/lib/ui_logging.sh"
@@ -447,6 +450,7 @@ EOF
     : > "$custom/service.sh"
     : > "$custom/health.sh"
     : > "$custom/export.sh"
+    : > "$custom/xray-reality.sh"
     : > "$custom/modules/lib/validation.sh"
     : > "$custom/modules/lib/common_utils.sh"
     : > "$custom/modules/lib/ui_logging.sh"
@@ -509,6 +513,7 @@ EOF
     : > "$custom/service.sh"
     : > "$custom/health.sh"
     : > "$custom/export.sh"
+    : > "$custom/xray-reality.sh"
     : > "$custom/modules/lib/validation.sh"
     : > "$custom/modules/lib/common_utils.sh"
     : > "$custom/modules/lib/ui_logging.sh"
@@ -580,6 +585,7 @@ EOF
     : > "$custom/service.sh"
     : > "$custom/health.sh"
     : > "$custom/export.sh"
+    : > "$custom/xray-reality.sh"
     : > "$custom/modules/lib/common_utils.sh"
     : > "$custom/modules/lib/ui_logging.sh"
     : > "$custom/modules/lib/system_runtime.sh"
@@ -644,6 +650,7 @@ EOF
     : > "$custom/service.sh"
     : > "$custom/health.sh"
     : > "$custom/export.sh"
+    : > "$custom/xray-reality.sh"
     : > "$custom/modules/lib/validation.sh"
     : > "$custom/modules/lib/common_utils.sh"
     : > "$custom/modules/lib/ui_logging.sh"
@@ -742,6 +749,130 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"wrapper-ok"* ]]
     [[ "$output" != *"stale-tree"* ]]
+}
+
+@test "wrapper prefers direct trusted XRAY_DATA_DIR env over a stale local source tree" {
+    run bash -eo pipefail -c '
+    set -euo pipefail
+    tmp="$(mktemp -d)"
+    custom="$tmp/custom-data"
+    stale="$tmp/stale-tree"
+    mkdir -p "$tmp/mockbin"
+
+    build_minimal_tree() {
+      local root="$1"
+      local marker="$2"
+      mkdir -p "$root/modules/lib" "$root/modules/config" "$root/modules/install"
+      cat > "$root/xray-reality.sh" <<'"'"'EOF'"'"'
+#!/usr/bin/env bash
+EOF
+      cat > "$root/lib.sh" << EOF
+#!/usr/bin/env bash
+MODULE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+main() { echo "$marker"; }
+EOF
+      chmod +x "$root/lib.sh" "$root/xray-reality.sh"
+      : > "$root/install.sh"
+      : > "$root/config.sh"
+      : > "$root/service.sh"
+      : > "$root/health.sh"
+      : > "$root/export.sh"
+      : > "$root/modules/lib/validation.sh"
+      : > "$root/modules/lib/globals_contract.sh"
+      : > "$root/modules/lib/firewall.sh"
+      : > "$root/modules/lib/lifecycle.sh"
+      : > "$root/modules/lib/common_utils.sh"
+      : > "$root/modules/lib/runtime_reuse.sh"
+      : > "$root/modules/lib/domain_sources.sh"
+      : > "$root/modules/config/domain_planner.sh"
+      : > "$root/modules/config/shared_helpers.sh"
+      : > "$root/modules/config/add_clients.sh"
+      : > "$root/modules/install/bootstrap.sh"
+    }
+
+    build_minimal_tree "$custom" "wrapper-ok"
+    build_minimal_tree "$stale" "stale-tree"
+    cp ./xray-reality.sh "$stale/xray-reality.sh"
+    chmod +x "$stale/xray-reality.sh"
+
+    PATH="$tmp/mockbin:$PATH" \
+      XRAY_DATA_DIR="$custom" \
+      XRAY_ALLOW_CUSTOM_DATA_DIR=true \
+      bash "$stale/xray-reality.sh" --help
+  '
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"wrapper-ok"* ]]
+    [[ "$output" != *"stale-tree"* ]]
+}
+
+@test "wrapper rejects custom XRAY_DATA_DIR when trusted jq asset escapes tree" {
+    local tmp
+    local custom
+    local outside
+    local real_stat
+
+    tmp="$(mktemp -d)"
+    custom="$tmp/custom-data"
+    outside="$tmp/outside"
+    mkdir -p "$custom/modules/lib" "$custom/modules/config" "$custom/modules/install" "$custom/modules/health" "$outside" "$tmp/mockbin"
+
+    cat > "$custom/lib.sh" <<'EOF'
+#!/usr/bin/env bash
+MODULE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+main() { echo "wrapper-ok"; }
+EOF
+    chmod +x "$custom/lib.sh"
+    : > "$custom/install.sh"
+    : > "$custom/config.sh"
+    : > "$custom/service.sh"
+    : > "$custom/health.sh"
+    : > "$custom/export.sh"
+    : > "$custom/xray-reality.sh"
+    : > "$custom/modules/lib/validation.sh"
+    : > "$custom/modules/lib/common_utils.sh"
+    : > "$custom/modules/lib/ui_logging.sh"
+    : > "$custom/modules/lib/system_runtime.sh"
+    : > "$custom/modules/lib/downloads.sh"
+    : > "$custom/modules/lib/config_loading.sh"
+    : > "$custom/modules/lib/path_safety.sh"
+    : > "$custom/modules/lib/runtime_inputs.sh"
+    : > "$custom/modules/lib/globals_contract.sh"
+    : > "$custom/modules/lib/firewall.sh"
+    : > "$custom/modules/lib/lifecycle.sh"
+    : > "$custom/modules/lib/runtime_reuse.sh"
+    : > "$custom/modules/lib/domain_sources.sh"
+    : > "$custom/modules/config/domain_planner.sh"
+    : > "$custom/modules/config/runtime_profiles.sh"
+    : > "$custom/modules/config/runtime_contract.sh"
+    : > "$custom/modules/config/runtime_apply.sh"
+    : > "$custom/modules/config/add_clients.sh"
+    : > "$custom/modules/config/shared_helpers.sh"
+    : > "$custom/modules/install/bootstrap.sh"
+    : > "$outside/measurements_aggregate.jq"
+
+    real_stat="$(command -v stat)"
+    cat > "$tmp/mockbin/stat" <<EOF
+#!/usr/bin/env bash
+if [[ "\${1:-}" == "-c" && "\${2:-}" == "%a" ]]; then
+    echo 755
+    exit 0
+fi
+exec "$real_stat" "\$@"
+EOF
+    chmod +x "$tmp/mockbin/stat"
+    ln -s "$outside/measurements_aggregate.jq" "$custom/modules/health/measurements_aggregate.jq"
+    [[ -L "$custom/modules/health/measurements_aggregate.jq" ]] || skip "symlinks unsupported in this shell/filesystem"
+
+    cp ./xray-reality.sh "$tmp/xray-reality.sh"
+    chmod +x "$tmp/xray-reality.sh"
+
+    run env \
+        PATH="$tmp/mockbin:$PATH" \
+        XRAY_DATA_DIR="$custom" \
+        XRAY_ALLOW_CUSTOM_DATA_DIR=true \
+        bash "$tmp/xray-reality.sh" --help
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"wrapper sourced file escapes trusted XRAY_DATA_DIR tree"* ]]
 }
 
 @test "wrapper keeps default trusted SCRIPT_DIR flow without custom opt-in" {
@@ -845,6 +976,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/common_utils.sh"
@@ -917,6 +1049,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/common_utils.sh"
@@ -984,6 +1117,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/globals_contract.sh"
     : > "$target/modules/lib/firewall.sh"
@@ -1052,6 +1186,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/common_utils.sh"
@@ -1138,6 +1273,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/common_utils.sh"
@@ -1252,6 +1388,7 @@ LIBEOF
     : > "$target/service.sh"
     : > "$target/health.sh"
     : > "$target/export.sh"
+    : > "$target/xray-reality.sh"
     mkdir -p "$target/modules/lib" "$target/modules/config" "$target/modules/install"
     : > "$target/modules/lib/validation.sh"
     : > "$target/modules/lib/common_utils.sh"

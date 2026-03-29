@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 GLOBAL_CONTRACT_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../lib" && pwd)/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -306,15 +306,20 @@ install_self() {
         log OK "Данные установлены в $XRAY_DATA_DIR"
     fi
 
-    local src
-    src=$(readlink -f "$0" 2> /dev/null || realpath "$0" 2> /dev/null || echo "$0")
+    local src wrapper_src
+    wrapper_src="${SCRIPT_DIR}/xray-reality.sh"
+    if [[ -f "$wrapper_src" ]]; then
+        src="$wrapper_src"
+    else
+        src=$(readlink -f "$0" 2> /dev/null || realpath "$0" 2> /dev/null || echo "$0")
+    fi
     if [[ ! -f "$src" ]]; then
         log WARN "Не удалось определить путь скрипта (curl pipe); используйте $XRAY_DATA_DIR/xray-reality.sh"
-        if [[ -f "$SCRIPT_DIR/xray-reality.sh" ]]; then
+        if [[ -f "$wrapper_src" ]]; then
             backup_file "$XRAY_SCRIPT_PATH"
             local tmp
             tmp=$(mktemp "${XRAY_SCRIPT_PATH}.tmp.XXXXXX")
-            cp -a "$SCRIPT_DIR/xray-reality.sh" "$tmp"
+            cp -a "$wrapper_src" "$tmp"
             mv "$tmp" "$XRAY_SCRIPT_PATH"
             chmod +x "$XRAY_SCRIPT_PATH"
             log OK "Скрипт установлен: $XRAY_SCRIPT_PATH"

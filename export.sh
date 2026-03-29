@@ -4,7 +4,7 @@
 ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
 
 GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -15,7 +15,7 @@ fi
 source "$GLOBAL_CONTRACT_MODULE"
 
 CONFIG_SHARED_HELPERS_MODULE="${ROOT_MODULE_DIR}/modules/config/shared_helpers.sh"
-if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$CONFIG_SHARED_HELPERS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     CONFIG_SHARED_HELPERS_MODULE="$XRAY_DATA_DIR/modules/config/shared_helpers.sh"
 fi
 if [[ -f "$CONFIG_SHARED_HELPERS_MODULE" ]]; then
@@ -24,7 +24,7 @@ if [[ -f "$CONFIG_SHARED_HELPERS_MODULE" ]]; then
 fi
 
 EXPORT_CAPABILITIES_MODULE="${ROOT_MODULE_DIR}/modules/export/capabilities.sh"
-if [[ ! -f "$EXPORT_CAPABILITIES_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$EXPORT_CAPABILITIES_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     EXPORT_CAPABILITIES_MODULE="$XRAY_DATA_DIR/modules/export/capabilities.sh"
 fi
 if [[ ! -f "$EXPORT_CAPABILITIES_MODULE" ]]; then

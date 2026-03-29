@@ -4,7 +4,7 @@
 ROOT_MODULE_DIR="${MODULE_DIR:-${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}}"
 
 GLOBAL_CONTRACT_MODULE="${ROOT_MODULE_DIR}/modules/lib/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -15,7 +15,7 @@ fi
 source "$GLOBAL_CONTRACT_MODULE"
 
 INSTALL_BOOTSTRAP_MODULE="$ROOT_MODULE_DIR/modules/install/bootstrap.sh"
-if [[ ! -f "$INSTALL_BOOTSTRAP_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$INSTALL_BOOTSTRAP_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_BOOTSTRAP_MODULE="$XRAY_DATA_DIR/modules/install/bootstrap.sh"
 fi
 if [[ ! -f "$INSTALL_BOOTSTRAP_MODULE" ]]; then
@@ -26,7 +26,7 @@ fi
 source "$INSTALL_BOOTSTRAP_MODULE"
 
 INSTALL_OUTPUT_MODULE="$ROOT_MODULE_DIR/modules/install/output.sh"
-if [[ ! -f "$INSTALL_OUTPUT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$INSTALL_OUTPUT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_OUTPUT_MODULE="$XRAY_DATA_DIR/modules/install/output.sh"
 fi
 if [[ ! -f "$INSTALL_OUTPUT_MODULE" ]]; then
@@ -37,7 +37,7 @@ fi
 source "$INSTALL_OUTPUT_MODULE"
 
 INSTALL_XRAY_RUNTIME_MODULE="$ROOT_MODULE_DIR/modules/install/xray_runtime.sh"
-if [[ ! -f "$INSTALL_XRAY_RUNTIME_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$INSTALL_XRAY_RUNTIME_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_XRAY_RUNTIME_MODULE="$XRAY_DATA_DIR/modules/install/xray_runtime.sh"
 fi
 if [[ ! -f "$INSTALL_XRAY_RUNTIME_MODULE" ]]; then
@@ -48,7 +48,7 @@ fi
 source "$INSTALL_XRAY_RUNTIME_MODULE"
 
 INSTALL_SELECTION_MODULE="$ROOT_MODULE_DIR/modules/install/selection.sh"
-if [[ ! -f "$INSTALL_SELECTION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$INSTALL_SELECTION_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     INSTALL_SELECTION_MODULE="$XRAY_DATA_DIR/modules/install/selection.sh"
 fi
 if [[ ! -f "$INSTALL_SELECTION_MODULE" ]]; then
@@ -59,7 +59,7 @@ fi
 source "$INSTALL_SELECTION_MODULE"
 
 OPERATOR_DECISION_MODULE="$ROOT_MODULE_DIR/modules/health/operator_decision.sh"
-if [[ ! -f "$OPERATOR_DECISION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$OPERATOR_DECISION_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_MODULE="$XRAY_DATA_DIR/modules/health/operator_decision.sh"
 fi
 if [[ ! -f "$OPERATOR_DECISION_MODULE" ]]; then

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Network Stealth Core 7.10.6 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair, doctor)
+# Network Stealth Core 7.10.7 - Автоматизация strongest-direct Xray Reality (policy, schema v3, canary, adaptive repair, doctor)
 
 set -euo pipefail
 
 SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 
-readonly SCRIPT_VERSION="7.10.6"
+readonly SCRIPT_VERSION="7.10.7"
 readonly SCRIPT_NAME="Network Stealth Core"
 
 XRAY_USER="xray"
@@ -185,7 +185,7 @@ fi
 export XRAY_DATA_DIR
 
 GLOBAL_CONTRACT_MODULE="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}/modules/lib/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -204,13 +204,13 @@ XRAY_DOMAIN_CATALOG_FILE="${XRAY_DOMAIN_CATALOG_FILE:-$XRAY_DATA_DIR/data/domain
 
 MODULE_DIR="$SCRIPT_DIR"
 if [[ ! -f "$MODULE_DIR/install.sh" || ! -f "$MODULE_DIR/config.sh" ]]; then
-    if [[ -f "$XRAY_DATA_DIR/install.sh" && -f "$XRAY_DATA_DIR/config.sh" ]]; then
+    if [[ "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -f "$XRAY_DATA_DIR/install.sh" && -f "$XRAY_DATA_DIR/config.sh" ]]; then
         MODULE_DIR="$XRAY_DATA_DIR"
     fi
 fi
 
 LIB_COMMON_UTILS_MODULE="$MODULE_DIR/modules/lib/common_utils.sh"
-if [[ ! -f "$LIB_COMMON_UTILS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_COMMON_UTILS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_COMMON_UTILS_MODULE="$XRAY_DATA_DIR/modules/lib/common_utils.sh"
 fi
 if [[ ! -f "$LIB_COMMON_UTILS_MODULE" ]]; then
@@ -221,7 +221,7 @@ fi
 source "$LIB_COMMON_UTILS_MODULE"
 
 LIB_TTY_MODULE="$MODULE_DIR/modules/lib/tty.sh"
-if [[ ! -f "$LIB_TTY_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_TTY_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_TTY_MODULE="$XRAY_DATA_DIR/modules/lib/tty.sh"
 fi
 if [[ ! -f "$LIB_TTY_MODULE" ]]; then
@@ -457,7 +457,7 @@ _path_has_parent_segments() {
 }
 
 LIB_UI_LOGGING_MODULE="$MODULE_DIR/modules/lib/ui_logging.sh"
-if [[ ! -f "$LIB_UI_LOGGING_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_UI_LOGGING_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_UI_LOGGING_MODULE="$XRAY_DATA_DIR/modules/lib/ui_logging.sh"
 fi
 if [[ ! -f "$LIB_UI_LOGGING_MODULE" ]]; then
@@ -468,7 +468,7 @@ fi
 source "$LIB_UI_LOGGING_MODULE"
 
 LIB_SYSTEM_RUNTIME_MODULE="$MODULE_DIR/modules/lib/system_runtime.sh"
-if [[ ! -f "$LIB_SYSTEM_RUNTIME_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_SYSTEM_RUNTIME_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_SYSTEM_RUNTIME_MODULE="$XRAY_DATA_DIR/modules/lib/system_runtime.sh"
 fi
 if [[ ! -f "$LIB_SYSTEM_RUNTIME_MODULE" ]]; then
@@ -479,7 +479,7 @@ fi
 source "$LIB_SYSTEM_RUNTIME_MODULE"
 
 LIB_DOWNLOADS_MODULE="$MODULE_DIR/modules/lib/downloads.sh"
-if [[ ! -f "$LIB_DOWNLOADS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_DOWNLOADS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_DOWNLOADS_MODULE="$XRAY_DATA_DIR/modules/lib/downloads.sh"
 fi
 if [[ ! -f "$LIB_DOWNLOADS_MODULE" ]]; then
@@ -728,7 +728,7 @@ domain_tier_label() {
 }
 
 LIB_VALIDATION_MODULE="$MODULE_DIR/modules/lib/validation.sh"
-if [[ ! -f "$LIB_VALIDATION_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_VALIDATION_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_VALIDATION_MODULE="$XRAY_DATA_DIR/modules/lib/validation.sh"
 fi
 if [[ ! -f "$LIB_VALIDATION_MODULE" ]]; then
@@ -739,7 +739,7 @@ fi
 source "$LIB_VALIDATION_MODULE"
 
 LIB_USAGE_MODULE="$MODULE_DIR/modules/lib/usage.sh"
-if [[ ! -f "$LIB_USAGE_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_USAGE_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_USAGE_MODULE="$XRAY_DATA_DIR/modules/lib/usage.sh"
 fi
 if [[ ! -f "$LIB_USAGE_MODULE" ]]; then
@@ -750,7 +750,7 @@ fi
 source "$LIB_USAGE_MODULE"
 
 LIB_CLI_MODULE="$MODULE_DIR/modules/lib/cli.sh"
-if [[ ! -f "$LIB_CLI_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_CLI_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_CLI_MODULE="$XRAY_DATA_DIR/modules/lib/cli.sh"
 fi
 if [[ ! -f "$LIB_CLI_MODULE" ]]; then
@@ -761,7 +761,7 @@ fi
 source "$LIB_CLI_MODULE"
 
 LIB_POLICY_MODULE="$MODULE_DIR/modules/lib/policy.sh"
-if [[ ! -f "$LIB_POLICY_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_POLICY_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_POLICY_MODULE="$XRAY_DATA_DIR/modules/lib/policy.sh"
 fi
 if [[ ! -f "$LIB_POLICY_MODULE" ]]; then
@@ -772,7 +772,7 @@ fi
 source "$LIB_POLICY_MODULE"
 
 LIB_CONTRACT_GATE_MODULE="$MODULE_DIR/modules/lib/contract_gate.sh"
-if [[ ! -f "$LIB_CONTRACT_GATE_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_CONTRACT_GATE_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_CONTRACT_GATE_MODULE="$XRAY_DATA_DIR/modules/lib/contract_gate.sh"
 fi
 if [[ ! -f "$LIB_CONTRACT_GATE_MODULE" ]]; then
@@ -783,7 +783,7 @@ fi
 source "$LIB_CONTRACT_GATE_MODULE"
 
 LIB_CONFIG_LOADING_MODULE="$MODULE_DIR/modules/lib/config_loading.sh"
-if [[ ! -f "$LIB_CONFIG_LOADING_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_CONFIG_LOADING_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_CONFIG_LOADING_MODULE="$XRAY_DATA_DIR/modules/lib/config_loading.sh"
 fi
 if [[ ! -f "$LIB_CONFIG_LOADING_MODULE" ]]; then
@@ -794,7 +794,7 @@ fi
 source "$LIB_CONFIG_LOADING_MODULE"
 
 LIB_MANAGED_PATHS_MODULE="$MODULE_DIR/modules/lib/managed_paths.sh"
-if [[ ! -f "$LIB_MANAGED_PATHS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_MANAGED_PATHS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_MANAGED_PATHS_MODULE="$XRAY_DATA_DIR/modules/lib/managed_paths.sh"
 fi
 if [[ ! -f "$LIB_MANAGED_PATHS_MODULE" ]]; then
@@ -805,7 +805,7 @@ fi
 source "$LIB_MANAGED_PATHS_MODULE"
 
 LIB_PATH_SAFETY_MODULE="$MODULE_DIR/modules/lib/path_safety.sh"
-if [[ ! -f "$LIB_PATH_SAFETY_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_PATH_SAFETY_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_PATH_SAFETY_MODULE="$XRAY_DATA_DIR/modules/lib/path_safety.sh"
 fi
 if [[ ! -f "$LIB_PATH_SAFETY_MODULE" ]]; then
@@ -816,7 +816,7 @@ fi
 source "$LIB_PATH_SAFETY_MODULE"
 
 LIB_RUNTIME_INPUTS_MODULE="$MODULE_DIR/modules/lib/runtime_inputs.sh"
-if [[ ! -f "$LIB_RUNTIME_INPUTS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_RUNTIME_INPUTS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_RUNTIME_INPUTS_MODULE="$XRAY_DATA_DIR/modules/lib/runtime_inputs.sh"
 fi
 if [[ ! -f "$LIB_RUNTIME_INPUTS_MODULE" ]]; then
@@ -827,7 +827,7 @@ fi
 source "$LIB_RUNTIME_INPUTS_MODULE"
 
 LIB_RUNTIME_REUSE_MODULE="$MODULE_DIR/modules/lib/runtime_reuse.sh"
-if [[ ! -f "$LIB_RUNTIME_REUSE_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_RUNTIME_REUSE_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_RUNTIME_REUSE_MODULE="$XRAY_DATA_DIR/modules/lib/runtime_reuse.sh"
 fi
 if [[ ! -f "$LIB_RUNTIME_REUSE_MODULE" ]]; then
@@ -838,7 +838,7 @@ fi
 source "$LIB_RUNTIME_REUSE_MODULE"
 
 LIB_DOMAIN_SOURCES_MODULE="$MODULE_DIR/modules/lib/domain_sources.sh"
-if [[ ! -f "$LIB_DOMAIN_SOURCES_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_DOMAIN_SOURCES_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_DOMAIN_SOURCES_MODULE="$XRAY_DATA_DIR/modules/lib/domain_sources.sh"
 fi
 if [[ ! -f "$LIB_DOMAIN_SOURCES_MODULE" ]]; then
@@ -849,7 +849,7 @@ fi
 source "$LIB_DOMAIN_SOURCES_MODULE"
 
 LIB_FIREWALL_MODULE="$MODULE_DIR/modules/lib/firewall.sh"
-if [[ ! -f "$LIB_FIREWALL_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_FIREWALL_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_FIREWALL_MODULE="$XRAY_DATA_DIR/modules/lib/firewall.sh"
 fi
 if [[ ! -f "$LIB_FIREWALL_MODULE" ]]; then
@@ -860,7 +860,7 @@ fi
 source "$LIB_FIREWALL_MODULE"
 
 LIB_LIFECYCLE_MODULE="$MODULE_DIR/modules/lib/lifecycle.sh"
-if [[ ! -f "$LIB_LIFECYCLE_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$LIB_LIFECYCLE_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     LIB_LIFECYCLE_MODULE="$XRAY_DATA_DIR/modules/lib/lifecycle.sh"
 fi
 if [[ ! -f "$LIB_LIFECYCLE_MODULE" ]]; then

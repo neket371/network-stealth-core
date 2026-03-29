@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 
 GLOBAL_CONTRACT_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../lib" && pwd)/globals_contract.sh"
-if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$GLOBAL_CONTRACT_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     GLOBAL_CONTRACT_MODULE="$XRAY_DATA_DIR/modules/lib/globals_contract.sh"
 fi
 if [[ ! -f "$GLOBAL_CONTRACT_MODULE" ]]; then
@@ -13,7 +13,7 @@ fi
 source "$GLOBAL_CONTRACT_MODULE"
 
 OPERATOR_DECISION_MEASUREMENTS_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/measurements.sh"
-if [[ ! -f "$OPERATOR_DECISION_MEASUREMENTS_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$OPERATOR_DECISION_MEASUREMENTS_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_MEASUREMENTS_MODULE="$XRAY_DATA_DIR/modules/health/measurements.sh"
 fi
 if [[ ! -f "$OPERATOR_DECISION_MEASUREMENTS_MODULE" ]]; then
@@ -24,7 +24,7 @@ fi
 source "$OPERATOR_DECISION_MEASUREMENTS_MODULE"
 
 OPERATOR_DECISION_SELF_CHECK_MODULE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/self_check.sh"
-if [[ ! -f "$OPERATOR_DECISION_SELF_CHECK_MODULE" && -n "${XRAY_DATA_DIR:-}" ]]; then
+if [[ ! -f "$OPERATOR_DECISION_SELF_CHECK_MODULE" && "${XRAY_SOURCE_TREE_STRICT:-false}" != "true" && -n "${XRAY_DATA_DIR:-}" ]]; then
     OPERATOR_DECISION_SELF_CHECK_MODULE="$XRAY_DATA_DIR/modules/health/self_check.sh"
 fi
 if [[ ! -f "$OPERATOR_DECISION_SELF_CHECK_MODULE" ]]; then
